@@ -34,8 +34,8 @@ ssh-keygen -t ed25519 -f "$env:USERPROFILE\.ssh\disease-prediction-gitops" -C "a
 Create the Argo CD repository Secret from the private key file. The private key is sent to the cluster as a Kubernetes Secret; never put this command or key in a manifest committed to Git.
 
 ```powershell
-kubectl create secret generic gitops-repository --namespace argocd --from-literal=type=git --from-literal=url=git@github.com:Disease-Prediction-ASET26/disease-prediction-gitops.git --from-file=sshPrivateKey="$env:USERPROFILE\.ssh\disease-prediction-gitops"
-kubectl label secret gitops-repository --namespace argocd argocd.argoproj.io/secret-type=repository
+kubectl create secret generic gitops-repository --namespace argocd --from-literal=type=git --from-literal=url=git@github.com:Disease-Prediction-ASET26/disease-prediction-gitops.git --from-file=sshPrivateKey="$env:USERPROFILE\.ssh\disease-prediction-gitops" --dry-run=client -o yaml | kubectl apply -f -
+kubectl label secret gitops-repository --namespace argocd --overwrite argocd.argoproj.io/secret-type=repository
 ```
 
 The repository Secret grants Argo CD read access only. Rotate it by replacing the GitHub deploy key and Kubernetes Secret together. Keep SSH host-key verification enabled; do not configure Argo CD to skip host-key checks.
