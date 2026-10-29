@@ -1,0 +1,11 @@
+﻿# Local credentials and cluster access files
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+kubeconfig*
+*.kubeconfig
+**/*secret*.yaml
+**/*secret*.yml
