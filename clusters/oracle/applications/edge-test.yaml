@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edge-test
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: oracle-edge-test
+  source:
+    repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+    targetRevision: main
+    path: clusters/oracle/edge-test
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: disease-prediction
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - ServerSideApply=true

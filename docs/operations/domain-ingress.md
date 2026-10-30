@@ -10,18 +10,19 @@ document describes the reviewed GitOps configuration and its rollout.
 - `pocket-doc.app` is registered at Name.com.
 - Name.com delegates `pocket-doc.app` to Cloudflare nameservers. The Cloudflare
   zone is DNSSEC-signed and its DS record is published at Name.com.
-- The operator reports that the Cloudflare zone currently has no DNS records.
-  ExternalDNS will add app records only after approved HTTPRoutes are ready.
+- The Cloudflare zone was empty before the edge smoke test. The temporary
+  `external-dns-test.pocket-doc.app` record is created only for that test and
+  will be removed after verification.
 - The locally managed Tunnel `oracle-k3s` has been created. Its tunnel-specific
   credential is stored in OCI Vault as `cloudflared-tunnel`; a GitOps connector
-  is configured to send wildcard traffic to internal Traefik. No Tunnel DNS
-  route or application route has been created.
+  is configured to send wildcard traffic to internal Traefik. A temporary
+  static HTTPRoute is used to verify this path and is removed after the test.
 - The Cloudflare zone ID is configured for ExternalDNS. The zone-scoped API
   token is stored in OCI Vault as `cloudflare-api-token`; ESO delivers it to
   `edge-system`. ExternalDNS chart `1.23.0` (app `0.23.0`) is configured for
   Gateway API HTTPRoutes only, with route and Gateway label filters, a TXT
-  registry, CNAME records, and a zone ID filter. It starts with `--dry-run`,
-  so it cannot change Cloudflare DNS. No HTTPRoutes are opted in yet.
+  registry, CNAME records, and a zone ID filter. It uses `upsert-only` so
+  removing or reapplying a route cannot trigger automatic DNS deletion.
 - Tailscale remains the administration path for SSH, kubectl, and Argo CD.
 - The OCI VM has no public inbound rule for ports 80 or 443. Keep it that way.
 - K3s has Traefik and ServiceLB disabled. Gateway API CRDs already have one
@@ -29,8 +30,8 @@ document describes the reviewed GitOps configuration and its rollout.
   `clusters/oracle/k3s-host-manifests/`. Do not install a second CRD bundle.
 - Traefik chart 42.1.3 / Proxy 3.7.16 is installed as an internal ClusterIP
   Gateway API controller. The `oracle-public` GatewayClass is Accepted and its
-  wildcard Gateway is Programmed. The Gateway points to the tunnel but has no
-  application routes. The Service exposes only cluster-internal port 80. Its
+  wildcard Gateway is Programmed. The Gateway points to the tunnel. The
+  Service exposes only cluster-internal port 80. Its
   cluster role has no Secret access; namespaced Secret access is limited to
   `traefik-system` and `disease-prediction`.
 - The existing External Secrets Operator reconciles only the
@@ -154,12 +155,10 @@ verify the new DS record at Name.com has propagated.
   `external-dns.kubernetes.io/cloudflare-proxied: "true"` on approved routes.
   Gateway API's ExternalDNS source reads the target from the Gateway and
   provider annotations from the Route.
-- The Gateway target annotation points to the locally managed tunnel. ExternalDNS
-  is installed in dry-run mode; with no opted-in HTTPRoutes it proposes no
-  records. Keep dry-run enabled until an application route has passed review.
-- Start with `--policy=upsert-only` and ExternalDNS dry-run. Keep
-  `upsert-only` until automatic record cleanup is explicitly desired; `sync`
-  can delete records owned by this ExternalDNS instance when routes disappear.
+- The Gateway target annotation points to the locally managed tunnel.
+  ExternalDNS uses `upsert-only`: it creates or updates records owned by its
+  TXT owner ID for opted-in HTTPRoutes but does not delete them when a route
+  disappears. Remove records manually when cleaning up a route.
 - Use a stable TXT owner ID such as `oracle-k3s-pocket-doc-app` and a stable TXT
   prefix such as `external-dns-`. Never change either value after records have
   been created. The prefix gives the TXT ownership record a different name from
@@ -193,9 +192,10 @@ The controller has these gates:
 - TXT ownership uses owner ID `oracle-k3s-pocket-doc-app` and prefix
   `external-dns-`;
 - proxying is requested with an annotation on each approved route;
-- `--policy=upsert-only` and `--dry-run` are enabled.
+- `--policy=upsert-only` is enabled; dry-run is off so the temporary route can
+  verify DNS record creation. Cleanup is manual in Cloudflare.
 
-### Verify the controller without creating DNS records
+### Verify the controller and temporary route
 
 After the Argo CD application syncs, check status without showing Secret data:
 
@@ -207,9 +207,10 @@ kubectl -n edge-system logs deployment/external-dns --since=10m
 ```
 
 Confirm the ExternalSecret is Ready, the deployment has one available replica,
-and logs show a dry-run loop without authentication or API errors. Do not run
-`kubectl get secret ... -o yaml` or print the token. With no opted-in HTTPRoute,
-the zone should remain empty.
+and logs show reconciliation without authentication or API errors. Do not run
+`kubectl get secret ... -o yaml` or print the token. The dedicated test route
+uses a pinned multi-architecture unprivileged NGINX image and serves only a
+static confirmation page.
 
 ### Publish a route when an application is ready
 
@@ -226,19 +227,17 @@ metadata:
     external-dns.kubernetes.io/cloudflare-proxied: "true"
 ```
 
-The namespace must have `pocket-doc.app/public-routes: "true"` for the
+The route namespace must have `pocket-doc.app/public-routes: "true"` for the
 Gateway's `allowedRoutes` selector. Check that the HTTPRoute is Accepted and
-references `oracle-public`. In dry-run, inspect ExternalDNS logs for the exact
-proposed CNAME and TXT ownership record. Confirm they name only the approved
-hostname and point to the tunnel. Check Cloudflare's zone remains unchanged.
+references `oracle-public`. ExternalDNS is live with narrowly scoped zone and
+route filters; inspect the Cloudflare record for the test hostname and verify
+it targets the tunnel and is proxied.
 
-When ready to allow DNS changes, remove only `--dry-run` in
-`clusters/oracle/applications/external-dns.yaml`, review the Git diff, and merge
-through a PR. Keep `--policy=upsert-only` initially; it creates or updates
-records owned by this controller without deleting them when a route disappears.
-To enable automatic cleanup later, review the existing TXT ownership records,
-then change policy to `sync` in a separate PR; sync can delete records owned by
-this controller when routes are removed.
+Remove the temporary test route and workload through GitOps after checking the
+public path. With `upsert-only`, ExternalDNS leaves the CNAME and TXT ownership
+record in place. Delete those two records manually in Cloudflare after the
+route is gone. This verifies record creation without enabling automatic DNS
+deletion if a route is removed and later reapplied.
 
 ### Rotate or remove the Cloudflare token
 
@@ -477,15 +476,14 @@ and the [wildcard ingress configuration](https://developers.cloudflare.com/tunne
    Secret access. When a future app namespace needs public routes, add it as a
    separate reviewed scope change.
 7. First run the pinned controller in dry-run mode and review its planned
-   changes. Start live validation with `upsert-only`. After a real app route
-   demonstrates correct zone scoping and TXT ownership, switch to `sync` if
-   automatic record deletion on route removal is desired. Export the zone
-   before that first deletion-capable rollout.
+   changes. Then verify live creation with a temporary approved route under
+   `upsert-only`. Keep that policy permanently; remove stale records manually
+   in Cloudflare after confirming their TXT owner metadata.
 
-**Acceptance:** render and inspect all chart kinds and RBAC; dry-run output is
+**Acceptance:** render and inspect all chart kinds and RBAC; live changes are
 limited to an approved in-zone route and a CNAME target at the tunnel hostname;
-Cloudflare shows a proxied CNAME and the prefixed TXT owner record after live
-validation; no unrelated records change; ExternalDNS is healthy at one replica.
+Cloudflare shows a proxied CNAME and the prefixed TXT owner record; no unrelated
+records change; ExternalDNS is healthy at one replica.
 
 ### Workstream 6 — Publish each app route
 
@@ -519,11 +517,12 @@ deletion policy.
 3. Merge the Traefik/Gateway foundation and verify it through Argo CD.
 4. Create and store the tunnel-specific credential securely; merge and verify
    the connector with no DNS changes.
-5. Merge ExternalDNS with dry-run and strict Cloudflare filters. Review the
-   rendered chart kinds, RBAC, target, label filters, TXT prefix, and owner ID.
-6. Only then publish a real application route that meets Workstream 6. Keep
-   `upsert-only` during initial DNS verification; change to `sync` only after
-   ownership and deletion behavior have been reviewed.
+5. Merge ExternalDNS in dry-run mode and review its chart kinds, RBAC, target,
+   label filters, TXT prefix, and owner ID. Then enable live `upsert-only` for
+   the temporary route test.
+6. Publish real app routes only after they meet Workstream 6. Keep
+   `upsert-only`; delete stale records manually in Cloudflare after route
+   removal.
 
 For every GitOps pull request, render `clusters/oracle`, inspect the manifests
 and Argo Project permissions, and review `kubectl diff` before syncing. Check
@@ -541,10 +540,9 @@ from Terraform; no Terraform network rule should be needed.
   credential procedure, update the Vault value, wait for the connector to
   become healthy, then revoke/remove the prior credential. Do not rotate by
   editing a Secret manifest in Git.
-- **Remove one app:** remove its `HTTPRoute`. With `sync`, ExternalDNS removes
-  DNS records it owns after reconciliation. With `upsert-only`, manually remove
-  that route's CNAME and prefixed TXT record in Cloudflare after confirming
-  their owner metadata.
+- **Remove one app:** remove its `HTTPRoute`, then manually remove that route's
+  CNAME and prefixed TXT record in Cloudflare after confirming their owner
+  metadata. `upsert-only` never deletes records automatically.
 - **Remove the edge stack:** remove approved app routes first; export the DNS
   zone; remove ExternalDNS and the tunnel connector; manually remove any
   remaining ExternalDNS-owned CNAME/TXT records; remove the Gateway and
