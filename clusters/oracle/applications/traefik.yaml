@@ -1,0 +1,84 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: oracle-ingress
+  source:
+    repoURL: https://traefik.github.io/charts
+    chart: traefik
+    targetRevision: 42.1.3
+    helm:
+      releaseName: traefik
+      values: |
+        image:
+          tag: v3.7.16
+          pullPolicy: IfNotPresent
+
+        deployment:
+          replicas: 1
+
+        api:
+          dashboard: false
+
+        providers:
+          kubernetesIngress:
+            enabled: false
+          kubernetesCRD:
+            enabled: false
+          kubernetesGateway:
+            enabled: true
+            experimentalChannel: false
+            namespaces:
+              - traefik-system
+              - disease-prediction
+
+        ingressClass:
+          enabled: false
+
+        gateway:
+          enabled: false
+        gatewayClass:
+          enabled: false
+
+        service:
+          enabled: true
+          spec:
+            type: ClusterIP
+
+        rbac:
+          enabled: false
+
+        ports:
+          traefik:
+            expose:
+              default: false
+          web:
+            port: 8000
+            expose:
+              default: true
+            exposedPort: 80
+            protocol: TCP
+          websecure:
+            expose:
+              default: false
+
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - ServerSideApply=true

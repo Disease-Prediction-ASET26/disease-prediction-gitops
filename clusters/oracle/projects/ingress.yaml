@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: oracle-ingress
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  description: Internal Traefik Gateway API ingress
+  sourceRepos:
+    - https://traefik.github.io/charts
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: traefik-system
+      server: https://kubernetes.default.svc
+    - namespace: disease-prediction
+      server: https://kubernetes.default.svc
+    - namespace: ""
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: gateway.networking.k8s.io
+      kind: GatewayClass
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
