@@ -1,0 +1,73 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets-edge
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: oracle-edge-secrets
+  source:
+    repoURL: https://charts.external-secrets.io
+    chart: external-secrets
+    targetRevision: 2.14.0
+    helm:
+      releaseName: external-secrets-edge
+      values: |
+        installCRDs: false
+
+        # This controller handles only the platform-owned edge-system namespace.
+        # ESO's controllerClass feature is experimental; keep it pinned and
+        # verify it with a disposable Vault canary before adding credentials.
+        scopedRBAC: true
+        scopedNamespace: edge-system
+        controllerClass: oracle-edge-secrets
+        leaderElect: false
+        leaderElectionID: external-secrets-edge-controller
+
+        processClusterExternalSecret: false
+        processClusterPushSecret: false
+        processClusterStore: false
+        processClusterGenerator: false
+        processPushSecret: false
+        processSecretStore: true
+
+        crds:
+          createClusterExternalSecret: false
+          createClusterSecretStore: false
+          createSecretStore: false
+          createClusterGenerator: false
+          createClusterPushSecret: false
+          createPushSecret: false
+
+        webhook:
+          create: false
+        certController:
+          create: false
+
+        rbac:
+          leaderElection:
+            create: false
+          serviceAccountTokenCreate: false
+          servicebindings:
+            create: false
+          aggregateToView: false
+          aggregateToEdit: false
+          aggregateToAdmin: false
+
+        resources:
+          requests:
+            cpu: 25m
+            memory: 128Mi
+          limits:
+            cpu: 100m
+            memory: 256Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-secrets
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - ServerSideApply=true

@@ -8,16 +8,21 @@ document does not change DNS or deploy cluster resources.
 ## Current state and target
 
 - `pocket-doc.app` is registered at Name.com.
-- Cloudflare DNS delegation and public records are not configured yet.
+- Name.com delegates `pocket-doc.app` to Cloudflare nameservers. The Cloudflare
+  zone is DNSSEC-signed and its DS record is published at Name.com.
+- The operator reports that the Cloudflare zone currently has no DNS records.
+  ExternalDNS will add app records only after approved HTTPRoutes are ready.
 - Tailscale remains the administration path for SSH, kubectl, and Argo CD.
 - The OCI VM has no public inbound rule for ports 80 or 443. Keep it that way.
 - K3s has Traefik and ServiceLB disabled. Gateway API CRDs already have one
   owner: the K3s-managed chart documented under
   `clusters/oracle/k3s-host-manifests/`. Do not install a second CRD bundle.
-- External Secrets Operator currently reconciles only the `disease-prediction`
-  namespace. Do not put DNS credentials there or broaden ESO to every namespace.
-  The planned `edge-system` namespace needs a separately scoped secret-delivery
-  design before it can receive Vault secrets.
+- The existing External Secrets Operator reconciles only the
+  `disease-prediction` namespace. A second controller is configured to watch
+  only `edge-system`, using ESO's experimental controller-class feature. Its
+  Vault `SecretStore` is namespaced and uses the same read-only OCI Instance
+  Principal policy. Verify it with a disposable canary before adding DNS
+  credentials.
 - No application route should be published until that app has a defined API
   boundary, a publishable ARM64 image, and an explicit public-route decision.
 
@@ -191,17 +196,17 @@ steps above; an agent must not change registrar or zone settings.
 - Repository: no repository changes
 - Depends on: access to the Name.com account and Cloudflare account
 
-1. Add `pocket-doc.app` to Cloudflare and review every imported record against
-   Name.com. Preserve mail and verification records.
-2. Check and remove any old Name.com DS record before nameserver cutover; wait
-   for the old DS TTL if one exists.
-3. Replace Name.com's nameservers with Cloudflare's assigned pair.
-4. Wait for Cloudflare's Active status; verify NS, SOA, MX, TXT, and DS results.
-5. Enable DNSSEC in Cloudflare and add the new matching DS record at Name.com.
+1. Confirm Cloudflare reports the zone as Active and review the current DNS
+   records. The operator has removed all records; add back only records that
+   are intentionally needed before app routes are published.
+2. Verify the registrar delegates only to Cloudflare's assigned nameservers.
+3. Verify Cloudflare DNSSEC is active and Name.com publishes the matching DS.
+   Do not repeat the old-DS removal and nameserver cutover steps unless the DNS
+   provider is changed again.
 
 **Acceptance:** Cloudflare reports Active; authoritative NS answers match the
-assigned pair; required email and verification records resolve; DNSSEC validates
-with the new DS if enabled. Do not deploy ExternalDNS before this gate.
+assigned pair; DNSSEC validates with the matching DS; any required email and
+verification records resolve. Do not deploy ExternalDNS before this gate.
 
 ### Workstream 2 — External Secrets credential isolation decision
 
@@ -213,25 +218,22 @@ with the new DS if enabled. Do not deploy ExternalDNS before this gate.
    ExternalDNS token must be a custom Cloudflare API token with **Zone Read**
    and **DNS Edit**, scoped only to the `pocket-doc.app` zone. Do not use a
    Global API Key.
-2. Before writing deployment manifests, determine how a controller in the
-   dedicated `edge-system` namespace receives Vault secrets. The existing ESO
-   release watches only `disease-prediction`; do not broaden it cluster-wide
-   or put these credentials in that app-deployable namespace.
-3. Verify from the pinned ESO chart/docs whether a second controller can be
-   safely scoped to `edge-system` with a distinct controller class and
-   without conflicting CRDs/webhooks. Render both releases and inspect their
-   RBAC and resource names. If that is not supported cleanly, return an
-   alternative least-privilege design before deployment.
+2. The existing ESO release watches only `disease-prediction`. The edge release
+   is separately scoped to `edge-system`, uses controller class
+   `oracle-edge-secrets`, disables CRD/webhook/cert-controller installation,
+   and has no cluster-scoped RBAC. ESO documents controller classes as
+   experimental, so verify the pinned release with a canary before adding
+   credentials. Do not broaden the existing release cluster-wide or put edge
+   credentials in the app-deployable namespace.
 4. Document secure creation, initial entry into OCI Vault, rotation, status
    checks that do not print secret data, and revocation. Keep secret values out
    of Terraform, Terraform state, Git, command arguments, logs, and issue/PR
    text.
 
-**Acceptance:** a reviewed design shows which ESO instance watches which
-namespace, the exact store/ExternalSecret permissions, no namespace overlap,
-and no cluster-wide secret reconciliation. Prefer one isolated ESO instance
-scoped to `edge-system` for both edge credentials. Do not merge edge credential
-manifests until this design is accepted.
+**Acceptance:** each ESO instance watches only its assigned namespace; the edge
+store reports Ready and a disposable canary syncs without exposing its value;
+the edge release creates no cluster-scoped RBAC or duplicate CRDs/webhooks. Do
+not add edge credential manifests until these checks pass.
 
 ### Workstream 3 — Traefik and Gateway API foundation
 

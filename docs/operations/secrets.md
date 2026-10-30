@@ -20,6 +20,16 @@ it cannot create ordinary Kubernetes Secrets. Cluster-scoped stores, push
 secrets, and other cluster-wide ESO features are disabled. ESO itself creates
 the synced Secrets.
 
+Platform edge credentials use the separate `oracle-edge-secrets` AppProject
+and an ESO release scoped only to `edge-system`. It shares the existing ESO
+CRDs and webhook, creates no cluster-scoped RBAC, and is pinned to the same
+2.14.0 chart. The separate `SecretStore` sets
+`spec.controller: oracle-edge-secrets` so the workload-scoped controller does
+not process edge secrets. ESO documents controller classes as experimental;
+verify the controller with a non-sensitive Vault canary before adding provider
+credentials. Do not move these credentials into `disease-prediction` or add
+ordinary Kubernetes Secret manifests to Git.
+
 The chart and image are pinned to 2.14.0, which the ESO support matrix lists
 for Kubernetes 1.37. Review the [upstream support matrix](https://external-secrets.io/v2.14.0/introduction/stability-support/)
 and [OCI provider guide](https://external-secrets.io/v2.14.0/provider/oracle-vault/)
@@ -55,6 +65,15 @@ controller pods without reading Kubernetes Secret data:
 ```bash
 kubectl -n argocd get application external-secrets
 kubectl -n external-secrets get deployments,pods
+```
+
+After the edge pull request is merged, also check the edge controller and
+namespace-scoped Vault store:
+
+```bash
+kubectl -n argocd get application external-secrets-edge oci-edge-vault-store
+kubectl -n external-secrets get deployment external-secrets-edge
+kubectl -n edge-system get secretstore oci-vault-edge
 ```
 
 Terraform provisions the Vault, key, and instance-principal policy. The Vault
@@ -129,6 +148,15 @@ kubectl -n disease-prediction delete externalsecret oci-vault-canary
 Then schedule deletion of the `eso-canary` secret in OCI Vault. ESO's owner
 policy removes the generated Kubernetes Secret when its `ExternalSecret` is
 deleted. Do not delete the Vault while any workload depends on its secrets.
+
+Repeat this canary once for the `edge-system` store using a different
+non-sensitive OCI Vault secret and a temporary `ExternalSecret` in
+`clusters/oracle/managed-edge-secrets/`. Confirm it becomes Ready and inspect
+only its status and key names. Remove the canary manifest and live
+`ExternalSecret` explicitly; the root Argo app has pruning disabled. Delete the
+temporary Vault secret after the generated Kubernetes Secret is gone. The
+edge canary verifies the experimental controller-class path before any
+Cloudflare value enters the cluster.
 
 ## Add and rotate workload secrets
 

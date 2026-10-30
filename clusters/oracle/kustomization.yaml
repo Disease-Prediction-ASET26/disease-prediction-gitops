@@ -4,8 +4,12 @@ resources:
   - projects/root.yaml
   - projects/apps.yaml
   - projects/platform.yaml
+  - projects/edge-secrets.yaml
   - namespaces/disease-prediction.yaml
   - namespaces/eso.yaml
+  - namespaces/edge-system.yaml
   - applications/root.yaml
   - applications/eso.yaml
+  - applications/eso-edge.yaml
   - applications/oci-vault-store.yaml
+  - applications/oci-edge-vault-store.yaml
