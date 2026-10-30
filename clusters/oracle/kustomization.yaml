@@ -8,3 +8,4 @@ resources:
   - namespaces/eso.yaml
   - applications/root.yaml
   - applications/eso.yaml
+  - applications/oci-vault-store.yaml

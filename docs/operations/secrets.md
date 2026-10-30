@@ -11,7 +11,10 @@ targets `external-secrets` plus `disease-prediction`. The chart creates
 scoped `Role` and `RoleBinding` resources in the workload namespace so the
 controller can watch its namespaced stores and secrets. The platform project
 also permits the chart's webhook `Secret` kind; the pinned chart renders that
-Secret in `external-secrets`. The workload `oracle-apps` project remains
+Secret in `external-secrets`. Argo applies this kind allowlist across both
+platform destinations, so the chart-only `oracle-platform` project could
+create a Secret in either namespace; the pinned chart currently renders none
+in `disease-prediction`. The Git-sourced `oracle-apps` project remains
 separate and permits only `SecretStore` and `ExternalSecret` among ESO kinds;
 it cannot create ordinary Kubernetes Secrets. Cluster-scoped stores, push
 secrets, and other cluster-wide ESO features are disabled. ESO itself creates
@@ -54,9 +57,11 @@ kubectl -n argocd get application external-secrets
 kubectl -n external-secrets get deployments,pods
 ```
 
-The Vault OCID is not secret. Once Terraform has created or adopted the Vault,
-add a namespaced `SecretStore` manifest using its output and the Vault region.
-Do not commit a dummy OCID. The provider configuration is:
+Terraform provisions the Vault, key, and instance-principal policy. The Vault
+OCID and region are metadata, not secret values. The checked-in
+`clusters/oracle/managed-secrets/vault-store.yaml` uses those Terraform outputs
+and is deployed by the `oci-vault-store` child Application in the `oracle-apps`
+project. The provider configuration is:
 
 ```yaml
 apiVersion: external-secrets.io/v1
@@ -72,9 +77,9 @@ spec:
       principalType: InstancePrincipal
 ```
 
-Add this resource only after ESO's CRDs are established and the actual Vault
-OCID is available. Merge it through Git and wait for the `SecretStore` Ready
-condition before adding an `ExternalSecret`.
+Add or change this resource through a pull request, only after ESO's CRDs are
+established and the actual Vault OCID is available. Wait for the `SecretStore`
+Ready condition before adding an `ExternalSecret` to this app path.
 
 ## Verify with a temporary canary
 
