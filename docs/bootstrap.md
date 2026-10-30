@@ -2,6 +2,8 @@
 
 This guide installs Argo CD and connects it to the GitOps repository. It does not create OCI resources or expose an application hostname.
 
+For a lost or replaced VM, follow the [single-node recovery guide](operations/recovery.md).
+
 ## Before you start
 
 - Follow the [Tailscale guide](operations/tailscale.md) and verify direct

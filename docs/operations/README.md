@@ -8,6 +8,8 @@ Use the guide for the tool that owns the change:
 | Install or update Argo CD | [Helmfile](helmfile.md) |
 | Edit Kubernetes manifests | [Kubernetes](kubernetes.md) |
 | Check Argo CD sync or access its UI | [Argo CD](argocd.md) |
+| Sync secrets from OCI Vault | [Secrets](secrets.md) |
+| Recover the single-node cluster | [Recovery](recovery.md) |
 | Create or change OCI resources | [Infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md) |
 
 ## Pinned versions
@@ -25,6 +27,7 @@ Use these versions for this cluster. The chart and image versions are set in
 | K9s | v0.51.0 |
 | Argo CD chart | 10.11.6 |
 | Argo CD image | v3.5.6 |
+| External Secrets chart and image | 2.14.0 |
 
 ## Install workstation tools
 
