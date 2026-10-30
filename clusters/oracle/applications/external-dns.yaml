@@ -13,6 +13,7 @@ spec:
     targetRevision: 0c10f1347f033e30eac03f22513d34dcb584ea58
     helm:
       releaseName: external-dns
+      skipCrds: true
       values: |
         replicaCount: 1
         sources:
