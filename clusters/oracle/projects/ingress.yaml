@@ -8,7 +8,7 @@ metadata:
 spec:
   description: Internal Traefik Gateway API ingress
   sourceRepos:
-    - https://traefik.github.io/charts
+    - oci://ghcr.io/traefik/helm/traefik
     - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
   destinations:
     - namespace: traefik-system
