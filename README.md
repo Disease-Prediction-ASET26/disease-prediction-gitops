@@ -32,4 +32,7 @@ External Secrets Operator is a namespace-scoped platform app. Its OCI Vault
 See the [secrets operations guide](docs/operations/secrets.md) before adding,
 rotating, or removing synced secrets.
 
+GitHub Actions validates the Oracle manifests and Ansible playbooks, and runs
+the shared secret scan on pull requests and pushes to `main`.
+
 Read [operations by tool](docs/operations/README.md) before changing or deleting live resources. For OCI and Terraform, use the [infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md).

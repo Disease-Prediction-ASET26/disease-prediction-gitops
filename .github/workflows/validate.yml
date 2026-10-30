@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 jobs:
+  secret-scan:
+    uses: Disease-Prediction-ASET26/disease-prediction-ci/.github/workflows/secret-scan.yml@76e94bd640d92a3ffbf20e9cd5914e22b5ca40cd # shared secret scan
+    permissions:
+      contents: read
   validate:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
