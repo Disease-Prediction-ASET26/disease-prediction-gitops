@@ -7,12 +7,14 @@ Kubernetes configuration for the single-node Oracle k3s demo. `disease-predictio
 - Bootstrap and manage the cluster with Argo CD.
 - Use Tailscale for private SSH and Kubernetes access.
 - Keep the Kubernetes API and Argo CD UI private.
-- Keep application services internal until a domain is chosen.
+- Publish an application only after its API boundary and ARM64 image are ready,
+  and its public route has been reviewed. The chosen domain is `pocket-doc.app`;
+  Cloudflare delegation and service publication are still pending.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
 ## Bootstrap
 
-See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD release with Helmfile and applies the Oracle root application. The root app reads this public repository over HTTPS. No domain is needed.
+See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD release with Helmfile and applies the Oracle root application. The root app reads this public repository over HTTPS. Bootstrap does not depend on the domain.
 
 ## Layout
 

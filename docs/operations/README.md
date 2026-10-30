@@ -10,6 +10,7 @@ Use the guide for the tool that owns the change:
 | Check Argo CD sync or access its UI | [Argo CD](argocd.md) |
 | Sync secrets from OCI Vault | [Secrets](secrets.md) |
 | Recover the single-node cluster | [Recovery](recovery.md) |
+| Delegate `pocket-doc.app` and plan public app routes | [Domain and ingress](domain-ingress.md) |
 | Create or change OCI resources | [Infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md) |
 
 ## Pinned versions
