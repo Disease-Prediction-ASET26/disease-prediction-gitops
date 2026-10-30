@@ -18,3 +18,4 @@ resources:
   - applications/traefik.yaml
   - applications/traefik-access.yaml
   - applications/oracle-public-gateway.yaml
+  - applications/cloudflared.yaml

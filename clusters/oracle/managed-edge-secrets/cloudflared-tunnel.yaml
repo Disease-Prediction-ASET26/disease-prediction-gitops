@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cloudflared-tunnel
+  namespace: edge-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-edge
+    kind: SecretStore
+  target:
+    name: cloudflared-tunnel
+    creationPolicy: Owner
+  data:
+    - secretKey: credentials.json
+      remoteRef:
+        key: cloudflared-tunnel
