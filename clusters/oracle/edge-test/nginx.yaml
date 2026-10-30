@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edge-test-page
+  namespace: disease-prediction
+data:
+  index.html: |
+    <!doctype html>
+    <html lang="en">
+      <head><meta charset="utf-8"><title>Edge route test</title></head>
+      <body>
+        <h1>Temporary edge route test</h1>
+        <p>Cloudflare Tunnel, Gateway API, Traefik, and ExternalDNS are connected.</p>
+      </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edge-test-nginx
+  namespace: disease-prediction
+  labels:
+    app.kubernetes.io/name: edge-test-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: edge-test-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: edge-test-nginx
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+          imagePullPolicy: IfNotPresent
+          command:
+            - nginx
+            - -g
+            - daemon off;
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: page
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: page
+          configMap:
+            name: edge-test-page
+            defaultMode: 0444
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edge-test-nginx
+  namespace: disease-prediction
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: edge-test-nginx
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
