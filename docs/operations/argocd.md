@@ -4,7 +4,7 @@ Argo CD watches the GitOps repository's `main` branch. It is installed by Helmfi
 
 ## Check status and view changes
 
-```powershell
+```bash
 kubectl -n argocd get applications,appprojects
 kubectl -n argocd describe application oracle-root
 ```
@@ -15,24 +15,24 @@ After merging a change, Argo CD syncs it and repairs drift. Review pending chang
 
 Keep the SSH tunnel from the [access guide](access.md) open. Start a local port-forward:
 
-```powershell
+```bash
 kubectl -n argocd port-forward svc/argocd-server 8080:443
 ```
 
 Open `https://localhost:8080`. Do not expose the service through a public IP, NodePort, or public tunnel.
 
-Read the bootstrap password only when you are ready to sign in. In PowerShell,
-decode it from the generated Kubernetes Secret:
+Read the bootstrap password only when you are ready to sign in. Decode it from
+the generated Kubernetes Secret:
 
-```powershell
-$encoded = kubectl -n argocd get secret argocd-initial-admin-secret -o 'jsonpath={.data.password}'
-[System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o 'jsonpath={.data.password}' | base64 --decode
 ```
 
 Sign in as `admin`, then change the password in Argo CD. Delete the bootstrap
 Secret after the password has been changed:
 
-```powershell
+```bash
 kubectl -n argocd delete secret argocd-initial-admin-secret
 ```
 

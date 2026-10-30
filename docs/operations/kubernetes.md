@@ -6,7 +6,7 @@ Kubernetes objects are stored as YAML under `clusters/oracle/` and, when app ima
 
 From the repository root, with the private cluster context active:
 
-```powershell
+```bash
 kubectl kustomize clusters/oracle
 kubectl diff -k clusters/oracle
 ```
@@ -17,7 +17,7 @@ kubectl diff -k clusters/oracle
 
 During initial bootstrap, apply the files after reviewing the diff:
 
-```powershell
+```bash
 kubectl apply -k clusters/oracle
 ```
 
@@ -27,7 +27,7 @@ After the root Application is active, edit the YAML, open a pull request, and me
 
 Back up any application data first. Deleting the root Application cascades to the projects and the `disease-prediction` namespace. Deleting that namespace also deletes its PVCs and may delete their data.
 
-```powershell
+```bash
 kubectl -n argocd delete application oracle-root --wait=true
 ```
 

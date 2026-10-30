@@ -6,8 +6,15 @@ you verify private access, Terraform can close public SSH.
 
 ## Prepare the tailnet
 
-1. Install the [Tailscale Windows app](https://tailscale.com/docs/install/windows)
-   and sign in to the tailnet you will use for this cluster.
+1. Install Tailscale on your Linux workstation using the
+   [official Linux instructions](https://tailscale.com/docs/install/linux),
+   then sign in to the tailnet you will use for this cluster:
+
+   ```bash
+   sudo tailscale up
+   ```
+
+   Open the sign-in URL shown by the command and approve the workstation.
 2. In the tailnet policy editor, merge these top-level entries into the
    existing policy. Do not replace the full tailnet policy with this example:
 
@@ -36,45 +43,34 @@ you verify private access, Terraform can close public SSH.
 
 ## Install and enroll the VM
 
-Run Ansible from Linux or macOS. On this Windows laptop, install Ubuntu on WSL
-if needed; Ansible does not run natively as a Windows control node. WSL is a
-workstation option, not a supported production control host. From PowerShell,
-install WSL if it is not already set up:
+Use an Ubuntu 24.04 Linux control host. From the infrastructure repository,
+get the current public IP while the temporary SSH rule is still enabled:
 
-```powershell
-wsl --install -d Ubuntu-24.04
-```
-
-Restart Windows if prompted, open Ubuntu, and clone this public repository into
-the Linux home directory. From the infrastructure repository, get the current
-public IP while the temporary SSH rule is still enabled:
-
-```powershell
+```bash
 terraform -chdir=terraform/oracle output -raw instance_public_ip
 ```
 
-In Ubuntu, install the pinned Ansible version and copy the existing SSH key into
-the Linux home directory. Install Python virtual-environment support first.
-Keep the key outside the repositories:
+Install the required Linux tools and the pinned Ansible version. Copy the
+existing private SSH key from its secure location into your SSH directory; keep
+the key outside the repositories:
 
-```sh
+```bash
 sudo apt update
 sudo apt install -y git openssh-client python3-venv
+install -d -m 700 "$HOME/.ssh"
+install -m 600 /path/to/oracle-private-key "$HOME/.ssh/disease-prediction-oci.key"
 git clone https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
 cd disease-prediction-gitops
-python3 -m venv ~/.venvs/disease-prediction-ansible
-. ~/.venvs/disease-prediction-ansible/bin/activate
+python3 -m venv "$HOME/.venvs/disease-prediction-ansible"
+. "$HOME/.venvs/disease-prediction-ansible/bin/activate"
 python -m pip install -r automation/ansible/requirements.txt
-mkdir -p ~/.ssh
-cp /mnt/c/Users/<windows-user>/.ssh/disease-prediction-oci.key ~/.ssh/
-chmod 600 ~/.ssh/disease-prediction-oci.key
 ```
 
-Replace `<windows-user>` with your Windows account name. Check the VM's SSH
-host key through the OCI Console before accepting it. Then run the playbook,
-using the public IP printed by Terraform:
+Replace `/path/to/oracle-private-key` with the key's current location. Check the
+VM's SSH host key through the OCI Console before accepting it. Then run the
+playbook, using the public IP printed by Terraform:
 
-```sh
+```bash
 ssh -i ~/.ssh/disease-prediction-oci.key opc@<oracle-public-ip> exit
 ansible-playbook \
   -i '<oracle-public-ip>,' \
@@ -92,18 +88,19 @@ user identity.
 
 ## Verify before closing public SSH
 
-Enable MagicDNS in the tailnet DNS settings. On Windows, confirm `oracle-k3s`
-appears as connected in Tailscale, then check SSH:
+Enable MagicDNS in the tailnet DNS settings. On your Linux workstation, confirm
+that `oracle-k3s` appears in Tailscale, then check SSH:
 
-```powershell
-$sshKey = Join-Path $env:USERPROFILE '.ssh\disease-prediction-oci.key'
-ssh -i $sshKey opc@oracle-k3s
+```bash
+tailscale status
+ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s
 ```
 
-Open a second PowerShell window and start the Kubernetes API tunnel:
+In a second terminal, start the Kubernetes API tunnel:
 
-```powershell
-ssh -i $sshKey -N -L 6443:127.0.0.1:6443 opc@oracle-k3s
+```bash
+ssh -i "$HOME/.ssh/disease-prediction-oci.key" \
+  -N -L 6443:127.0.0.1:6443 opc@oracle-k3s
 ```
 
 In the first window, confirm `kubectl get nodes` reports the node as `Ready`.
@@ -116,7 +113,7 @@ should remove only the public SSH ingress rule.
 
 Preview the Ansible changes without applying them:
 
-```sh
+```bash
 ansible-playbook \
   -i '<oracle-public-ip>,' \
   -u opc \
