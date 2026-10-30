@@ -12,6 +12,8 @@ spec:
   destinations:
     - namespace: external-secrets
       server: https://kubernetes.default.svc
+    - namespace: disease-prediction
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: admissionregistration.k8s.io
       kind: ValidatingWebhookConfiguration
