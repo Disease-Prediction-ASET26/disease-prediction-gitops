@@ -94,6 +94,8 @@ kind: Service
 metadata:
   name: edge-test-nginx
   namespace: disease-prediction
+  annotations:
+    traefik.io/service.nativelb: "true"
 spec:
   type: ClusterIP
   selector:
