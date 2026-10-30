@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: oracle-platform
+  source:
+    repoURL: https://charts.external-secrets.io
+    chart: external-secrets
+    targetRevision: 2.14.0
+    helm:
+      releaseName: external-secrets
+      values: |
+        installCRDs: true
+
+        # ESO runs in external-secrets but watches only the workload namespace.
+        # Do not watch cluster-scoped stores or secrets in other namespaces.
+        scopedRBAC: true
+        scopedNamespace: disease-prediction
+        processClusterExternalSecret: false
+        processClusterPushSecret: false
+        processClusterStore: false
+        processClusterGenerator: false
+        processPushSecret: false
+
+        crds:
+          createClusterExternalSecret: false
+          createClusterSecretStore: false
+          createClusterGenerator: false
+          createClusterPushSecret: false
+          createPushSecret: false
+
+        rbac:
+          servicebindings:
+            create: false
+          aggregateToView: false
+          aggregateToEdit: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-secrets
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - ServerSideApply=true

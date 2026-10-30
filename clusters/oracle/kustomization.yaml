@@ -3,5 +3,8 @@ kind: Kustomization
 resources:
   - projects/root.yaml
   - projects/apps.yaml
+  - projects/platform.yaml
   - namespaces/disease-prediction.yaml
+  - namespaces/eso.yaml
   - applications/root.yaml
+  - applications/eso.yaml
