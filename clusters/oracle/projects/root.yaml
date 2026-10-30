@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: oracle-root
+  namespace: argocd
+spec:
+  description: Root configuration for the Oracle k3s cluster
+  sourceRepos:
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: argoproj.io
+      kind: Application
+    - group: argoproj.io
+      kind: AppProject

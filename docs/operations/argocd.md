@@ -1,0 +1,30 @@
+# Argo CD
+
+Argo CD watches the GitOps repository's `main` branch. It is installed by Helmfile, while the root Application and its child application configuration live in checked-in Kubernetes files.
+
+## Check status and view changes
+
+```powershell
+kubectl -n argocd get applications,appprojects
+kubectl -n argocd describe application oracle-root
+```
+
+After merging a change, Argo CD syncs it and repairs drift. Review pending changes in the Argo CD UI or use the Argo CD CLI if installed. Automated pruning is disabled, so removing a file does not automatically delete the live object.
+
+## Access the UI privately
+
+Keep the SSH tunnel from the [access guide](access.md) open. Start a local port-forward:
+
+```powershell
+kubectl -n argocd port-forward svc/argocd-server 8080:443
+```
+
+Open `https://localhost:8080`. Do not expose the service through a public IP, NodePort, or public tunnel. Rotate the initial admin password after first login.
+
+## Sync and roll back
+
+Normal updates come from reviewed Git changes. If you need to sync immediately after a merge, use the Argo CD UI. To roll back an application, revert its image digest in Git and merge the change. Do not use a mutable image tag.
+
+## Delete an application
+
+Delete an individual child Application through Argo CD with cascading deletion enabled. Back up persistent data first. The full root and cluster teardown steps are in [Kubernetes operations](kubernetes.md#destroy-the-gitops-managed-resources) and the [Helmfile guide](helmfile.md#remove-the-argo-cd-release).

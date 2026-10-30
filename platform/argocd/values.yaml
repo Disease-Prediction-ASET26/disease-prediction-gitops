@@ -1,0 +1,13 @@
+global:
+  image:
+    tag: v3.5.6
+
+dex:
+  enabled: false
+
+redis-ha:
+  enabled: false
+
+server:
+  service:
+    type: ClusterIP

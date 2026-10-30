@@ -3,10 +3,12 @@ kind: Application
 metadata:
   name: oracle-root
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
+  project: oracle-root
   source:
-    repoURL: git@github.com:Disease-Prediction-ASET26/disease-prediction-gitops.git
+    repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
     targetRevision: main
     path: clusters/oracle
   destination:

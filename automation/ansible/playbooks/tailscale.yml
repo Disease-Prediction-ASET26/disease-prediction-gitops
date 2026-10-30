@@ -1,0 +1,119 @@
+---
+- name: Install and configure Tailscale on the Oracle k3s host
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    tailscale_hostname: oracle-k3s
+    tailscale_tag: tag:oracle-k3s
+
+  tasks:
+    - name: Add the official Tailscale stable repository for Oracle Linux 9
+      ansible.builtin.get_url:
+        url: https://pkgs.tailscale.com/stable/oracle/9/tailscale.repo
+        dest: /etc/yum.repos.d/tailscale.repo
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install Tailscale from its signed stable package repository
+      ansible.builtin.dnf:
+        name: tailscale
+        state: present
+
+    - name: Enable and start the Tailscale service
+      ansible.builtin.systemd_service:
+        name: tailscaled.service
+        enabled: true
+        state: started
+
+    - name: Read Tailscale status
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/tailscale
+          - status
+          - --json
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Read the current backend state
+      ansible.builtin.set_fact:
+        tailscale_backend_state: >-
+          {{ (tailscale_status.stdout | from_json).BackendState
+             if tailscale_status.rc == 0 else 'Unknown' }}
+
+    - name: Ask for a one-use Tailscale auth key when the VM is not enrolled
+      ansible.builtin.pause:
+        prompt: >-
+          Enter a one-use, pre-approved Tailscale auth key tagged
+          {{ tailscale_tag }}. Input is hidden.
+        echo: false
+      register: tailscale_auth_key
+      no_log: true
+      when: tailscale_backend_state != 'Running' and not ansible_check_mode
+
+    - name: Enroll the VM as a tagged Tailscale server
+      ansible.builtin.shell: >-
+        /usr/bin/tailscale up
+        --hostname={{ tailscale_hostname }}
+        --advertise-tags={{ tailscale_tag }}
+        --auth-key="$TAILSCALE_AUTH_KEY"
+      args:
+        executable: /bin/bash
+      environment:
+        TAILSCALE_AUTH_KEY: "{{ tailscale_auth_key.user_input }}"
+      no_log: true
+      when: tailscale_backend_state != 'Running' and not ansible_check_mode
+
+    - name: Apply the desired hostname and tag to an enrolled VM
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/tailscale
+          - up
+          - "--hostname={{ tailscale_hostname }}"
+          - "--advertise-tags={{ tailscale_tag }}"
+      changed_when: false
+      when: tailscale_backend_state == 'Running' and not ansible_check_mode
+
+    - name: Confirm the VM is connected to the tailnet
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/tailscale
+          - status
+          - --json
+      register: tailscale_final_status
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Require an authenticated Tailscale connection
+      ansible.builtin.assert:
+        that:
+          - tailscale_final_status.rc == 0
+          - (tailscale_final_status.stdout | from_json).BackendState == 'Running'
+        fail_msg: >-
+          Tailscale is not connected. Check the one-use key, device approval,
+          and tag policy, then run this playbook again.
+      when: not ansible_check_mode
+
+    - name: Read the VM's Tailscale IPv4 address
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/tailscale
+          - ip
+          - -4
+      register: tailscale_ipv4
+      changed_when: false
+      check_mode: false
+      when: not ansible_check_mode
+
+    - name: Show the private address
+      ansible.builtin.debug:
+        msg: >-
+          Tailscale is connected at {{ tailscale_ipv4.stdout | trim }}.
+          Verify SSH and the Kubernetes tunnel from your laptop before removing
+          public SSH access.
+      when: not ansible_check_mode
