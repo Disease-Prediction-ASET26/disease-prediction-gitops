@@ -13,7 +13,8 @@ After merging a change, Argo CD syncs it and repairs drift. Review pending chang
 
 ## Access the UI privately
 
-Keep the SSH tunnel from the [access guide](access.md) open. Start a local port-forward:
+With Tailscale connected and the workstation kubeconfig configured, start a
+local port-forward:
 
 ```bash
 kubectl -n argocd port-forward svc/argocd-server 8080:443

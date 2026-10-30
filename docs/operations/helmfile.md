@@ -4,18 +4,35 @@ Helmfile manages the Argo CD chart from `helmfile.yaml`. Chart values live in `p
 
 ## Install the tools
 
-Install the versions listed in [tool versions](README.md#tool-versions). Install Helmfile from the official release page and check its published SHA-256 before using the binary. Add the Helm Diff plugin once:
+Install the versions listed in [pinned versions](README.md#pinned-versions).
+For Helm 4, install Helm Diff from its signed release archive instead of
+disabling signature checks:
 
 ```bash
-helm plugin install https://github.com/databus23/helm-diff --version v3.15.15 --verify=false
+curl -fsSLo databus23.asc https://github.com/databus23.gpg
+gpg --import databus23.asc
+gpg --fingerprint EA17A2A206AFF8CD
+```
+
+Check that the fingerprint is
+`C564 5EF4 7482 257A 1F80 6D2B EA17 A2A2 06AF F8CD`. Then install the pinned
+Linux amd64 archive. Helm verifies its provenance file during installation:
+
+```bash
+helm plugin install \
+  https://github.com/databus23/helm-diff/releases/download/v3.15.15/helm-diff-linux-amd64.tgz
 helm plugin list
 ```
 
-Helm 4 does not accept this plugin's metadata for built-in signature verification. Pin the version and install only from the official project release.
+For a different Linux architecture, choose the matching archive from the
+[v3.15.15 release](https://github.com/databus23/helm-diff/releases/tag/v3.15.15).
 
 ## Preview, apply, and modify
 
-From the repository root, set `KUBECONFIG` and keep the SSH tunnel open. For a first install, allow Helm Diff to render releases that are not installed yet. Keep Secret values suppressed:
+Connect Tailscale and use the cluster-admin kubeconfig described in the
+[Tailscale guide](tailscale.md). No SSH tunnel is needed. For a first install,
+allow Helm Diff to render releases that are not installed yet. Keep Secret
+values suppressed:
 
 ```bash
 helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
@@ -28,14 +45,6 @@ helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 ```
 
 Use `helmfile sync` only for an already reviewed scripted run because it applies without the prompt. To change Argo CD, edit its chart version in `helmfile.yaml` or its values file, then run `helmfile diff --diff-args "--allow-unreleased" --suppress-secrets` before applying.
-
-`helmfile diff` uses the Helm Diff plugin. To preview the release directly with Helm, first add the chart repository:
-
-```bash
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update argo
-helm diff upgrade --install --suppress-secrets argocd argo/argo-cd --namespace argocd --version 10.11.6 --values platform/argocd/values.yaml
-```
 
 Use Helmfile as the source of truth for applying this release.
 

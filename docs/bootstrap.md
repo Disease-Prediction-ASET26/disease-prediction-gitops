@@ -4,8 +4,9 @@ This guide installs Argo CD and connects it to the GitOps repository. It does no
 
 ## Before you start
 
-- Follow [the private access guide](operations/access.md) and keep the SSH tunnel open.
-- Install the pinned tools listed in [tool versions](operations/README.md#tool-versions).
+- Follow the [Tailscale guide](operations/tailscale.md) and verify direct
+  Kubernetes API access from your workstation. No SSH tunnel is needed.
+- Install the pinned tools listed in [operations](operations/README.md#pinned-versions).
 - Confirm `kubectl get nodes` shows the Oracle node as `Ready`.
 - This GitHub repository is public. Argo CD reads it over HTTPS, so no Git credential is needed.
 
@@ -47,7 +48,7 @@ The root Application follows `main`. After bootstrap, make changes in files, ope
 
 ## Open Argo CD privately
 
-Use a second terminal while the SSH tunnel is running:
+Use a second terminal while Tailscale is connected:
 
 ```bash
 kubectl -n argocd port-forward svc/argocd-server 8080:443
@@ -55,6 +56,5 @@ kubectl -n argocd port-forward svc/argocd-server 8080:443
 
 Open `https://localhost:8080`. Keep the Argo CD UI private. Read the initial admin password and rotate it by following [the Argo CD guide](operations/argocd.md#access-the-ui-privately).
 
-## Later: Cloudflare and Name.com
-
-No domain is needed for this setup. After the application name is chosen, configure the Name.com domain to use Cloudflare DNS, then add a Cloudflare Tunnel route for the frontend. Keep the Kubernetes API, Argo CD, and application services private.
+The Kubernetes API and Argo CD remain private. This bootstrap does not expose
+an application or configure public DNS.

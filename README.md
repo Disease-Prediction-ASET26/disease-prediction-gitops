@@ -8,7 +8,6 @@ Kubernetes configuration for the single-node Oracle k3s demo. `disease-predictio
 - Use Tailscale for private SSH and Kubernetes access.
 - Keep the Kubernetes API and Argo CD UI private.
 - Keep application services internal until a domain is chosen.
-- Add Cloudflare Tunnel and DNS later; the registrar is Name.com.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
 ## Bootstrap
@@ -22,7 +21,7 @@ See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD relea
 - `clusters/oracle/projects/`: restricted Argo CD projects.
 - `apps/`: application manifests, added when the services and images are ready.
 - `platform/argocd/`: Argo CD namespace and Helm values; the root `helmfile.yaml` pins its chart.
-- `docs/operations/`: access, Tailscale, Helmfile, Kubernetes, and Argo CD runbooks.
+- `docs/operations/`: Tailscale, Helmfile, Kubernetes, and Argo CD runbooks.
 - `automation/ansible/`: repeatable host setup for Tailscale.
 
 The root app uses automated sync and self-healing, with pruning disabled. Removing a manifest from Git therefore does not automatically delete its live resource. Persistent data deletion remains an explicit operator action. The root project can manage approved Argo CD configuration and namespace manifests from the trusted root path; workload apps are limited to the `disease-prediction` namespace and an allowlist of resource kinds.
