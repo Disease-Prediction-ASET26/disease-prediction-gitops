@@ -149,13 +149,13 @@ Then schedule deletion of the `eso-canary` secret in OCI Vault. ESO's owner
 policy removes the generated Kubernetes Secret when its `ExternalSecret` is
 deleted. Do not delete the Vault while any workload depends on its secrets.
 
-Repeat this canary once for the `edge-system` store using a different
-non-sensitive OCI Vault secret and a temporary `ExternalSecret` in
-`clusters/oracle/managed-edge-secrets/`. Confirm it becomes Ready and inspect
-only its status and key names. Remove the canary manifest and live
-`ExternalSecret` explicitly; the root Argo app has pruning disabled. Delete the
-temporary Vault secret after the generated Kubernetes Secret is gone. The
-edge canary verifies the experimental controller-class path before any
+The edge controller uses a separate canary named `edge-eso-canary` in OCI
+Vault. The temporary `ExternalSecret` is in
+`clusters/oracle/managed-edge-secrets/edge-vault-canary.yaml`. Confirm it
+becomes Ready and inspect only its status and key names. Remove the canary
+manifest and live `ExternalSecret` explicitly; automated pruning is disabled.
+Delete the temporary Vault secret after the generated Kubernetes Secret is
+gone. This verifies the experimental controller-class path before any
 Cloudflare value enters the cluster.
 
 ## Add and rotate workload secrets
