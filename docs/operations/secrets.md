@@ -149,14 +149,12 @@ Then schedule deletion of the `eso-canary` secret in OCI Vault. ESO's owner
 policy removes the generated Kubernetes Secret when its `ExternalSecret` is
 deleted. Do not delete the Vault while any workload depends on its secrets.
 
-The edge controller uses a separate canary named `edge-eso-canary` in OCI
-Vault. The temporary `ExternalSecret` is in
-`clusters/oracle/managed-edge-secrets/edge-vault-canary.yaml`. Confirm it
-becomes Ready and inspect only its status and key names. Remove the canary
-manifest and live `ExternalSecret` explicitly; automated pruning is disabled.
-Delete the temporary Vault secret after the generated Kubernetes Secret is
-gone. This verifies the experimental controller-class path before any
-Cloudflare value enters the cluster.
+The edge controller can be verified with a separate canary in OCI Vault. The
+`edge-eso-canary` test synced successfully through the `oracle-edge-secrets`
+controller class. Remove the temporary `ExternalSecret` and confirm its owned
+Kubernetes Secret is gone; automated pruning is disabled. Delete the temporary
+Vault secret after cleanup. Repeat this check before changing controller or
+Vault settings, and before adding Cloudflare credentials.
 
 ## Add and rotate workload secrets
 
