@@ -176,8 +176,8 @@ and [Cloudflare provider](https://github.com/kubernetes-sigs/external-dns/blob/m
 
 ## ExternalDNS rollout and operations
 
-ExternalDNS is installed through Argo CD from the official chart repository.
-The chart and controller versions are pinned. Kubernetes permissions are
+ExternalDNS is installed through Argo CD from the upstream chart's immutable
+release commit. The chart and controller versions are pinned. Kubernetes permissions are
 read-only and limited to Gateways, HTTPRoutes, and Namespace discovery.
 Cloudflare access is limited by both the zone-scoped token and zone ID filter.
 
