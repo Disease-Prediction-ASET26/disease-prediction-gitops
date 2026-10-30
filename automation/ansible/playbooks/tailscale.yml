@@ -28,6 +28,36 @@
         enabled: true
         state: started
 
+    - name: Check for Oracle Linux's post-quantum crypto policy module
+      ansible.builtin.stat:
+        path: /usr/share/crypto-policies/policies/modules/PQ.pmod
+      register: tailscale_pq_policy_module
+
+    - name: Require the post-quantum crypto policy module
+      ansible.builtin.assert:
+        that:
+          - tailscale_pq_policy_module.stat.exists
+        fail_msg: >-
+          The Oracle Linux PQ crypto policy module is missing. Update Oracle
+          Linux 9 before enabling post-quantum SSH key exchange.
+
+    - name: Read the current system crypto policy
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/update-crypto-policies
+          - --show
+      register: tailscale_current_crypto_policy
+      changed_when: false
+
+    - name: Add the post-quantum crypto policy module
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/update-crypto-policies
+          - --set
+          - "{{ tailscale_current_crypto_policy.stdout }}:PQ"
+      when: "'PQ' not in tailscale_current_crypto_policy.stdout.split(':')"
+      notify: Restart SSH to apply the crypto policy
+
     - name: Read Tailscale status
       ansible.builtin.command:
         argv:
@@ -99,6 +129,42 @@
           and tag policy, then run this playbook again.
       when: not ansible_check_mode
 
+    - name: Add the Tailscale DNS name to the K3s API certificate configuration
+      ansible.builtin.blockinfile:
+        path: /etc/rancher/k3s/config.yaml
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+        marker: "# {mark} ANSIBLE MANAGED TAILSCALE API ACCESS"
+        block: |
+          tls-san:
+            - {{ tailscale_hostname }}
+      register: tailscale_k3s_tls_config
+
+    - name: Rotate the K3s API certificate for the Tailscale DNS name
+      when: tailscale_k3s_tls_config.changed and not ansible_check_mode
+      block:
+        - name: Stop K3s before rotating its API certificate
+          ansible.builtin.systemd_service:
+            name: k3s.service
+            state: stopped
+
+        - name: Rotate the K3s API server certificate
+          ansible.builtin.command:
+            argv:
+              - /usr/local/bin/k3s
+              - certificate
+              - rotate
+              - --service
+              - api-server
+
+      always:
+        - name: Ensure K3s is running after certificate rotation
+          ansible.builtin.systemd_service:
+            name: k3s.service
+            state: started
+
     - name: Read the VM's Tailscale IPv4 address
       ansible.builtin.command:
         argv:
@@ -114,6 +180,12 @@
       ansible.builtin.debug:
         msg: >-
           Tailscale is connected at {{ tailscale_ipv4.stdout | trim }}.
-          Verify SSH and the Kubernetes tunnel from your laptop before removing
-          public SSH access.
+          Verify private SSH and direct Kubernetes API access from your
+          workstation before removing public SSH access.
       when: not ansible_check_mode
+
+  handlers:
+    - name: Restart SSH to apply the crypto policy
+      ansible.builtin.systemd_service:
+        name: sshd.service
+        state: restarted

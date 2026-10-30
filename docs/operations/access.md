@@ -1,44 +1,12 @@
 # Private cluster access
 
-Use Tailscale for SSH and the Kubernetes API. Complete the [Tailscale setup](tailscale.md)
-and verify private SSH before setting `admin_ssh_cidr = null` in Terraform.
+Use Tailscale for SSH and Kubernetes API access. Follow the [Tailscale setup](tailscale.md)
+to configure the private API route, copy the protected cluster-admin kubeconfig,
+and install K9s. Once configured, connect Tailscale and run `k9s` from your
+workstation; no SSH tunnel is needed.
 
-## Create a protected kubeconfig
-
-Run these commands from a Linux terminal. They copy the K3s administrator
-kubeconfig into a protected file; its client key grants cluster-admin access.
-
-```bash
-install -d -m 700 "$HOME/.kube"
-umask 077
-ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s \
-  'sudo cat /etc/rancher/k3s/k3s.yaml' > "$HOME/.kube/oracle-k3s.yaml"
-chmod 600 "$HOME/.kube/oracle-k3s.yaml"
-export KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"
-```
-
-Do not commit or share this kubeconfig. Keep it outside the repositories and
-remove it when it is no longer needed.
-
-## Open the Kubernetes API tunnel
-
-In a separate terminal, run:
-
-```bash
-ssh -i "$HOME/.ssh/disease-prediction-oci.key" \
-  -N -L 6443:127.0.0.1:6443 opc@oracle-k3s
-```
-
-Keep this window open while using Kubernetes tools. In the first window, check
-access:
-
-```bash
-export KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"
-kubectl get nodes
-```
-
-Do not set `insecure-skip-tls-verify` to work around a certificate error. Check
-the tunnel and K3s certificate instead.
+The kubeconfig grants unrestricted cluster-admin access. Keep it outside Git
+with file mode `600`, and remove it when you no longer need access.
 
 ## Recover if Tailscale is unavailable
 
