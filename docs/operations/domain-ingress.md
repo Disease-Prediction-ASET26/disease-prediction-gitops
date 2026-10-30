@@ -211,6 +211,8 @@ and logs show reconciliation without authentication or API errors. Do not run
 `kubectl get secret ... -o yaml` or print the token. The dedicated test route
 uses a pinned multi-architecture unprivileged NGINX image and serves only a
 static confirmation page.
+The test Service enables Traefik native load balancing so Traefik connects to
+the ClusterIP, which was reachable during diagnosis while the pod IP was not.
 
 ### Publish a route when an application is ready
 
