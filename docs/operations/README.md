@@ -42,8 +42,8 @@ Install the pinned Ansible Core version in a virtual environment from the
 repository root:
 
 ```bash
-python3 -m venv "$HOME/.venvs/oracle-k3s-ansible"
-. "$HOME/.venvs/oracle-k3s-ansible/bin/activate"
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r automation/ansible/requirements.txt
 ansible-playbook --version
 ```
