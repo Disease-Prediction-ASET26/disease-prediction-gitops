@@ -21,13 +21,13 @@ kubectl apply -f platform/argocd/namespace.yaml
 Review the pinned chart release and values:
 
 ```powershell
-helmfile diff
+helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
 ```
 
-Install it after reviewing the diff. `helmfile apply` asks before making changes:
+Install it after reviewing the diff. Add `--interactive` to require confirmation:
 
 ```powershell
-helmfile apply
+helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd get pods
 ```
 
@@ -53,7 +53,7 @@ Use a second PowerShell window while the SSH tunnel is running:
 kubectl -n argocd port-forward svc/argocd-server 8080:443
 ```
 
-Open `https://localhost:8080`. Keep the Argo CD UI private. If you use the initial admin account, retrieve its bootstrap password only when needed and rotate it immediately.
+Open `https://localhost:8080`. Keep the Argo CD UI private. Read the initial admin password and rotate it by following [the Argo CD guide](operations/argocd.md#access-the-ui-privately).
 
 ## Later: Cloudflare and Name.com
 
