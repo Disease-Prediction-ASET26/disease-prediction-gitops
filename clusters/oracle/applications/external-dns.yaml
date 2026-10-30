@@ -33,7 +33,6 @@ spec:
         extraArgs:
           gateway-label-filter: external-dns.pocket-doc.app/eligible==true
           zone-id-filter: c4721d36d034d67d4c9847fe2085c1e0
-          dry-run: true
         env:
           - name: CF_API_TOKEN
             valueFrom:
