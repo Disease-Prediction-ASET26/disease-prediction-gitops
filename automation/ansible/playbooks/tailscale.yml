@@ -129,6 +129,103 @@
           and tag policy, then run this playbook again.
       when: not ansible_check_mode
 
+    - name: Read configured firewalld zones
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --get-zones
+      register: tailscale_firewalld_zones
+      changed_when: false
+      check_mode: false
+
+    - name: Create a dedicated firewalld zone for Tailscale
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --new-zone=tailscale
+      when:
+        - not ansible_check_mode
+        - "'tailscale' not in tailscale_firewalld_zones.stdout.split()"
+      changed_when: true
+      notify: Reload firewalld
+
+    - name: Check whether SSH is allowed in the Tailscale firewalld zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=tailscale
+          - --query-service=ssh
+      register: tailscale_firewalld_ssh
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Allow SSH in the Tailscale firewalld zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=tailscale
+          - --add-service=ssh
+      when:
+        - not ansible_check_mode
+        - tailscale_firewalld_ssh.rc != 0
+      changed_when: true
+      notify: Reload firewalld
+
+    - name: Check whether the Kubernetes API is allowed in the Tailscale zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=tailscale
+          - --query-port=6443/tcp
+      register: tailscale_firewalld_api
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Allow the Kubernetes API in the Tailscale firewalld zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=tailscale
+          - --add-port=6443/tcp
+      when:
+        - not ansible_check_mode
+        - tailscale_firewalld_api.rc != 0
+      changed_when: true
+      notify: Reload firewalld
+
+    - name: Check whether tailscale0 is assigned to its firewalld zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=tailscale
+          - --query-interface=tailscale0
+      register: tailscale_firewalld_interface
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Assign tailscale0 to its restricted firewalld zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=tailscale
+          - --add-interface=tailscale0
+      when:
+        - not ansible_check_mode
+        - tailscale_firewalld_interface.rc != 0
+      changed_when: true
+      notify: Reload firewalld
+
     - name: Add the Tailscale DNS name to the K3s API certificate configuration
       ansible.builtin.blockinfile:
         path: /etc/rancher/k3s/config.yaml
@@ -189,3 +286,9 @@
       ansible.builtin.systemd_service:
         name: sshd.service
         state: restarted
+
+    - name: Reload firewalld
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --reload

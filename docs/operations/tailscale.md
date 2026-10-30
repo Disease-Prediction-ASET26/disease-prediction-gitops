@@ -203,13 +203,13 @@ sed -i 's#server: https://127.0.0.1:6443#server: https://oracle-k3s:6443#' \
 grep 'server:' "$HOME/.kube/oracle-k3s.yaml"
 ```
 
-Set this as the default kubeconfig in new Bash terminals, so `kubectl` and
+Set this as the default kubeconfig in new Zsh terminals, so `kubectl` and
 K9s find it without extra flags:
 
 ```bash
-grep -qxF 'export KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"' "$HOME/.bashrc" || \
-  printf '\nexport KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"\n' >> "$HOME/.bashrc"
-source "$HOME/.bashrc"
+grep -qxF 'export KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"' "$HOME/.zshrc" || \
+  printf '\nexport KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"\n' >> "$HOME/.zshrc"
+source "$HOME/.zshrc"
 ```
 
 Verify the private connection and cluster access:
@@ -245,8 +245,10 @@ delete resources. Keep the file protected with mode `600`. Use `:ns` to switch
 namespaces, `l` to view pod logs, and `:q` to exit.
 
 If kubectl tries `localhost:8080`, check that the kubeconfig exists and the
-`KUBECONFIG` line is in `~/.bashrc`. If you see a TLS name error, rerun the
-Ansible playbook to confirm the API certificate includes `oracle-k3s`.
+`KUBECONFIG` line is in `~/.zshrc`. If an API request times out, confirm that
+the tailnet policy grants `tcp:6443` and rerun the Ansible playbook to apply the
+VM's restricted Tailscale firewall zone. If you see a TLS name error, rerun the
+playbook to confirm the API certificate includes `oracle-k3s`.
 
 ## Close public SSH
 
