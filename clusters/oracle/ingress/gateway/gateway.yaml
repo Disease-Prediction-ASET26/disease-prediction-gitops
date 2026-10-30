@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: oracle-public
+  namespace: traefik-system
+  labels:
+    external-dns.pocket-doc.app/eligible: "true"
+spec:
+  gatewayClassName: oracle-public
+  listeners:
+    - name: web
+      hostname: "*.pocket-doc.app"
+      port: 8000
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              pocket-doc.app/public-routes: "true"

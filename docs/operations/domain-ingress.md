@@ -20,9 +20,10 @@ document does not change DNS or deploy cluster resources.
 - The existing External Secrets Operator reconciles only the
   `disease-prediction` namespace. A second controller is configured to watch
   only `edge-system`, using ESO's experimental controller-class feature. Its
-  Vault `SecretStore` is namespaced and uses the same read-only OCI Instance
-  Principal policy. Verify it with a disposable canary before adding DNS
-  credentials.
+  namespaced Vault `SecretStore` reports Ready, and a disposable Vault canary
+  synced through the edge controller. The generated Kubernetes Secret and
+  `ExternalSecret` were removed. Delete the unused Vault canary in OCI after
+  this test.
 - No application route should be published until that app has a defined API
   boundary, a publishable ARM64 image, and an explicit public-route decision.
 
@@ -137,6 +138,9 @@ verify the new DS record at Name.com has propagated.
   `external-dns.kubernetes.io/cloudflare-proxied: "true"` on approved routes.
   Gateway API's ExternalDNS source reads the target from the Gateway and
   provider annotations from the Route.
+- Add the Gateway target annotation only after the locally managed tunnel
+  exists and its UUID is known. Until then, keep the Cloudflare zone empty;
+  ExternalDNS will not be enabled before a real route and tunnel target exist.
 - Start with `--policy=upsert-only` and ExternalDNS dry-run during validation.
   Once the zone filters, TXT ownership, and a real app route have been reviewed,
   move to `--policy=sync` if route removal should remove its DNS records
@@ -161,6 +165,9 @@ and [Cloudflare provider](https://github.com/kubernetes-sigs/external-dns/blob/m
 - Run Traefik as an internal `ClusterIP` Service. Its Gateway API provider
   handles the `Gateway` and `HTTPRoute` objects. Keep the installed K3s Gateway
   API CRDs as the sole CRD owner.
+- Restrict Traefik's provider watch to `traefik-system` and the app namespace.
+  Bind namespaced Secret and route permissions only in those namespaces; keep
+  its cluster binding limited to node, namespace, and GatewayClass access.
 - Run `cloudflared` with a locally managed tunnel configuration. Its
   `*.pocket-doc.app` ingress rule points to Traefik's internal Service and ends
   with a catch-all `http_status:404` rule. Keep the configuration in Git, but
@@ -225,7 +232,7 @@ verification records resolve. Do not deploy ExternalDNS before this gate.
    experimental, so verify the pinned release with a canary before adding
    credentials. Do not broaden the existing release cluster-wide or put edge
    credentials in the app-deployable namespace.
-4. Document secure creation, initial entry into OCI Vault, rotation, status
+3. Document secure creation, initial entry into OCI Vault, rotation, status
    checks that do not print secret data, and revocation. Keep secret values out
    of Terraform, Terraform state, Git, command arguments, logs, and issue/PR
    text.

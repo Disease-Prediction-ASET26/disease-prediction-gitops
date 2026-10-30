@@ -1,0 +1,100 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traefik-cluster-reader
+rules:
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - nodes
+    verbs: [get, list, watch]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources:
+      - gatewayclasses
+    verbs: [get, list, watch]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources:
+      - gatewayclasses/status
+    verbs: [update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: traefik-cluster-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-cluster-reader
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: traefik-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: traefik-namespaced-reader
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - services
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources:
+      - pods
+    verbs: [get]
+  - apiGroups: [""]
+    resources:
+      - secrets
+    verbs: [get, list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources:
+      - endpointslices
+    verbs: [list, watch]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources:
+      - backendtlspolicies
+      - gateways
+      - grpcroutes
+      - httproutes
+      - referencegrants
+      - tcproutes
+      - tlsroutes
+    verbs: [get, list, watch]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources:
+      - gateways/status
+      - grpcroutes/status
+      - httproutes/status
+      - tcproutes/status
+      - tlsroutes/status
+    verbs: [update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: traefik-namespaced-reader
+  namespace: traefik-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-namespaced-reader
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: traefik-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: traefik-namespaced-reader
+  namespace: disease-prediction
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-namespaced-reader
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: traefik-system
