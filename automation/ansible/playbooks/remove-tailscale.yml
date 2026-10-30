@@ -1,0 +1,31 @@
+---
+- name: Remove Tailscale from the Oracle k3s host
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check whether the Tailscale service exists
+      ansible.builtin.service_facts:
+
+    - name: Stop and disable Tailscale
+      ansible.builtin.systemd_service:
+        name: tailscaled.service
+        enabled: false
+        state: stopped
+      when: "'tailscaled.service' in ansible_facts.services"
+
+    - name: Remove the Tailscale package
+      ansible.builtin.dnf:
+        name: tailscale
+        state: absent
+
+    - name: Remove the local Tailscale identity and state
+      ansible.builtin.file:
+        path: /var/lib/tailscale
+        state: absent
+
+    - name: Remove the Tailscale package repository
+      ansible.builtin.file:
+        path: /etc/yum.repos.d/tailscale.repo
+        state: absent

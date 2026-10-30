@@ -1,0 +1,15 @@
+helmDefaults:
+  wait: true
+  timeout: 600
+
+repositories:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+
+releases:
+  - name: argocd
+    namespace: argocd
+    chart: argo/argo-cd
+    version: 10.11.6
+    values:
+      - platform/argocd/values.yaml
