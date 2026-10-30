@@ -17,6 +17,12 @@ document does not change DNS or deploy cluster resources.
 - K3s has Traefik and ServiceLB disabled. Gateway API CRDs already have one
   owner: the K3s-managed chart documented under
   `clusters/oracle/k3s-host-manifests/`. Do not install a second CRD bundle.
+- Traefik chart 42.1.3 / Proxy 3.7.16 is installed as an internal ClusterIP
+  Gateway API controller. The `oracle-public` GatewayClass is Accepted and its
+  wildcard Gateway is Programmed. It has no application routes or Cloudflare
+  tunnel target yet. The Service exposes only cluster-internal port 80. Its
+  cluster role has no Secret access; namespaced Secret access is limited to
+  `traefik-system` and `disease-prediction`.
 - The existing External Secrets Operator reconciles only the
   `disease-prediction` namespace. A second controller is configured to watch
   only `edge-system`, using ESO's experimental controller-class feature. Its
@@ -159,6 +165,55 @@ The relevant upstream references are the ExternalDNS
 [annotations](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/annotations/annotations.md),
 [TXT registry](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/registry/txt.md),
 and [Cloudflare provider](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/cloudflare.md).
+
+## Prepare Cloudflare credentials
+
+The DNS zone can remain empty while these credentials are prepared. Do not add
+placeholder A records or run `cloudflared tunnel route dns`; ExternalDNS will
+own app records after a real route is approved. Name.com already delegates to
+Cloudflare and publishes the Cloudflare DNSSEC DS record, so no registrar
+change is needed.
+
+### Create a zone-scoped ExternalDNS token
+
+1. In Cloudflare, open **My Profile → API Tokens → Create Token → Create
+   Custom Token**.
+2. Grant **Zone → DNS → Edit** and **Zone → Zone → Read** permissions.
+3. Under Zone Resources, include only **Specific zone → pocket-doc.app**.
+4. Create the token and enter it directly into the existing OCI Vault using
+   the OCI Console. Name the Vault secret `cloudflare-api-token` and use the
+   existing Vault key. Do not put the token in Git, Terraform, a terminal
+   command, or a message.
+5. Copy the zone ID from the Cloudflare zone overview. The ID is configuration
+   metadata; provide it with the tunnel UUID when the GitOps configuration is
+   prepared.
+
+Cloudflare documents [custom API token creation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+and the [token permission names](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
+
+### Create a locally managed Tunnel
+
+Run these steps on a trusted workstation with `cloudflared` installed:
+
+```sh
+cloudflared tunnel login
+cloudflared tunnel create oracle-k3s
+```
+
+`tunnel login` creates an account-wide `cert.pem`; keep it only on that
+workstation and never copy it to Kubernetes or OCI Vault. `tunnel create`
+prints the tunnel UUID and creates a tunnel-specific JSON credentials file.
+Store only that JSON file in OCI Vault as a secret named `cloudflared-tunnel`,
+using the existing Vault key. Do not display or share the JSON contents. The
+UUID is not secret and is needed in the Gateway target and tunnel config.
+
+Cloudflare explains the difference between the account certificate and
+tunnel-specific credentials in its [local tunnel setup](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/create-local-tunnel/)
+and [tunnel permissions guide](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/tunnel-permissions/).
+
+Delete the temporary `edge-eso-canary` Vault secret after the successful ESO
+test. Do not remove the `cert.pem` from the workstation until you no longer
+need to manage the locally managed tunnel.
 
 ### Traffic, TLS, and exposure
 
