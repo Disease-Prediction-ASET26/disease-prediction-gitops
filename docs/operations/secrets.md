@@ -156,6 +156,20 @@ Kubernetes Secret is gone; automated pruning is disabled. Delete the temporary
 Vault secret after cleanup. Repeat this check before changing controller or
 Vault settings, and before adding Cloudflare credentials.
 
+The Cloudflare Tunnel connector reads its tunnel-specific credential from the
+OCI Vault secret `cloudflared-tunnel`. ESO writes it to the Kubernetes Secret
+key `credentials.json` in `edge-system`. Check only the ExternalSecret status
+and generated key name:
+
+```bash
+kubectl -n edge-system get externalsecret cloudflared-tunnel
+kubectl -n edge-system get secret cloudflared-tunnel \
+  -o go-template='{{range $key, $value := .data}}{{printf "%s\n" $key}}{{end}}'
+```
+
+Never print the generated Secret's value. The ExternalDNS API token will use a
+separate Vault secret named `cloudflare-api-token`.
+
 ## Add and rotate workload secrets
 
 Store each workload credential in OCI Vault, then add an `ExternalSecret` in

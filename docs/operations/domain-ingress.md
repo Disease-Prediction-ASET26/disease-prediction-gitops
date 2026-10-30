@@ -12,6 +12,10 @@ document does not change DNS or deploy cluster resources.
   zone is DNSSEC-signed and its DS record is published at Name.com.
 - The operator reports that the Cloudflare zone currently has no DNS records.
   ExternalDNS will add app records only after approved HTTPRoutes are ready.
+- The locally managed Tunnel `oracle-k3s` has been created. Its tunnel-specific
+  credential is stored in OCI Vault as `cloudflared-tunnel`; a GitOps connector
+  is configured to send wildcard traffic to internal Traefik. No Tunnel DNS
+  route or application route has been created.
 - Tailscale remains the administration path for SSH, kubectl, and Argo CD.
 - The OCI VM has no public inbound rule for ports 80 or 443. Keep it that way.
 - K3s has Traefik and ServiceLB disabled. Gateway API CRDs already have one
