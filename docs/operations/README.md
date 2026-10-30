@@ -29,6 +29,7 @@ Use these versions for this cluster. The chart and image versions are set in
 | Argo CD chart | 10.11.6 |
 | Argo CD image | v3.5.6 |
 | External Secrets chart and image | 2.14.0 |
+| ExternalDNS chart and image | 1.23.0 / 0.23.0 |
 
 ## Install workstation tools
 

@@ -5,6 +5,8 @@ metadata:
   namespace: traefik-system
   labels:
     external-dns.pocket-doc.app/eligible: "true"
+  annotations:
+    external-dns.kubernetes.io/target: "d7bfa34e-30b1-4c02-8aad-b9fe4bd1d050.cfargotunnel.com"
 spec:
   gatewayClassName: oracle-public
   listeners:

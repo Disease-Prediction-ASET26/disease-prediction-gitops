@@ -1,9 +1,9 @@
 # Domain, Cloudflare, and public routes
 
 This runbook covers the registered domain `pocket-doc.app`, DNS delegation from
-Name.com to Cloudflare, and the planned path for publishing approved app routes
+Name.com to Cloudflare, and the path for publishing approved app routes
 from the single-node K3s cluster. Domain registration stays at Name.com. This
-document does not change DNS or deploy cluster resources.
+document describes the reviewed GitOps configuration and its rollout.
 
 ## Current state and target
 
@@ -16,6 +16,12 @@ document does not change DNS or deploy cluster resources.
   credential is stored in OCI Vault as `cloudflared-tunnel`; a GitOps connector
   is configured to send wildcard traffic to internal Traefik. No Tunnel DNS
   route or application route has been created.
+- The Cloudflare zone ID is configured for ExternalDNS. The zone-scoped API
+  token is stored in OCI Vault as `cloudflare-api-token`; ESO delivers it to
+  `edge-system`. ExternalDNS chart `1.23.0` (app `0.23.0`) is configured for
+  Gateway API HTTPRoutes only, with route and Gateway label filters, a TXT
+  registry, CNAME records, and a zone ID filter. It starts with `--dry-run`,
+  so it cannot change Cloudflare DNS. No HTTPRoutes are opted in yet.
 - Tailscale remains the administration path for SSH, kubectl, and Argo CD.
 - The OCI VM has no public inbound rule for ports 80 or 443. Keep it that way.
 - K3s has Traefik and ServiceLB disabled. Gateway API CRDs already have one
@@ -23,8 +29,8 @@ document does not change DNS or deploy cluster resources.
   `clusters/oracle/k3s-host-manifests/`. Do not install a second CRD bundle.
 - Traefik chart 42.1.3 / Proxy 3.7.16 is installed as an internal ClusterIP
   Gateway API controller. The `oracle-public` GatewayClass is Accepted and its
-  wildcard Gateway is Programmed. It has no application routes or Cloudflare
-  tunnel target yet. The Service exposes only cluster-internal port 80. Its
+  wildcard Gateway is Programmed. The Gateway points to the tunnel but has no
+  application routes. The Service exposes only cluster-internal port 80. Its
   cluster role has no Secret access; namespaced Secret access is limited to
   `traefik-system` and `disease-prediction`.
 - The existing External Secrets Operator reconciles only the
@@ -148,14 +154,12 @@ verify the new DS record at Name.com has propagated.
   `external-dns.kubernetes.io/cloudflare-proxied: "true"` on approved routes.
   Gateway API's ExternalDNS source reads the target from the Gateway and
   provider annotations from the Route.
-- Add the Gateway target annotation only after the locally managed tunnel
-  exists and its UUID is known. Until then, keep the Cloudflare zone empty;
-  ExternalDNS will not be enabled before a real route and tunnel target exist.
-- Start with `--policy=upsert-only` and ExternalDNS dry-run during validation.
-  Once the zone filters, TXT ownership, and a real app route have been reviewed,
-  move to `--policy=sync` if route removal should remove its DNS records
-  automatically. `sync` is the intended steady state for automatic lifecycle
-  management; it can delete records owned by this ExternalDNS instance.
+- The Gateway target annotation points to the locally managed tunnel. ExternalDNS
+  is installed in dry-run mode; with no opted-in HTTPRoutes it proposes no
+  records. Keep dry-run enabled until an application route has passed review.
+- Start with `--policy=upsert-only` and ExternalDNS dry-run. Keep
+  `upsert-only` until automatic record cleanup is explicitly desired; `sync`
+  can delete records owned by this ExternalDNS instance when routes disappear.
 - Use a stable TXT owner ID such as `oracle-k3s-pocket-doc-app` and a stable TXT
   prefix such as `external-dns-`. Never change either value after records have
   been created. The prefix gives the TXT ownership record a different name from
@@ -170,6 +174,81 @@ The relevant upstream references are the ExternalDNS
 [TXT registry](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/registry/txt.md),
 and [Cloudflare provider](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/cloudflare.md).
 
+## ExternalDNS rollout and operations
+
+ExternalDNS is installed through Argo CD from the official chart repository.
+The chart and controller versions are pinned. Kubernetes permissions are
+read-only and limited to Gateways, HTTPRoutes, and Namespace discovery.
+Cloudflare access is limited by both the zone-scoped token and zone ID filter.
+
+The controller has these gates:
+
+- only the `gateway-httproute` source;
+- HTTPRoutes must have label `external-dns-public=true`;
+- referenced Gateways must have label
+  `external-dns.pocket-doc.app/eligible=true`;
+- the Gateway target is the Cloudflare Tunnel hostname;
+- only CNAME records under `pocket-doc.app` in the configured zone;
+- TXT ownership uses owner ID `oracle-k3s-pocket-doc-app` and prefix
+  `external-dns-`;
+- proxying is requested with an annotation on each approved route;
+- `--policy=upsert-only` and `--dry-run` are enabled.
+
+### Verify the controller without creating DNS records
+
+After the Argo CD application syncs, check status without showing Secret data:
+
+```sh
+kubectl -n edge-system get externalsecret external-dns-cloudflare
+kubectl -n edge-system get deployment external-dns
+kubectl -n edge-system get pods -l app.kubernetes.io/name=external-dns
+kubectl -n edge-system logs deployment/external-dns --since=10m
+```
+
+Confirm the ExternalSecret is Ready, the deployment has one available replica,
+and logs show a dry-run loop without authentication or API errors. Do not run
+`kubectl get secret ... -o yaml` or print the token. With no opted-in HTTPRoute,
+the zone should remain empty.
+
+### Publish a route when an application is ready
+
+Publish an app only after its API boundary and ARM64 image are ready and public
+access is explicitly approved. Add a Gateway API `HTTPRoute` in the app's
+namespace, attach it to `oracle-public` in `traefik-system`, and use a hostname
+under `pocket-doc.app`. Add this label and annotation to the route:
+
+```yaml
+metadata:
+  labels:
+    external-dns-public: "true"
+  annotations:
+    external-dns.kubernetes.io/cloudflare-proxied: "true"
+```
+
+The namespace must have `pocket-doc.app/public-routes: "true"` for the
+Gateway's `allowedRoutes` selector. Check that the HTTPRoute is Accepted and
+references `oracle-public`. In dry-run, inspect ExternalDNS logs for the exact
+proposed CNAME and TXT ownership record. Confirm they name only the approved
+hostname and point to the tunnel. Check Cloudflare's zone remains unchanged.
+
+When ready to allow DNS changes, remove only `--dry-run` in
+`clusters/oracle/applications/external-dns.yaml`, review the Git diff, and merge
+through a PR. Keep `--policy=upsert-only` initially; it creates or updates
+records owned by this controller without deleting them when a route disappears.
+To enable automatic cleanup later, review the existing TXT ownership records,
+then change policy to `sync` in a separate PR; sync can delete records owned by
+this controller when routes are removed.
+
+### Rotate or remove the Cloudflare token
+
+Rotate by creating a replacement zone-scoped token, updating the existing OCI
+Vault secret in the OCI Console, verifying the ExternalSecret and controller
+recover, then revoking the old token in Cloudflare. To remove ExternalDNS,
+remove its Argo Application and ExternalSecret through Git; verify the generated
+Kubernetes Secret is gone, then revoke the token. Review and remove owned DNS
+and TXT records in Cloudflare deliberately. Do not delete the shared
+`oci-vault-edge` SecretStore or tunnel credential as part of this cleanup.
+
 ## Prepare Cloudflare credentials
 
 The DNS zone can remain empty while these credentials are prepared. Do not add
@@ -178,19 +257,23 @@ own app records after a real route is approved. Name.com already delegates to
 Cloudflare and publishes the Cloudflare DNSSEC DS record, so no registrar
 change is needed.
 
-### Create a zone-scoped ExternalDNS token
+### Zone ID and zone-scoped ExternalDNS token
 
 1. In Cloudflare, open **My Profile → API Tokens → Create Token → Create
    Custom Token**.
 2. Grant **Zone → DNS → Edit** and **Zone → Zone → Read** permissions.
 3. Under Zone Resources, include only **Specific zone → pocket-doc.app**.
 4. Create the token and enter it directly into the existing OCI Vault using
-   the OCI Console. Name the Vault secret `cloudflare-api-token` and use the
-   existing Vault key. Do not put the token in Git, Terraform, a terminal
-   command, or a message.
+   the OCI Console. The secret name is `cloudflare-api-token`; use the existing
+   Vault key. Do not put the token in Git, Terraform, a terminal command, or a
+   message. ESO exposes it to ExternalDNS as `CF_API_TOKEN`.
 5. Copy the zone ID from the Cloudflare zone overview. The ID is configuration
-   metadata; provide it with the tunnel UUID when the GitOps configuration is
-   prepared.
+   metadata, not a credential. ExternalDNS uses it as `--zone-id-filter` in
+   addition to the `pocket-doc.app` domain filter.
+
+ExternalDNS needs **Zone → DNS → Edit** and **Zone → Zone → Read** permissions,
+scoped to only `pocket-doc.app`. Do not use the account-wide Global API Key or
+include the account ID; the controller authenticates with `CF_API_TOKEN`.
 
 Cloudflare documents [custom API token creation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
 and the [token permission names](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
