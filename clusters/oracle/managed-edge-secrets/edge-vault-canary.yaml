@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: edge-vault-canary
+  namespace: edge-system
+spec:
+  refreshInterval: 1m
+  secretStoreRef:
+    name: oci-vault-edge
+    kind: SecretStore
+  target:
+    name: edge-vault-canary
+    creationPolicy: Owner
+  data:
+    - secretKey: value
+      remoteRef:
+        key: edge-eso-canary
