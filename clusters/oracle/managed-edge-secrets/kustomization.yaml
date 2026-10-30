@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - vault-store.yaml
   - cloudflared-tunnel.yaml
+  - cloudflare-api-token.yaml

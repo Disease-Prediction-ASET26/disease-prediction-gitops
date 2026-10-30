@@ -1,10 +1,11 @@
-﻿apiVersion: kustomize.config.k8s.io/v1beta1
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - projects/root.yaml
   - projects/apps.yaml
   - projects/platform.yaml
   - projects/edge-secrets.yaml
+  - projects/edge-dns.yaml
   - projects/ingress.yaml
   - namespaces/disease-prediction.yaml
   - namespaces/eso.yaml
@@ -19,3 +20,4 @@ resources:
   - applications/traefik-access.yaml
   - applications/oracle-public-gateway.yaml
   - applications/cloudflared.yaml
+  - applications/external-dns.yaml

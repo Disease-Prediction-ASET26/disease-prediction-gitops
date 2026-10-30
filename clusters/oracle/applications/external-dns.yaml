@@ -1,0 +1,61 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: oracle-edge-dns
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns
+    chart: external-dns
+    targetRevision: 1.23.0
+    helm:
+      releaseName: external-dns
+      values: |
+        replicaCount: 1
+        sources:
+          - gateway-httproute
+        provider:
+          name: cloudflare
+        policy: upsert-only
+        registry: txt
+        txtOwnerId: oracle-k3s-pocket-doc-app
+        txtPrefix: external-dns-
+        domainFilters:
+          - pocket-doc.app
+        managedRecordTypes:
+          - CNAME
+        labelFilter: external-dns-public=true
+        gatewayNamespace: traefik-system
+        extraArgs:
+          gateway-label-filter: external-dns.pocket-doc.app/eligible==true
+          zone-id-filter: c4721d36d034d67d4c9847fe2085c1e0
+          dry-run: true
+        env:
+          - name: CF_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: external-dns-cloudflare
+                key: CF_API_TOKEN
+        service:
+          enabled: false
+        serviceMonitor:
+          enabled: false
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: edge-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - ServerSideApply=true

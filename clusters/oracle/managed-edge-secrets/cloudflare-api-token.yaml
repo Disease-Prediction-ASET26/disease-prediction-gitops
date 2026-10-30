@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: external-dns-cloudflare
+  namespace: edge-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-edge
+    kind: SecretStore
+  target:
+    name: external-dns-cloudflare
+    creationPolicy: Owner
+  data:
+    - secretKey: CF_API_TOKEN
+      remoteRef:
+        key: cloudflare-api-token
