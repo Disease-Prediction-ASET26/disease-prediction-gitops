@@ -13,20 +13,20 @@ This guide installs Argo CD and connects it to the GitOps repository. It does no
 
 The Argo CD namespace is a checked-in manifest. Review it, then create it:
 
-```powershell
+```bash
 kubectl diff -f platform/argocd/namespace.yaml
 kubectl apply -f platform/argocd/namespace.yaml
 ```
 
 Review the pinned chart release and values:
 
-```powershell
+```bash
 helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
 ```
 
 Install it after reviewing the diff. Add `--interactive` to require confirmation:
 
-```powershell
+```bash
 helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd get pods
 ```
@@ -37,7 +37,7 @@ Wait until the Argo CD pods are ready before continuing.
 
 The root configuration contains the Argo CD projects, application namespace, and root Application. Preview and apply it once:
 
-```powershell
+```bash
 kubectl diff -k clusters/oracle
 kubectl apply -k clusters/oracle
 kubectl -n argocd get applications,appprojects
@@ -47,9 +47,9 @@ The root Application follows `main`. After bootstrap, make changes in files, ope
 
 ## Open Argo CD privately
 
-Use a second PowerShell window while the SSH tunnel is running:
+Use a second terminal while the SSH tunnel is running:
 
-```powershell
+```bash
 kubectl -n argocd port-forward svc/argocd-server 8080:443
 ```
 

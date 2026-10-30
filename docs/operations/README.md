@@ -27,14 +27,97 @@ Use these versions for this cluster setup:
 
 The Helm chart version is separate from the Argo CD image version. The image tag is set in `platform/argocd/values.yaml`; the chart version is pinned in `helmfile.yaml`.
 
-## Install local tools
+## Install local tools on Ubuntu
 
-- Run Ansible from Linux, macOS, or WSL. Install the pinned `ansible-core` in
-  `automation/ansible/requirements.txt` inside a Python virtual environment.
-  Version 2.21 needs Python 3.12-3.14 on the control host and Python 3.9+ on
-  managed hosts.
-- Install [kubectl for Windows](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/) at v1.37.1.
-- Install Helm 4.3.1 with `winget install --id Helm.Helm --exact --version 4.3.1`.
-- Install PowerShell 7.6.9 with `winget install --id Microsoft.PowerShell --exact --version 7.6.9.0`; the Windows Helm Diff installer uses `pwsh`.
-- Download Helmfile v1.8.2 for Windows from the [official release page](https://github.com/helmfile/helmfile/releases/tag/v1.8.2) and verify the archive with its published checksum before adding `helmfile.exe` to `PATH`.
-- Install the Helm Diff plugin using the command in the [Helmfile guide](helmfile.md#install-the-tools).
+The commands below use Ubuntu 24.04 and Bash. The same commands work on most
+Debian-based Linux distributions. Install Python and the tools used to download
+the pinned CLIs:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git openssh-client python3 python3-venv
+```
+
+Install the pinned Ansible Core version in a virtual environment from the
+repository root:
+
+```bash
+python3 -m venv "$HOME/.venvs/oracle-k3s-ansible"
+. "$HOME/.venvs/oracle-k3s-ansible/bin/activate"
+python -m pip install -r automation/ansible/requirements.txt
+ansible-playbook --version
+```
+
+Keep the virtual environment active when you run Ansible. Ansible Core 2.21
+needs Python 3.12-3.14 on the control host and Python 3.9 or newer on the
+managed host.
+
+Install `kubectl` v1.37.1. This selects the matching amd64 or arm64 binary and
+checks its published SHA-256 checksum before installing it:
+
+```bash
+set -euo pipefail
+version=v1.37.1
+arch="$(dpkg --print-architecture)"
+case "$arch" in
+  amd64|arm64) ;;
+  *) echo "Unsupported Debian architecture: $arch" >&2; exit 1 ;;
+esac
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+cd "$tmp_dir"
+curl -fsSLO "https://dl.k8s.io/release/${version}/bin/linux/${arch}/kubectl"
+curl -fsSLO "https://dl.k8s.io/release/${version}/bin/linux/${arch}/kubectl.sha256"
+echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+kubectl version --client
+```
+
+Install Helm v4.3.1 from its official binary release. The official SHA-256
+file is checked before installing the CLI:
+
+```bash
+set -euo pipefail
+version=v4.3.1
+arch="$(dpkg --print-architecture)"
+case "$arch" in
+  amd64|arm64) ;;
+  *) echo "Unsupported Debian architecture: $arch" >&2; exit 1 ;;
+esac
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+cd "$tmp_dir"
+archive="helm-${version}-linux-${arch}.tar.gz"
+curl -fsSLO "https://get.helm.sh/${archive}"
+curl -fsSLO "https://get.helm.sh/${archive}.sha256sum"
+sha256sum --check "${archive}.sha256sum"
+tar -xzf "$archive"
+sudo install -o root -g root -m 0755 "linux-${arch}/helm" /usr/local/bin/helm
+helm version --short
+```
+
+Install Helmfile v1.8.2 for the same architecture. Download the release and
+checksum file from the [official release](https://github.com/helmfile/helmfile/releases/tag/v1.8.2):
+
+```bash
+set -euo pipefail
+version=1.8.2
+arch="$(dpkg --print-architecture)"
+case "$arch" in
+  amd64|arm64) ;;
+  *) echo "Unsupported Debian architecture: $arch" >&2; exit 1 ;;
+esac
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+cd "$tmp_dir"
+archive="helmfile_${version}_linux_${arch}.tar.gz"
+curl -fsSLO "https://github.com/helmfile/helmfile/releases/download/v${version}/${archive}"
+curl -fsSLO "https://github.com/helmfile/helmfile/releases/download/v${version}/helmfile_${version}_checksums.txt"
+grep -F "  ${archive}" "helmfile_${version}_checksums.txt" | sha256sum --check
+tar -xzf "$archive"
+sudo install -o root -g root -m 0755 helmfile /usr/local/bin/helmfile
+helmfile --version
+```
+
+Install the pinned Helm Diff plugin using the command in the
+[Helmfile guide](helmfile.md#install-the-tools).

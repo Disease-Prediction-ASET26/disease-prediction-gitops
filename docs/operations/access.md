@@ -5,18 +5,16 @@ and verify private SSH before setting `admin_ssh_cidr = null` in Terraform.
 
 ## Create a protected kubeconfig
 
-Run these commands from PowerShell. They copy the K3s administrator kubeconfig
-directly into a protected file; its client key grants cluster-admin access.
+Run these commands from a Linux terminal. They copy the K3s administrator
+kubeconfig into a protected file; its client key grants cluster-admin access.
 
-```powershell
-$sshKey = Join-Path $env:USERPROFILE '.ssh\disease-prediction-oci.key'
-$kubeDir = Join-Path $env:USERPROFILE '.kube'
-$kubeConfig = Join-Path $kubeDir 'oracle-k3s.yaml'
-
-New-Item -ItemType Directory -Force $kubeDir | Out-Null
-ssh -i $sshKey 'opc@oracle-k3s' 'sudo cat /etc/rancher/k3s/k3s.yaml' | Set-Content -Encoding ascii $kubeConfig
-icacls $kubeConfig /inheritance:r /grant:r "$($env:USERNAME):(F)"
-$env:KUBECONFIG = $kubeConfig
+```bash
+install -d -m 700 "$HOME/.kube"
+umask 077
+ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s \
+  'sudo cat /etc/rancher/k3s/k3s.yaml' > "$HOME/.kube/oracle-k3s.yaml"
+chmod 600 "$HOME/.kube/oracle-k3s.yaml"
+export KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"
 ```
 
 Do not commit or share this kubeconfig. Keep it outside the repositories and
@@ -24,18 +22,18 @@ remove it when it is no longer needed.
 
 ## Open the Kubernetes API tunnel
 
-In a separate PowerShell window, run:
+In a separate terminal, run:
 
-```powershell
-$sshKey = Join-Path $env:USERPROFILE '.ssh\disease-prediction-oci.key'
-ssh -i $sshKey -N -L 6443:127.0.0.1:6443 opc@oracle-k3s
+```bash
+ssh -i "$HOME/.ssh/disease-prediction-oci.key" \
+  -N -L 6443:127.0.0.1:6443 opc@oracle-k3s
 ```
 
 Keep this window open while using Kubernetes tools. In the first window, check
 access:
 
-```powershell
-$env:KUBECONFIG = Join-Path $env:USERPROFILE '.kube\oracle-k3s.yaml'
+```bash
+export KUBECONFIG="$HOME/.kube/oracle-k3s.yaml"
 kubectl get nodes
 ```
 
