@@ -5,14 +5,17 @@ ordinary Kubernetes Secrets for workloads. K3s is configured to encrypt those
 Kubernetes Secrets at rest. Secret payloads must not be committed to Git,
 Terraform state, terminal output, or logs.
 
-The ESO controller is managed by the `external-secrets` Argo CD Application in
-the `external-secrets` namespace. Its `oracle-platform` AppProject can deploy
-only the pinned chart into that namespace. ESO watches only the
-`disease-prediction` workload namespace and supports namespaced `SecretStore`
-resources there. The workload `oracle-apps` project is extended only with the
-`SecretStore` and `ExternalSecret` resource kinds; it cannot create ordinary
-Kubernetes Secrets there. Cluster-scoped stores, push secrets, and other
-cluster-wide ESO features are disabled. ESO itself creates the synced Secrets.
+The ESO controller is managed by the `external-secrets` Argo CD Application.
+Its `oracle-platform` AppProject can use only the pinned upstream chart and
+targets `external-secrets` plus `disease-prediction`. The chart creates
+scoped `Role` and `RoleBinding` resources in the workload namespace so the
+controller can watch its namespaced stores and secrets. The platform project
+also permits the chart's webhook `Secret` kind; the pinned chart renders that
+Secret in `external-secrets`. The workload `oracle-apps` project remains
+separate and permits only `SecretStore` and `ExternalSecret` among ESO kinds;
+it cannot create ordinary Kubernetes Secrets. Cluster-scoped stores, push
+secrets, and other cluster-wide ESO features are disabled. ESO itself creates
+the synced Secrets.
 
 The chart and image are pinned to 2.14.0, which the ESO support matrix lists
 for Kubernetes 1.37. Review the [upstream support matrix](https://external-secrets.io/v2.14.0/introduction/stability-support/)
@@ -35,7 +38,8 @@ boundary. Keep the IAM permission read-only and limited to this Vault.
 ## Install and check ESO
 
 Review the chart version and restricted app project in Git, then render and
-preview the cluster resources:
+preview the cluster resources. The platform project's workload-namespace
+destination is required for the chart's scoped RBAC resources:
 
 ```bash
 kubectl kustomize clusters/oracle
