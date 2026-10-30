@@ -8,7 +8,7 @@ metadata:
 spec:
   description: Zone-scoped ExternalDNS for approved Gateway API routes
   sourceRepos:
-    - https://kubernetes-sigs.github.io/external-dns
+    - https://github.com/kubernetes-sigs/external-dns.git
   destinations:
     - namespace: edge-system
       server: https://kubernetes.default.svc

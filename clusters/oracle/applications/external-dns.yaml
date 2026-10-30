@@ -8,9 +8,9 @@ metadata:
 spec:
   project: oracle-edge-dns
   source:
-    repoURL: https://kubernetes-sigs.github.io/external-dns
-    chart: external-dns
-    targetRevision: 1.23.0
+    repoURL: https://github.com/kubernetes-sigs/external-dns.git
+    path: charts/external-dns
+    targetRevision: 0c10f1347f033e30eac03f22513d34dcb584ea58
     helm:
       releaseName: external-dns
       values: |
