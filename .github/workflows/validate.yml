@@ -16,3 +16,11 @@ jobs:
           persist-credentials: false
       - name: Render Oracle manifests
         run: kustomize build clusters/oracle > /dev/null
+      - name: Install pinned Ansible Core
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/ansible-venv"
+          "${RUNNER_TEMP}/ansible-venv/bin/python" -m pip install --disable-pip-version-check -r automation/ansible/requirements.txt
+      - name: Check Ansible playbook syntax
+        run: |
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' automation/ansible/playbooks/tailscale.yml
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' automation/ansible/playbooks/remove-tailscale.yml
