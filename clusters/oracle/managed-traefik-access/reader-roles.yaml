@@ -69,6 +69,8 @@ rules:
       - httproutes/status
       - tcproutes/status
       - tlsroutes/status
+      - referencegrants/status
+      - backendtlspolicies/status
     verbs: [update]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -119,36 +121,14 @@ subjects:
     namespace: traefik-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: traefik-auth-system-reader
-rules:
-  - apiGroups: [""]
-    resources:
-      - services
-    verbs: [get, list, watch]
-  - apiGroups: [discovery.k8s.io]
-    resources:
-      - endpointslices
-    verbs: [list, watch]
-  - apiGroups: [gateway.networking.k8s.io]
-    resources:
-      - httproutes
-    verbs: [get, list, watch]
-  - apiGroups: [gateway.networking.k8s.io]
-    resources:
-      - httproutes/status
-    verbs: [update]
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: traefik-auth-system-reader
+  name: traefik-namespaced-reader
   namespace: auth-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: traefik-auth-system-reader
+  name: traefik-namespaced-reader
 subjects:
   - kind: ServiceAccount
     name: traefik
