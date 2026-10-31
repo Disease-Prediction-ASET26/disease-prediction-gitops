@@ -1,20 +1,28 @@
 ﻿# Disease Prediction GitOps
 
-Kubernetes configuration for the single-node Oracle k3s demo. `disease-prediction-infra` owns OCI resources and Terraform. Application source, containers, and CI remain in their respective repositories.
+Kubernetes configuration for the single-node Oracle k3s cluster. The
+infrastructure repository owns OCI resources and Terraform. Application
+source, images, and CI live in their respective repositories.
 
 ## Current scope
 
 - Bootstrap and manage the cluster with Argo CD.
 - Use Tailscale for private SSH and Kubernetes access.
 - Keep the Kubernetes API and Argo CD UI private.
-- Publish an application only after its API boundary and ARM64 image are ready,
-  and its public route has been reviewed. The chosen domain is `pocket-doc.app`;
-  Cloudflare delegation and service publication are still pending.
+- Use the `pocket-doc.app` Cloudflare zone, Cloudflare Tunnel, Traefik, and
+  ExternalDNS for reviewed public routes. The edge platform is installed; no
+  application route is currently published.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
 ## Bootstrap
 
 See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD release with Helmfile and applies the Oracle root application. The root app reads this public repository over HTTPS. Bootstrap does not depend on the domain.
+
+## Architecture and operations
+
+See the [cluster map](docs/architecture.md) for separate views of resource
+ownership, administration and secrets, and public traffic. Use the
+[operations index](docs/operations/README.md) to find the runbook for a task.
 
 ## Layout
 
@@ -29,10 +37,9 @@ See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD relea
 
 The root app uses automated sync and self-healing, with pruning disabled. Removing a manifest from Git therefore does not automatically delete its live resource. Persistent data deletion remains an explicit operator action. The root project can manage approved Argo CD configuration and namespace manifests from the trusted root path; workload apps are limited to the `disease-prediction` namespace and an allowlist of resource kinds.
 
-External Secrets Operator is a namespace-scoped platform app. Its OCI Vault
-`SecretStore` is added only after the Vault exists and its OCID is available.
-See the [secrets operations guide](docs/operations/secrets.md) before adding,
-rotating, or removing synced secrets.
+External Secrets Operator syncs selected OCI Vault values to Kubernetes
+Secrets. See the [secrets guide](docs/operations/secrets.md) before changing
+synced credentials.
 
 GitHub Actions validates the Oracle manifests and Ansible playbooks, and runs
 the shared secret scan on pull requests and pushes to `main`.

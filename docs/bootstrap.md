@@ -4,6 +4,19 @@ This guide installs Argo CD and connects it to the GitOps repository. It does no
 
 For a lost or replaced VM, follow the [single-node recovery guide](operations/recovery.md).
 
+## Flow
+
+```mermaid
+flowchart LR
+  workstation[Workstation on Tailscale] -->|Helmfile installs| argocd[Argo CD]
+  workstation -->|apply root once| root[Root Application]
+  root -->|tracks main| git[GitOps repository]
+  git -->|syncs| cluster[K3s namespaces, projects, and child apps]
+  cluster --> addons[Platform add-ons]
+```
+
+See [cluster architecture](architecture.md) for system ownership and traffic paths.
+
 ## Before you start
 
 - Follow the [Tailscale guide](operations/tailscale.md) and verify direct

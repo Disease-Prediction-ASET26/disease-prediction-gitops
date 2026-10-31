@@ -7,6 +7,18 @@ available. Use the [infrastructure guide](https://github.com/Disease-Prediction-
 for the full Terraform setup and destroy procedures, and the
 [bootstrap guide](../bootstrap.md) to reinstall Argo CD.
 
+## Recovery sequence
+
+```mermaid
+flowchart LR
+  state[Recover Terraform state and credentials] --> vm[Restore or recreate OCI VM]
+  vm --> access[Re-enroll Tailscale and verify SSH/API]
+  access --> k3s[Wait for K3s node Ready]
+  k3s --> argo[Bootstrap Argo CD]
+  argo --> eso[Restore ESO and fetch Vault values]
+  eso --> apps[Restore app data before starting stateful apps]
+```
+
 ## Before recovery
 
 - Restore `terraform.tfvars`, the OCI API signing key, and the SSH private key
@@ -15,9 +27,9 @@ for the full Terraform setup and destroy procedures, and the
   available. Do not initialize against a new empty state file if OCI resources
   already exist; restore a prior bucket version or import the existing resources
   before planning.
-- Check the current OCI boot-volume backup in the Console. The infrastructure
-  inventory records one full backup; verify its age and restore status before
-  relying on it.
+- Check the OCI boot-volume backup in the Console. Terraform creates one
+  baseline backup, not a recurring schedule. Verify its age and restore status;
+  do not rely on it as an application-consistent data backup.
 
 ## Restore Terraform access
 
