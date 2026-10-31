@@ -2,5 +2,3 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: disease-prediction
-  labels:
-    pocket-doc.app/public-routes: "true"

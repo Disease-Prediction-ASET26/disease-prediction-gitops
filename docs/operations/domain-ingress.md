@@ -11,12 +11,13 @@ document describes the reviewed GitOps configuration and its rollout.
 - Name.com delegates `pocket-doc.app` to Cloudflare nameservers. The Cloudflare
   zone is DNSSEC-signed and its DS record is published at Name.com.
 - The Cloudflare zone was empty before the edge smoke test. The temporary
-  `external-dns-test.pocket-doc.app` record is created only for that test and
-  will be removed after verification.
+  route and workload have been removed. Its CNAME and TXT ownership records
+  remain in Cloudflare for manual deletion because ExternalDNS uses
+  `upsert-only`.
 - The locally managed Tunnel `oracle-k3s` has been created. Its tunnel-specific
   credential is stored in OCI Vault as `cloudflared-tunnel`; a GitOps connector
-  is configured to send wildcard traffic to internal Traefik. A temporary
-  static HTTPRoute is used to verify this path and is removed after the test.
+  is configured to send wildcard traffic to internal Traefik. The temporary
+  static HTTPRoute smoke test has been completed and removed.
 - The Cloudflare zone ID is configured for ExternalDNS. The zone-scoped API
   token is stored in OCI Vault as `cloudflare-api-token`; ESO delivers it to
   `edge-system`. ExternalDNS chart `1.23.0` (app `0.23.0`) is configured for
@@ -192,10 +193,10 @@ The controller has these gates:
 - TXT ownership uses owner ID `oracle-k3s-pocket-doc-app` and prefix
   `external-dns-`;
 - proxying is requested with an annotation on each approved route;
-- `--policy=upsert-only` is enabled; dry-run is off so the temporary route can
-  verify DNS record creation. Cleanup is manual in Cloudflare.
+- `--policy=upsert-only` is enabled and live. DNS record cleanup is manual in
+  Cloudflare.
 
-### Verify the controller and temporary route
+### Verify the controller
 
 After the Argo CD application syncs, check status without showing Secret data:
 
@@ -208,11 +209,10 @@ kubectl -n edge-system logs deployment/external-dns --since=10m
 
 Confirm the ExternalSecret is Ready, the deployment has one available replica,
 and logs show reconciliation without authentication or API errors. Do not run
-`kubectl get secret ... -o yaml` or print the token. The dedicated test route
-uses a pinned multi-architecture unprivileged NGINX image and serves only a
-static confirmation page.
-The test Service enables Traefik native load balancing so Traefik connects to
-the ClusterIP, which was reachable during diagnosis while the pod IP was not.
+`kubectl get secret ... -o yaml` or print the token. The end-to-end smoke test
+confirmed a proxied CNAME, TXT ownership, and an HTTPS response through the
+tunnel. Its HTTPRoute and static workload were removed afterward. No public
+HTTPRoutes are currently deployed.
 
 ### Publish a route when an application is ready
 
@@ -232,14 +232,9 @@ metadata:
 The route namespace must have `pocket-doc.app/public-routes: "true"` for the
 Gateway's `allowedRoutes` selector. Check that the HTTPRoute is Accepted and
 references `oracle-public`. ExternalDNS is live with narrowly scoped zone and
-route filters; inspect the Cloudflare record for the test hostname and verify
-it targets the tunnel and is proxied.
-
-Remove the temporary test route and workload through GitOps after checking the
-public path. With `upsert-only`, ExternalDNS leaves the CNAME and TXT ownership
-record in place. Delete those two records manually in Cloudflare after the
-route is gone. This verifies record creation without enabling automatic DNS
-deletion if a route is removed and later reapplied.
+route filters. The current `disease-prediction` namespace does not carry the
+public-routes label; add it only in the same reviewed change that introduces
+an approved public route.
 
 ### Rotate or remove the Cloudflare token
 
@@ -545,6 +540,10 @@ from Terraform; no Terraform network rule should be needed.
 - **Remove one app:** remove its `HTTPRoute`, then manually remove that route's
   CNAME and prefixed TXT record in Cloudflare after confirming their owner
   metadata. `upsert-only` never deletes records automatically.
+- **Traefik backend networking:** the temporary test showed Traefik could reach
+  the test Service ClusterIP but not its Pod IP directly. The test Service used
+  `traefik.io/service.nativelb: "true"`. Investigate pod-to-pod networking or
+  use that annotation on a future backend Service when required.
 - **Remove the edge stack:** remove approved app routes first; export the DNS
   zone; remove ExternalDNS and the tunnel connector; manually remove any
   remaining ExternalDNS-owned CNAME/TXT records; remove the Gateway and
