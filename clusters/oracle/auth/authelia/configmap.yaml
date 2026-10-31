@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authelia-config
+  namespace: auth-system
+data:
+  configuration.yml: |
+    server:
+      address: 'tcp://0.0.0.0:9091/'
+      disable_healthcheck: true
+      endpoints:
+        health:
+          verbose: true
+          detailed: false
+
+    log:
+      level: info
+
+    theme: auto
+    default_2fa_method: webauthn
+
+    totp:
+      issuer: pocket-doc.app
+      disable: true
+
+    webauthn:
+      display_name: pocket-doc.app
+      enable_passkey_login: false
+
+    authentication_backend:
+      password_reset:
+        disable: true
+      password_change:
+        disable: true
+      file:
+        path: /run/secrets/users/users_database.yml
+        watch: false
+        password:
+          algorithm: argon2
+          argon2:
+            variant: argon2id
+            iterations: 3
+            memory: 65536
+            parallelism: 4
+            key_length: 32
+            salt_length: 16
+
+    access_control:
+      default_policy: deny
+      rules:
+        - domain: '*.pocket-doc.app'
+          policy: two_factor
+
+    session:
+      cookies:
+        - domain: pocket-doc.app
+          authelia_url: https://auth.pocket-doc.app
+          default_redirection_url: https://auth.pocket-doc.app
+      expiration: 12h
+      inactivity: 30m
+      remember_me: 30d
+      same_site: lax
+
+    storage:
+      local:
+        path: /data/db.sqlite3
+
+    identity_validation:
+      reset_password:
+        jwt_lifespan: 5 minutes
+
+    password_policy:
+      zxcvbn:
+        enabled: true
+        min_score: 4

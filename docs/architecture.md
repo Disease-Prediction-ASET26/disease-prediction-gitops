@@ -16,7 +16,7 @@ flowchart LR
 
 Terraform owns OCI resources. Helmfile installs Argo CD. Argo CD owns the
 checked-in cluster configuration. K3s owns its host-level Gateway API CRD
-chart. See [bootstrap](bootstrap.md), [operations](operations/README.md), and
+chart and the version-matched Traefik CRD bundle. See [bootstrap](bootstrap.md), [operations](operations/README.md), and
 the [infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md).
 
 ## Administration and secrets
@@ -29,6 +29,8 @@ flowchart LR
   eso -->|VM Instance Principal| vault[OCI Vault]
   eso -->|sync selected values| secrets[Kubernetes Secrets]
   secrets --> pods[Workloads]
+  vault -->|auth accounts and SMTP| authSecrets[Authelia secrets]
+  authSecrets --> authelia[Authelia]
 ```
 
 K3s encrypts Kubernetes Secrets at rest. OCI Instance Principal is a VM-level
@@ -46,11 +48,16 @@ flowchart LR
   tunnel -->|HTTP inside cluster| traefik[Traefik Gateway]
   traefik --> route[Approved HTTPRoute]
   route --> service[App Service]
+  route -. optional ForwardAuth .-> authelia[Authelia portal]
   extdns[ExternalDNS] -->|CNAME and TXT; upsert-only| cf
 ```
 
-Name.com remains the registrar and delegates DNS to Cloudflare. The Tunnel
-provides outbound connectivity; OCI exposes no inbound app ports. The internal
-cloudflared-to-Traefik and Traefik-to-app hops use HTTP. Add origin TLS if an
-application's requirements call for encryption inside the cluster. No app
-route is currently published. See [domain and ingress](operations/domain-ingress.md).
+Authelia's portal is configured at `auth.pocket-doc.app`. Application routes can
+use the Traefik ForwardAuth middleware to require a password and WebAuthn
+second factor. Name.com remains the registrar and delegates DNS to Cloudflare.
+The Tunnel provides outbound connectivity; OCI exposes no inbound app ports.
+The internal cloudflared-to-Traefik and Traefik-to-app hops use HTTP. Add
+origin TLS if an application's requirements call for encryption inside the
+cluster. No application route is currently published. See [domain and
+ingress](operations/domain-ingress.md) and the
+[Authelia runbook](operations/authelia.md).

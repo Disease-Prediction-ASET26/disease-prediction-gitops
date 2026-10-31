@@ -51,7 +51,14 @@ Wait until the Argo CD pods are ready before continuing.
 
 ## Apply the checked-in cluster configuration
 
-The root configuration contains the Argo CD projects, application namespace, and root Application. Preview and apply it once:
+Before applying the root configuration, install the versioned Gateway API
+chart and Traefik CRD bundle into K3s's auto-apply directory. The root app
+creates Gateway API routes and the ForwardAuth Middleware, so their CRDs must
+already be established. Follow the host-manifest steps in
+[Kubernetes operations](operations/kubernetes.md#install-k3s-host-manifests).
+
+The root configuration contains the Argo CD projects, application namespaces,
+and root Application. Preview and apply it once:
 
 ```bash
 kubectl diff -k clusters/oracle

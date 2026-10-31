@@ -1,0 +1,18 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: authelia-smtp
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: authelia-smtp
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        # OCI Vault secret `authelia-smtp` must contain a JSON object with the
+        # address, username, password, sender, and startup_check_address fields.
+        key: authelia-smtp

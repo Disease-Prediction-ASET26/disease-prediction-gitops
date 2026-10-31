@@ -7,7 +7,9 @@ resources:
   - projects/edge-secrets.yaml
   - projects/edge-dns.yaml
   - projects/ingress.yaml
+  - projects/auth.yaml
   - namespaces/disease-prediction.yaml
+  - namespaces/auth-system.yaml
   - namespaces/eso.yaml
   - namespaces/edge-system.yaml
   - namespaces/traefik-system.yaml
@@ -18,6 +20,10 @@ resources:
   - applications/oci-edge-vault-store.yaml
   - applications/traefik.yaml
   - applications/traefik-access.yaml
+  - applications/external-secrets-auth.yaml
   - applications/oracle-public-gateway.yaml
+  - applications/oci-auth-vault-store.yaml
+  - applications/authelia.yaml
+  - applications/authelia-forwardauth.yaml
   - applications/cloudflared.yaml
   - applications/external-dns.yaml

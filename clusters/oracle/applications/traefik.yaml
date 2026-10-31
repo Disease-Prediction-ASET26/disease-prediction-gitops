@@ -29,13 +29,16 @@ spec:
           kubernetesIngress:
             enabled: false
           kubernetesCRD:
-            enabled: false
+            enabled: true
+            namespaces:
+              - disease-prediction
           kubernetesGateway:
             enabled: true
             experimentalChannel: false
             namespaces:
               - traefik-system
               - disease-prediction
+              - auth-system
 
         ingressClass:
           enabled: false
@@ -63,6 +66,12 @@ spec:
               default: true
             exposedPort: 80
             protocol: TCP
+            forwardedHeaders:
+              # K3s PodCIDR; NetworkPolicy limits pod ingress to cloudflared.
+              # Node-originated traffic remains allowed for kubelet probes.
+              trustedIPs:
+                - "10.42.0.0/16"
+              insecure: false
           websecure:
             expose:
               default: false

@@ -105,16 +105,20 @@ ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s \
 The node must be Ready. Then follow the
 [Argo CD bootstrap guide](../bootstrap.md): install the pinned Helmfile
 release. Before installing Argo CD, restore the K3s-owned Gateway API chart
-from the versioned source file. From the GitOps repo root:
+and the Traefik CRD bundle from their versioned source files. From the
+GitOps repo root:
 
 ```bash
 scp -i "$HOME/.ssh/disease-prediction-oci.key" \
   clusters/oracle/k3s-host-manifests/gateway-api-crd.yaml \
   opc@oracle-k3s:/tmp/gateway-api-crd.yaml
+scp -i "$HOME/.ssh/disease-prediction-oci.key" \
+  clusters/oracle/k3s-host-manifests/traefik-crds.yaml \
+  opc@oracle-k3s:/tmp/traefik-crds.yaml
 ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s \
-  'sudo install -o root -g root -m 0644 /tmp/gateway-api-crd.yaml /var/lib/rancher/k3s/server/manifests/gateway-api-crd.yaml && rm -f /tmp/gateway-api-crd.yaml'
+  'sudo install -o root -g root -m 0644 /tmp/gateway-api-crd.yaml /var/lib/rancher/k3s/server/manifests/gateway-api-crd.yaml && sudo install -o root -g root -m 0644 /tmp/traefik-crds.yaml /var/lib/rancher/k3s/server/manifests/traefik-crds.yaml && rm -f /tmp/gateway-api-crd.yaml /tmp/traefik-crds.yaml'
 kubectl -n kube-system get helmchart gateway-api-crd
-kubectl get crd gateways.gateway.networking.k8s.io
+kubectl wait --for=condition=Established crd/gatewayclasses.gateway.networking.k8s.io crd/gateways.gateway.networking.k8s.io crd/httproutes.gateway.networking.k8s.io crd/ingressroutes.traefik.io crd/ingressroutetcps.traefik.io crd/ingressrouteudps.traefik.io crd/middlewares.traefik.io crd/middlewaretcps.traefik.io crd/serverstransports.traefik.io crd/serverstransporttcps.traefik.io crd/tlsoptions.traefik.io crd/tlsstores.traefik.io crd/traefikservices.traefik.io --timeout=180s
 ```
 
 Then review `kubectl diff -k clusters/oracle` and apply the checked-in cluster
@@ -137,6 +141,7 @@ printing Secret data:
 ```bash
 kubectl -n external-secrets get deployments,pods
 kubectl -n disease-prediction get secretstore,externalsecret
+kubectl -n auth-system get secretstore,externalsecret
 ```
 
 The OCI dynamic group is matched to the K3s instance ID. Terraform must update
@@ -146,20 +151,19 @@ workflow; never place them in Terraform state, Git, or command output.
 
 ## Backups before stateful workloads
 
-There are no application PVCs in the current cluster. Its 200 GB boot volume
-uses the full Always Free block-storage allowance, and the infrastructure
-inventory records one full boot-volume backup. K3s `local-path` PVC data lives
-on that VM's boot volume; VM replacement can delete the volume. A volume
-backup is not a substitute for an application-consistent database backup or a
-tested restore of an individual workload.
+Authelia stores its SQLite database, registered passkeys, and sessions in the
+`auth-system/authelia-data` PVC using `local-path`. PVC data lives on the VM's
+boot volume; VM replacement can delete it. The infrastructure inventory
+records one full boot-volume backup, which is not an application-consistent
+database backup. Authelia's runbook documents a quiesced off-VM backup and
+restore. Its account database and encryption keys remain in OCI Vault, but
+users must register passkeys again if the SQLite data is lost.
 
-Before merging a stateful workload, its operations guide must name the PVC and
-storage class, the application's consistent backup command or operator, an
-off-VM destination, retention, recovery point objective, and recovery time
-objective. Check OCI storage and backup quotas before provisioning storage.
-Then take an initial backup and restore it to a separate PVC before the app
-stores important data. During recovery, keep writers stopped, provision the
-PVC, restore and validate the backup, and only then start the workload. Record
-the actual commands and validation checks in that app's guide; they depend on
-the database or file format. Argo CD and ESO can recreate configuration and
+Before merging another stateful workload, its operations guide must name the
+PVC and storage class, a consistent backup method, an off-VM destination,
+retention, recovery point objective, and recovery time objective. Check OCI
+storage and backup quotas before provisioning storage. Take an initial backup
+and restore it to a separate PVC before the app stores important data. During
+recovery, keep writers stopped, provision the PVC, restore and validate the
+backup, then start the workload. Argo CD and ESO recreate configuration and
 secrets, but do not back up application data.
