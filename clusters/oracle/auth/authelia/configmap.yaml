@@ -8,10 +8,6 @@ data:
     server:
       address: 'tcp://0.0.0.0:9091/'
       disable_healthcheck: true
-      endpoints:
-        health:
-          verbose: true
-          detailed: false
 
     log:
       level: info
@@ -26,6 +22,9 @@ data:
     webauthn:
       display_name: pocket-doc.app
       enable_passkey_login: false
+
+    notifier:
+      smtp: {}
 
     authentication_backend:
       password_reset:
@@ -55,7 +54,6 @@ data:
       cookies:
         - domain: pocket-doc.app
           authelia_url: https://auth.pocket-doc.app
-          default_redirection_url: https://auth.pocket-doc.app
       expiration: 12h
       inactivity: 30m
       remember_me: 30d
