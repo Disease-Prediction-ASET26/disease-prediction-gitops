@@ -6,7 +6,6 @@ resources:
   - projects/platform.yaml
   - projects/edge-secrets.yaml
   - projects/edge-dns.yaml
-  - projects/edge-test.yaml
   - projects/ingress.yaml
   - namespaces/disease-prediction.yaml
   - namespaces/eso.yaml
@@ -22,4 +21,3 @@ resources:
   - applications/oracle-public-gateway.yaml
   - applications/cloudflared.yaml
   - applications/external-dns.yaml
-  - applications/edge-test.yaml
