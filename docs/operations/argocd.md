@@ -11,50 +11,62 @@ kubectl -n argocd describe application oracle-root
 
 After merging a change, Argo CD syncs it and repairs drift. Review pending changes in the Argo CD UI or use the Argo CD CLI if installed. Automated pruning is disabled, so removing a file does not automatically delete the live object.
 
-## Access the UI privately
+## Private recovery and bootstrap
 
-With Tailscale connected and the workstation kubeconfig configured, start a
-local port-forward:
+The local `admin` account and anonymous access are disabled in the checked-in
+Helm values. Before Authelia OIDC is ready, or if SSO needs recovery, use the
+CLI's core mode with a trusted kubeconfig. Core mode talks directly to the
+Kubernetes API and bypasses Argo CD's server login:
 
 ```bash
-kubectl -n argocd port-forward svc/argocd-server 8080:443
+argocd --core app list
+argocd --core app sync oracle-root
 ```
 
-Open `https://localhost:8080`. Do not expose the service through a public IP, NodePort, or public tunnel.
+Do not enable a password-based admin account as a routine recovery method.
 
-Read the bootstrap password only when you are ready to sign in. Decode it from
-the generated Kubernetes Secret:
+## Access through Authelia
+
+After SSO is configured, open [`https://argocd.pocket-doc.app`](https://argocd.pocket-doc.app) and choose Authelia. Sign in to Authelia with your account and complete its second factor. Argo CD's local `admin` login and anonymous access are disabled. Members of the existing Authelia `admins` group receive Argo CD administrator permissions; other authenticated users receive no Argo CD permissions by default.
+
+Accounts in the existing `admins` group are administrators in Argo CD. No additional group is needed. Wait for the `authelia-users` ExternalSecret to become Ready and restart Authelia after changing group membership. Do not put the group mapping in Argo CD's default policy, since that would grant every authenticated user administrator access.
+
+The Argo CD CLI uses the same OIDC flow:
 
 ```bash
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o 'jsonpath={.data.password}' | base64 --decode
+argocd login argocd.pocket-doc.app --sso --grpc-web
 ```
 
-Sign in as `admin`, then change the password in Argo CD. Delete the bootstrap
-Secret after the password has been changed:
+The browser callback uses `http://localhost:8085/auth/callback`. Keep the CLI callback local; do not publish that hostname or port. For emergency recovery with a trusted kubeconfig, use Argo CD core mode (`argocd login --core`) or restore the checked-in Helmfile configuration through the normal review workflow. Do not leave the local admin account enabled as a recovery method.
+
+## Enable SSO and publish the route
+
+Create the OIDC secrets listed in the [Authelia runbook](authelia.md#prepare-the-oci-vault-secrets) before merging the SSO change. Wait for the relevant ExternalSecrets, then check that Authelia rolled out:
 
 ```bash
-kubectl -n argocd delete secret argocd-initial-admin-secret
+kubectl -n auth-system wait --for=condition=Ready externalsecret/authelia-core-secrets --timeout=5m
+kubectl -n argocd wait --for=condition=Ready externalsecret/argocd-oidc-client --timeout=5m
+kubectl -n auth-system rollout status deployment/authelia
 ```
 
-Do not paste the password into Git, issues, or chat.
-
-## Reset a lost admin password
-
-The initial password Secret is not updated when you change the password. If
-the current password is lost, remove the stored password hash and let Argo CD
-generate a new initial password. This briefly restarts the API server:
+Apply the checked-in Argo CD Helmfile values from the GitOps repository after reviewing the diff:
 
 ```bash
-kubectl -n argocd delete secret argocd-initial-admin-secret --ignore-not-found
-kubectl -n argocd patch secret argocd-secret --type=json \
-  -p='[{"op":"remove","path":"/data/admin.password"},{"op":"remove","path":"/data/admin.passwordMtime"}]'
-kubectl -n argocd rollout restart deployment/argocd-server
+helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd rollout status deployment/argocd-server
 ```
 
-Read the newly generated password locally, sign in as `admin`, and change it
-in Argo CD. Keep the password out of command history, Git, issues, and chat.
+Then update the `argocd` Namespace label and publish the route. The Argo CD
+route Application is intentionally not automated:
+
+```bash
+kubectl apply -f platform/argocd/namespace.yaml
+argocd app sync argocd-route --core
+argocd app wait argocd-route --core
+```
+
+The route is served by the internal Gateway and points to the ClusterIP `argocd-server` Service. TLS terminates at Cloudflare; the Gateway uses the Argo CD server's HTTP service port inside the cluster. Argo CD native OIDC is the authentication boundary, so this route deliberately does not add the generic Traefik ForwardAuth Middleware. The private service has no NodePort or LoadBalancer.
 
 ## Sync and roll back
 

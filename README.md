@@ -8,10 +8,10 @@ source, images, and CI live in their respective repositories.
 
 - Bootstrap and manage the cluster with Argo CD.
 - Use Tailscale for private SSH and Kubernetes access.
-- Keep the Kubernetes API and Argo CD UI private.
+- Keep the Kubernetes API private and protect the Argo CD UI with Authelia SSO.
 - Use the `pocket-doc.app` Cloudflare zone, Cloudflare Tunnel, Traefik, and
-  ExternalDNS for reviewed public routes. The edge platform is installed; no
-  application route is currently published.
+  ExternalDNS for reviewed public routes. Argo CD's route is enabled manually
+  after its OIDC setup is ready; no workload application route is published.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
 ## Bootstrap

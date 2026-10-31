@@ -2,8 +2,10 @@
 
 This guide covers the public edge for `pocket-doc.app`. Name.com is the
 registrar, while Cloudflare hosts DNS and the public edge. The Authelia login
-portal is configured at `auth.pocket-doc.app`; no application route is currently
-published.
+portal is configured at `auth.pocket-doc.app`. Argo CD is published at
+`argocd.pocket-doc.app` only after its native Authelia OIDC configuration is
+ready; other applications need their own reviewed route and authentication
+configuration.
 
 ## How traffic reaches an app
 
@@ -19,8 +21,9 @@ flowchart LR
 Cloudflare handles browser-facing TLS. Traffic from `cloudflared` to Traefik,
 and from Traefik to the app, uses HTTP inside the cluster. Add origin TLS if an
 application requires encryption on those internal hops. The VM has no public
-inbound rule for ports 80 or 443. Do not publish the Kubernetes API, SSH, or
-Argo CD.
+inbound rule for ports 80 or 443. Do not publish the Kubernetes API or SSH.
+Argo CD is reachable publicly only through its Gateway API route and native
+OIDC login; keep its Service ClusterIP-only.
 
 ## Current platform settings
 
@@ -47,6 +50,10 @@ Argo CD.
 - Authelia lives in `auth-system`; Traefik can read its Service and HTTPRoute
   resources there, but not its Secrets. The login route has the
   `external-dns-public: "true"` label and Cloudflare proxy annotation.
+- Argo CD's route is in the `argocd` namespace and uses Argo CD's native OIDC
+  client against Authelia. Its local admin and anonymous accounts are disabled;
+  the route Application is manual-sync so it is not published before SSO is
+  configured. It does not use the generic ForwardAuth Middleware.
 - ExternalDNS watches Gateway API HTTPRoutes only. A route must have
   `external-dns-public: "true"`, and its Gateway must pass the configured
   label filter. DNS is limited to `pocket-doc.app`, the configured Cloudflare
@@ -143,6 +150,8 @@ and ARM64 image are ready and public access is approved. In the app namespace:
    The route still needs its backend reference. An app in another namespace
    must define its own namespaced Middleware and have it allowed by its
    AppProject; cross-namespace middleware references are not enabled.
+   Argo CD is an exception: use its native OIDC integration as documented in
+   the [Argo CD runbook](argocd.md), and do not add ForwardAuth to its route.
 4. Add the ExternalDNS opt-in label and Cloudflare proxy annotation:
 
    ```yaml
@@ -212,4 +221,5 @@ remove owned DNS records. Keep Vault secrets until their consumers are gone.
 
 For admin access and cluster recovery, use the [Tailscale guide](tailscale.md),
 [Authelia runbook](authelia.md), and [recovery runbook](recovery.md). Keep the
-Kubernetes API and Argo CD private.
+Kubernetes API private. Argo CD is only exposed through its Authelia OIDC
+route.

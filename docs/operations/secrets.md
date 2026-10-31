@@ -31,6 +31,7 @@ Argo CD keeps chart installation separate from application secret references:
 | `oracle-apps` / `oci-vault-store` | Manages namespaced `SecretStore` and `ExternalSecret` references in `disease-prediction`; it cannot create ordinary Secrets. |
 | `oracle-edge-secrets` / `external-secrets-edge` | Runs a second ESO controller scoped to `edge-system`; shares the CRDs/webhook and creates no cluster-scoped RBAC. Its controller-class setting is experimental. |
 | `oracle-auth` / `external-secrets-auth` | Runs a third ESO controller scoped to `auth-system`; it creates Authelia's account, SMTP, and core Secrets from that namespace's `SecretStore`. |
+| `oracle-argocd-oidc` / `external-secrets-argocd-oidc` | Runs a fourth ESO controller scoped to `argocd`; it creates only the Argo CD OIDC client Secret from its namespaced Vault store. |
 | ESO | Creates the generated Kubernetes Secrets from Vault values. |
 
 The edge store uses controller class `oracle-edge-secrets`. Verify this setup
@@ -97,6 +98,16 @@ controller, store, and ExternalSecret status only:
 kubectl -n argocd get application external-secrets-auth oci-auth-vault-store
 kubectl -n external-secrets get deployment external-secrets-auth
 kubectl -n auth-system get secretstore,externalsecrets
+```
+
+Argo CD OIDC uses a separate namespace-scoped controller and Vault store. The
+Authelia runbook lists the four OIDC Vault items and which namespace receives
+each one. Check status only; do not print the generated client Secret:
+
+```bash
+kubectl -n argocd get applications external-secrets-argocd-oidc argocd-oidc-vault-store
+kubectl -n external-secrets get deployment external-secrets-argocd-oidc
+kubectl -n argocd get secretstore oci-vault-argocd externalsecret argocd-oidc-client
 ```
 
 Terraform provisions the Vault, key, and instance-principal policy. The Vault

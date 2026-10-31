@@ -8,6 +8,7 @@ resources:
   - projects/edge-dns.yaml
   - projects/ingress.yaml
   - projects/auth.yaml
+  - projects/argocd-oidc.yaml
   - namespaces/disease-prediction.yaml
   - namespaces/auth-system.yaml
   - namespaces/eso.yaml
@@ -23,6 +24,9 @@ resources:
   - applications/external-secrets-auth.yaml
   - applications/oracle-public-gateway.yaml
   - applications/oci-auth-vault-store.yaml
+  - applications/eso-argocd-oidc-controller.yaml
+  - applications/argocd-oidc-vault-store.yaml
+  - applications/argocd-route.yaml
   - applications/authelia.yaml
   - applications/authelia-forwardauth.yaml
   - applications/cloudflared.yaml

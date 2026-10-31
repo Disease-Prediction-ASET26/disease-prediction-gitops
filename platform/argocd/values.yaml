@@ -1,6 +1,7 @@
 global:
   image:
     tag: v3.5.6
+  domain: argocd.pocket-doc.app
 
 dex:
   enabled: false
@@ -11,3 +12,28 @@ redis-ha:
 server:
   service:
     type: ClusterIP
+
+configs:
+  cm:
+    url: https://argocd.pocket-doc.app
+    admin.enabled: "false"
+    users.anonymous.enabled: "false"
+    oidc.config: |
+      name: Authelia
+      issuer: https://auth.pocket-doc.app
+      clientID: argocd
+      clientSecret: '$argocd-oidc-client:clientSecret'
+      cliClientID: argocd-cli
+      requestedScopes:
+        - openid
+        - email
+        - groups
+      enableUserInfoGroups: true
+      userInfoPath: /api/oidc/userinfo
+  rbac:
+    policy.default: role:authenticated
+    policy.csv: |
+      g, admins, role:admin
+    scopes: '[groups]'
+  params:
+    server.insecure: true

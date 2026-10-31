@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-route
+  namespace: argocd
+spec:
+  project: oracle-ingress
+  source:
+    repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+    targetRevision: main
+    path: clusters/oracle/ingress/argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  # Publish the route only after Authelia's OIDC provider and Argo CD's OIDC
+  # client are configured. Apply this Application's resources manually then.
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
