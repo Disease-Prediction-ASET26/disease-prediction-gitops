@@ -69,7 +69,6 @@ data:
 
     identity_providers:
       oidc:
-        issuer: https://auth.pocket-doc.app
         jwks:
           - key_id: authelia-oidc-2026
             algorithm: RS256
