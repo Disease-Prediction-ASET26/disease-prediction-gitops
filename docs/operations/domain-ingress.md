@@ -1,9 +1,8 @@
 # Domain and public routes
 
 This guide covers the public edge for `pocket-doc.app`. Name.com is the
-registrar; Cloudflare hosts DNS and the public edge. No application route is
-currently published. The temporary NGINX route used to test the path has been
-removed.
+registrar, while Cloudflare hosts DNS and the public edge. No application route is
+currently published.
 
 ## How traffic reaches an app
 

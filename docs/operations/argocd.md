@@ -39,6 +39,23 @@ kubectl -n argocd delete secret argocd-initial-admin-secret
 
 Do not paste the password into Git, issues, or chat.
 
+## Reset a lost admin password
+
+The initial password Secret is not updated when you change the password. If
+the current password is lost, remove the stored password hash and let Argo CD
+generate a new initial password. This briefly restarts the API server:
+
+```bash
+kubectl -n argocd delete secret argocd-initial-admin-secret --ignore-not-found
+kubectl -n argocd patch secret argocd-secret --type=json \
+  -p='[{"op":"remove","path":"/data/admin.password"},{"op":"remove","path":"/data/admin.passwordMtime"}]'
+kubectl -n argocd rollout restart deployment/argocd-server
+kubectl -n argocd rollout status deployment/argocd-server
+```
+
+Read the newly generated password locally, sign in as `admin`, and change it
+in Argo CD. Keep the password out of command history, Git, issues, and chat.
+
 ## Sync and roll back
 
 Normal updates come from reviewed Git changes. If you need to sync immediately after a merge, use the Argo CD UI. To roll back an application, revert its image digest in Git and merge the change. Do not use a mutable image tag.
