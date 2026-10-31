@@ -10,6 +10,8 @@ metadata:
 spec:
   parentRefs:
     - name: oracle-public
+      group: gateway.networking.k8s.io
+      kind: Gateway
       namespace: traefik-system
       sectionName: web
   hostnames:
@@ -21,4 +23,7 @@ spec:
             value: /
       backendRefs:
         - name: edge-test-nginx
+          group: ""
+          kind: Service
           port: 8080
+          weight: 1
