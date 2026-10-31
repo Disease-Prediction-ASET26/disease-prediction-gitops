@@ -115,6 +115,8 @@ kind: Service
 metadata:
   name: argocd-web-proxy
   namespace: auth-system
+  annotations:
+    traefik.io/service.nativelb: "true"
 spec:
   type: ClusterIP
   selector:
