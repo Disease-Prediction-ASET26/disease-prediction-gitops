@@ -31,3 +31,4 @@ resources:
   - applications/authelia-forwardauth.yaml
   - applications/cloudflared.yaml
   - applications/external-dns.yaml
+  - applications/disease-prediction-quota.yaml
