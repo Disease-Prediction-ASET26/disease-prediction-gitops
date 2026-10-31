@@ -4,9 +4,10 @@ Authelia provides a shared login portal for approved routes under
 `pocket-doc.app`. The configured portal is at
 [`https://auth.pocket-doc.app`](https://auth.pocket-doc.app). The first factor
 is a local account and password; WebAuthn passkeys are the second factor.
-Passwordless passkey login and TOTP are disabled. Most protected applications
-use the Traefik ForwardAuth middleware. Argo CD uses its native OpenID Connect
-integration so the browser and CLI receive real Argo CD sessions from Authelia.
+Passwordless passkey login and TOTP are disabled. Future protected workload
+routes can use the Traefik ForwardAuth middleware. Argo CD uses its native
+OpenID Connect integration so the browser and CLI receive real Argo CD sessions
+from Authelia.
 
 ## How it is deployed
 
@@ -22,9 +23,10 @@ integration so the browser and CLI receive real Argo CD sessions from Authelia.
   this single-node cluster, not horizontal scaling.
 - Traefik serves the portal through Gateway API. Its ForwardAuth Middleware
   lives in `disease-prediction` and calls Authelia over the cluster network.
-- Traefik's Gateway provider has read-only access to Secrets in `auth-system`,
-  as required to watch Gateway API resources in that namespace. Keep this
-  namespace limited to authentication components.
+- Traefik's namespaced reader is bound in `auth-system` and includes read access
+  to Secrets there. Keep this namespace limited to authentication components.
+  Traefik has no matching read permission in `argocd`, so it cannot read the
+  Argo CD OIDC client Secret.
 - The Authelia Service uses Traefik native load balancing so requests go to its
   ClusterIP; direct Traefik-to-pod IP connections are unavailable on this
   cluster.
@@ -130,8 +132,12 @@ The existing `admins` group maps to Argo CD's administrator role. Authelia's
 config template reads the PBKDF2 digest from a mounted file, while Argo CD gets
 the plaintext value through its own namespace-scoped ESO controller.
 
-`authelia-smtp` must be a JSON object with string fields matching the SMTP
-provider configuration:
+The current deployment uses Authelia's SMTP notifier and requires an SMTP
+server it can reach during startup. The `authelia-smtp` Vault secret must be a
+JSON object with the fields below. If you do not have an SMTP provider, do not
+enter placeholder values; change the checked-in notifier and secret wiring in a
+reviewed Git change before deploying Authelia. Authelia requires exactly one
+notification provider.
 
 ```json
 {
@@ -194,9 +200,10 @@ kubectl diff -k clusters/oracle
 Merge the reviewed pull request only after the Vault values and Traefik CRD
 bundle are ready. Argo CD creates the namespace-scoped ESO controllers, Vault
 stores, Authelia portal, ForwardAuth Middleware, and Argo CD OIDC configuration.
-The `argocd-route` Application is created but its route is not synced
-automatically. Follow the [Argo CD SSO runbook](argocd.md#enable-sso-and-publish-the-route)
-to apply Helmfile values and publish the route after the secret sync.
+The `argocd-route` Application is manual-sync. For a new deployment, follow the
+[Argo CD SSO runbook](argocd.md#enable-sso-and-publish-the-route) to apply
+Helmfile values and sync the route after the OIDC secret is Ready. The route is
+already synced in the current cluster.
 
 Check status without printing Kubernetes Secret data:
 

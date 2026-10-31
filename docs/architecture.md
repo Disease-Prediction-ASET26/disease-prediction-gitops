@@ -47,17 +47,21 @@ flowchart LR
   cf -->|Tunnel| tunnel[cloudflared]
   tunnel -->|HTTP inside cluster| traefik[Traefik Gateway]
   traefik --> route[Approved HTTPRoute]
-  route --> service[App Service]
-  route -. optional ForwardAuth .-> authelia[Authelia portal]
+  route -->|login portal| authelia[Authelia]
+  route -->|native OIDC route| proxy[Argo CD web proxy]
+  proxy --> argocd[Argo CD]
+  route -. approved workload routes .-> service[Workload Service]
+  service -. optional ForwardAuth .-> authelia
   extdns[ExternalDNS] -->|CNAME and TXT; upsert-only| cf
 ```
 
-Authelia's portal is configured at `auth.pocket-doc.app`. Application routes can
-use the Traefik ForwardAuth middleware to require a password and WebAuthn
-second factor. Name.com remains the registrar and delegates DNS to Cloudflare.
-The Tunnel provides outbound connectivity; OCI exposes no inbound app ports.
-The internal cloudflared-to-Traefik and Traefik-to-app hops use HTTP. Add
-origin TLS if an application's requirements call for encryption inside the
-cluster. No application route is currently published. See [domain and
-ingress](operations/domain-ingress.md) and the
-[Authelia runbook](operations/authelia.md).
+The Authelia portal is published at `auth.pocket-doc.app`. The Argo CD UI is
+published at `argocd.pocket-doc.app` and uses native OIDC with Authelia; its
+local admin and anonymous access are disabled. Product workload routes can use
+the Traefik ForwardAuth middleware to require a password and WebAuthn second
+factor. No product workload route is currently published. Name.com remains the
+registrar and delegates DNS to Cloudflare. The Tunnel provides outbound
+connectivity; OCI exposes no inbound app ports. The internal cloudflared-to-
+Traefik and Traefik-to-app hops use HTTP. Add origin TLS if an application's
+requirements call for encryption inside the cluster. See [domain and
+ingress](operations/domain-ingress.md) and the [Authelia runbook](operations/authelia.md).
