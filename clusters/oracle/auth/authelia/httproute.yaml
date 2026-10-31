@@ -10,11 +10,20 @@ metadata:
 spec:
   parentRefs:
     - name: oracle-public
+      group: gateway.networking.k8s.io
+      kind: Gateway
       namespace: traefik-system
       sectionName: web
   hostnames:
     - auth.pocket-doc.app
   rules:
-    - backendRefs:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
         - name: authelia
+          group: ""
+          kind: Service
           port: 9091
+          weight: 1
