@@ -98,14 +98,18 @@ value for different purposes. The Authelia CLI and user-file format are document
 the [password guide](https://www.authelia.com/reference/guides/passwords/) and
 [secure-value guide](https://www.authelia.com/reference/guides/generating-secure-values/).
 
-Generate the OIDC signing key and HMAC secret locally. Keep the key file private
-and enter its full PEM content into OCI Vault as `authelia-oidc-signing-key`:
+Generate the OIDC signing key and HMAC secret in a private temporary directory
+outside the Git repository. Keep both files private. Enter the full PEM content
+into OCI Vault as `authelia-oidc-signing-key`, and the HMAC file content as
+`authelia-oidc-hmac-secret`:
 
 ```bash
 umask 077
-openssl rand -hex 48 > authelia-oidc-hmac-secret
+export AUTHELIA_SECRET_DIR="$(mktemp -d /dev/shm/authelia-oidc.XXXXXX)"
+chmod 700 "$AUTHELIA_SECRET_DIR"
+openssl rand -hex 48 > "$AUTHELIA_SECRET_DIR/authelia-oidc-hmac-secret"
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 \
-  -out authelia-oidc-signing-key.pem
+  -out "$AUTHELIA_SECRET_DIR/authelia-oidc-signing-key.pem"
 ```
 
 Generate the OIDC client secret and its matching digest together with the

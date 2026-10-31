@@ -5,6 +5,7 @@
 *.key
 *.pem
 *.p12
+/authelia-oidc-hmac-secret
 kubeconfig*
 *.kubeconfig
 **/*secret*.yaml
