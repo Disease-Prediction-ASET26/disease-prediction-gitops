@@ -66,7 +66,7 @@ argocd app sync argocd-route --core
 argocd app wait argocd-route --core
 ```
 
-The route is served by the internal Gateway and points to the ClusterIP `argocd-server` Service. TLS terminates at Cloudflare; the Gateway uses the Argo CD server's HTTP service port inside the cluster. Argo CD native OIDC is the authentication boundary, so this route deliberately does not add the generic Traefik ForwardAuth Middleware. The private service has no NodePort or LoadBalancer.
+The route is served by the internal Gateway and points to a small, unprivileged proxy in `auth-system`, which forwards to the ClusterIP `argocd-server` Service. Keeping the route outside the Argo CD namespace lets Traefik watch it without read access to Argo CD's Kubernetes Secrets. TLS terminates at Cloudflare; the proxy connects to Argo CD's HTTP service port inside the cluster. Argo CD native OIDC is the authentication boundary, so this route deliberately does not add the generic Traefik ForwardAuth Middleware. The Argo CD service has no NodePort or LoadBalancer.
 
 ## Sync and roll back
 

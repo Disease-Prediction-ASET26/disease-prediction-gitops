@@ -29,6 +29,8 @@ spec:
     - group: gateway.networking.k8s.io
       kind: GatewayClass
   namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
     - group: apps
       kind: Deployment
     - group: ""
