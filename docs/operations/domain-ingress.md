@@ -54,6 +54,9 @@ OIDC login; keep its Service ClusterIP-only.
   client against Authelia. Its local admin and anonymous accounts are disabled;
   the route Application is manual-sync so it is not published before SSO is
   configured. It does not use the generic ForwardAuth Middleware.
+- Traefik's read access in `argocd` is limited to routing resources, Services,
+  ConfigMaps, EndpointSlices, and pod metadata. It cannot read the OIDC client
+  Secret in that namespace.
 - ExternalDNS watches Gateway API HTTPRoutes only. A route must have
   `external-dns-public: "true"`, and its Gateway must pass the configured
   label filter. DNS is limited to `pocket-doc.app`, the configured Cloudflare

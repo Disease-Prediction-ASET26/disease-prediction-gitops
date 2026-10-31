@@ -43,3 +43,5 @@ spec:
       kind: NetworkPolicy
     - group: rbac.authorization.k8s.io
       kind: RoleBinding
+    - group: rbac.authorization.k8s.io
+      kind: Role
