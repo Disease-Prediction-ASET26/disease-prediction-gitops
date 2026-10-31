@@ -5,30 +5,35 @@ ordinary Kubernetes Secrets for workloads. K3s is configured to encrypt those
 Kubernetes Secrets at rest. Secret payloads must not be committed to Git,
 Terraform state, terminal output, or logs.
 
-The ESO controller is managed by the `external-secrets` Argo CD Application.
-Its `oracle-platform` AppProject can use only the pinned upstream chart and
-targets `external-secrets` plus `disease-prediction`. The chart creates
-scoped `Role` and `RoleBinding` resources in the workload namespace so the
-controller can watch its namespaced stores and secrets. The platform project
-also permits the chart's webhook `Secret` kind; the pinned chart renders that
-Secret in `external-secrets`. Argo applies this kind allowlist across both
-platform destinations, so the chart-only `oracle-platform` project could
-create a Secret in either namespace; the pinned chart currently renders none
-in `disease-prediction`. The Git-sourced `oracle-apps` project remains
-separate and permits only `SecretStore` and `ExternalSecret` among ESO kinds;
-it cannot create ordinary Kubernetes Secrets. Cluster-scoped stores, push
-secrets, and other cluster-wide ESO features are disabled. ESO itself creates
-the synced Secrets.
+```mermaid
+flowchart LR
+  vault[OCI Vault] -->|Instance Principal| eso[ESO controller]
+  eso -->|namespace-scoped sync| secret[Kubernetes Secret]
+  secret --> pod[Workload]
+```
 
-Platform edge credentials use the separate `oracle-edge-secrets` AppProject
-and an ESO release scoped only to `edge-system`. It shares the existing ESO
-CRDs and webhook, creates no cluster-scoped RBAC, and is pinned to the same
-2.14.0 chart. The separate `SecretStore` sets
-`spec.controller: oracle-edge-secrets` so the workload-scoped controller does
-not process edge secrets. ESO documents controller classes as experimental;
-verify the controller with a non-sensitive Vault canary before adding provider
-credentials. Do not move these credentials into `disease-prediction` or add
-ordinary Kubernetes Secret manifests to Git.
+## Trust boundary
+
+The VM's OCI Instance Principal is shared by the VM, not assigned to an ESO
+pod. The IAM policy allows reading every secret in the configured Vault; ESO
+manifests select which values to sync, but do not limit the OCI identity. A
+pod that can reach OCI's instance metadata endpoint may use that identity.
+There are no Git-managed NetworkPolicies restricting metadata access today.
+Check and restrict metadata access before running untrusted workloads. Keep
+the Vault read-only and dedicated to this cluster.
+
+Argo CD keeps chart installation separate from application secret references:
+
+| Component | Scope and responsibility |
+|---|---|
+| `oracle-platform` / `external-secrets` | Installs the pinned ESO chart and its CRDs/webhook. The chart project allows a Secret kind in both configured destinations, but the chart currently renders its webhook Secret only in `external-secrets`. |
+| `oracle-apps` / `oci-vault-store` | Manages namespaced `SecretStore` and `ExternalSecret` references in `disease-prediction`; it cannot create ordinary Secrets. |
+| `oracle-edge-secrets` / `external-secrets-edge` | Runs a second ESO controller scoped to `edge-system`; shares the CRDs/webhook and creates no cluster-scoped RBAC. Its controller-class setting is experimental. |
+| ESO | Creates the generated Kubernetes Secrets from Vault values. |
+
+The edge store uses controller class `oracle-edge-secrets`. Verify this setup
+with a non-sensitive canary before changing it or adding credentials. Do not
+put edge credentials in `disease-prediction` or commit ordinary Secret objects.
 
 The chart and image are pinned to 2.14.0, which the ESO support matrix lists
 for Kubernetes 1.37. Review the [upstream support matrix](https://external-secrets.io/v2.14.0/introduction/stability-support/)

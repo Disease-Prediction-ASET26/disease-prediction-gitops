@@ -2,6 +2,9 @@
 
 Use the guide for the tool that owns the change:
 
+For a quick map of the cluster and its trust boundaries, start with the
+[architecture page](../architecture.md).
+
 | Task | Guide |
 |---|---|
 | Private SSH, kubectl, and K9s access | [Tailscale](tailscale.md) |
