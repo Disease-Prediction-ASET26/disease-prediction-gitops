@@ -12,14 +12,15 @@ For a quick map of the cluster and its trust boundaries, start with the
 | Edit Kubernetes manifests | [Kubernetes](kubernetes.md) |
 | Check Argo CD sync or access its UI | [Argo CD](argocd.md) |
 | Sync secrets from OCI Vault | [Secrets](secrets.md) |
+| Manage login and passkey authentication | [Authelia](authelia.md) |
 | Recover the single-node cluster | [Recovery](recovery.md) |
 | Manage Cloudflare DNS and public app routes | [Domain and ingress](domain-ingress.md) |
 | Create or change OCI resources | [Infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md) |
 
 ## Pinned versions
 
-Use these versions for this cluster. The chart and image versions are set in
-`helmfile.yaml` and `platform/argocd/values.yaml`.
+Use these versions for this cluster. Versions are pinned in `helmfile.yaml`,
+`platform/argocd/values.yaml`, or the relevant application manifests.
 
 | Tool | Version |
 |---|---|
@@ -33,6 +34,7 @@ Use these versions for this cluster. The chart and image versions are set in
 | Argo CD image | v3.5.6 |
 | External Secrets chart and image | 2.14.0 |
 | ExternalDNS chart and image | 1.23.0 / 0.23.0 |
+| Authelia image | 4.39.28 |
 
 ## Install workstation tools
 

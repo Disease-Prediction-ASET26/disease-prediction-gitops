@@ -1,8 +1,9 @@
 # Domain and public routes
 
 This guide covers the public edge for `pocket-doc.app`. Name.com is the
-registrar, while Cloudflare hosts DNS and the public edge. No application route is
-currently published.
+registrar, while Cloudflare hosts DNS and the public edge. The Authelia login
+portal is configured at `auth.pocket-doc.app`; no application route is currently
+published.
 
 ## How traffic reaches an app
 
@@ -28,8 +29,9 @@ Argo CD.
 - The locally managed Tunnel `oracle-k3s` connects outbound to Cloudflare and
   forwards `*.pocket-doc.app` to Traefik's internal Service. A final catch-all
   returns 404. The tunnel credential is in OCI Vault as `cloudflared-tunnel`.
-- Gateway API CRDs are owned by K3s through the checked-in host manifest. Do
-  not install a second CRD bundle.
+- Gateway API CRDs are owned by K3s through the checked-in host manifest. The
+  Traefik CRD bundle is also installed from a version-matched K3s host
+  manifest. Do not install a second CRD bundle.
 - Traefik is an internal `ClusterIP` Gateway API controller. The `oracle-public`
   Gateway accepts routes only from namespaces labeled
   `pocket-doc.app/public-routes: "true"`.
@@ -37,6 +39,14 @@ Argo CD.
   `disease-prediction`, bound only in those namespaces. This is broader than
   the current HTTP route needs; treat those namespaces' Secrets as readable
   by Traefik and review this permission before adding sensitive values there.
+- Traefik's web port allows pod-originated traffic only from the `cloudflared`
+  pods in `edge-system`; Kubernetes NetworkPolicy does not restrict
+  node-originated traffic. Its trusted forwarded-header range matches the K3s
+  pod CIDR (`10.42.0.0/16`). Keep this range and the NetworkPolicy aligned if
+  the pod network changes.
+- Authelia lives in `auth-system`; Traefik can read its Service and HTTPRoute
+  resources there, but not its Secrets. The login route has the
+  `external-dns-public: "true"` label and Cloudflare proxy annotation.
 - ExternalDNS watches Gateway API HTTPRoutes only. A route must have
   `external-dns-public: "true"`, and its Gateway must pass the configured
   label filter. DNS is limited to `pocket-doc.app`, the configured Cloudflare
@@ -118,7 +128,22 @@ and ARM64 image are ready and public access is approved. In the app namespace:
    reviewed change as its route.
 2. Create an HTTPRoute attached to `oracle-public` in `traefik-system`. Use
    the app's hostname under `pocket-doc.app` and the app's internal Service.
-3. Add the ExternalDNS opt-in label and Cloudflare proxy annotation:
+3. For a route protected by Authelia, add the ForwardAuth filter to each rule.
+   The shared Middleware is in the `disease-prediction` namespace:
+
+   ```yaml
+   filters:
+     - type: ExtensionRef
+       extensionRef:
+         group: traefik.io
+         kind: Middleware
+         name: authelia-forwardauth
+   ```
+
+   The route still needs its backend reference. An app in another namespace
+   must define its own namespaced Middleware and have it allowed by its
+   AppProject; cross-namespace middleware references are not enabled.
+4. Add the ExternalDNS opt-in label and Cloudflare proxy annotation:
 
    ```yaml
    metadata:
@@ -128,10 +153,10 @@ and ARM64 image are ready and public access is approved. In the app namespace:
        external-dns.kubernetes.io/cloudflare-proxied: "true"
    ```
 
-4. Render `clusters/oracle`, review the Argo CD project permissions and diff,
+5. Render `clusters/oracle`, review the Argo CD project permissions and diff,
    then merge the change. Do not use a direct public IP, NodePort, or
    LoadBalancer.
-5. Check route and Gateway status, DNS, TLS, and an HTTPS request:
+6. Check route and Gateway status, DNS, TLS, and an HTTPS request:
 
    ```sh
    kubectl -n <app-namespace> get httproute <route-name>
@@ -185,6 +210,6 @@ remove owned DNS records. Keep Vault secrets until their consumers are gone.
   `traefik.io/service.nativelb: "true"`. Diagnose cluster pod networking before
   choosing that setting for another app.
 
-For admin access and cluster recovery, use the [Tailscale guide](tailscale.md)
-and [recovery runbook](recovery.md). Keep the Kubernetes API and Argo CD
-private.
+For admin access and cluster recovery, use the [Tailscale guide](tailscale.md),
+[Authelia runbook](authelia.md), and [recovery runbook](recovery.md). Keep the
+Kubernetes API and Argo CD private.

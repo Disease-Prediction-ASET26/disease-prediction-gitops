@@ -1,0 +1,18 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: authelia-users
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: authelia-users
+    creationPolicy: Owner
+  data:
+    - secretKey: users_database.yml
+      remoteRef:
+        # OCI Vault secret `authelia-users` must contain the complete YAML user database.
+        key: authelia-users

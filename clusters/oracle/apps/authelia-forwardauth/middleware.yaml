@@ -1,0 +1,10 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: authelia-forwardauth
+  namespace: disease-prediction
+spec:
+  forwardAuth:
+    address: http://authelia.auth-system.svc.cluster.local:9091/api/authz/forward-auth
+    # The web entrypoint trusts upstream headers only from the restricted pod CIDR.
+    trustForwardHeader: true

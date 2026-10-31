@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: authelia
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: oracle-auth
+  source:
+    repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+    targetRevision: main
+    path: clusters/oracle/auth/authelia
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: auth-system
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - ServerSideApply=true

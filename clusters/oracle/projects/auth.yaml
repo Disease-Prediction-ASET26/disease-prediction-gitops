@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: oracle-auth
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  description: Authelia and namespace-scoped secret delivery
+  sourceRepos:
+    - https://charts.external-secrets.io
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: external-secrets
+      server: https://kubernetes.default.svc
+    - namespace: auth-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: apps
+      kind: Deployment
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
+    - group: external-secrets.io
+      kind: ExternalSecret
+    - group: external-secrets.io
+      kind: SecretStore
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: networking.k8s.io
+      kind: NetworkPolicy

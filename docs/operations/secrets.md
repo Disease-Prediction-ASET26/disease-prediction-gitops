@@ -18,7 +18,8 @@ The VM's OCI Instance Principal is shared by the VM, not assigned to an ESO
 pod. The IAM policy allows reading every secret in the configured Vault; ESO
 manifests select which values to sync, but do not limit the OCI identity. A
 pod that can reach OCI's instance metadata endpoint may use that identity.
-There are no Git-managed NetworkPolicies restricting metadata access today.
+There are no Git-managed NetworkPolicies restricting pod access to OCI metadata
+endpoints today.
 Check and restrict metadata access before running untrusted workloads. Keep
 the Vault read-only and dedicated to this cluster.
 
@@ -29,6 +30,7 @@ Argo CD keeps chart installation separate from application secret references:
 | `oracle-platform` / `external-secrets` | Installs the pinned ESO chart and its CRDs/webhook. The chart project allows a Secret kind in both configured destinations, but the chart currently renders its webhook Secret only in `external-secrets`. |
 | `oracle-apps` / `oci-vault-store` | Manages namespaced `SecretStore` and `ExternalSecret` references in `disease-prediction`; it cannot create ordinary Secrets. |
 | `oracle-edge-secrets` / `external-secrets-edge` | Runs a second ESO controller scoped to `edge-system`; shares the CRDs/webhook and creates no cluster-scoped RBAC. Its controller-class setting is experimental. |
+| `oracle-auth` / `external-secrets-auth` | Runs a third ESO controller scoped to `auth-system`; it creates Authelia's account, SMTP, and core Secrets from that namespace's `SecretStore`. |
 | ESO | Creates the generated Kubernetes Secrets from Vault values. |
 
 The edge store uses controller class `oracle-edge-secrets`. Verify this setup
@@ -64,6 +66,11 @@ kubectl kustomize clusters/oracle
 kubectl diff -k clusters/oracle
 ```
 
+The root app's sync waves order child Application objects but do not guarantee
+that each child app is ready before the next starts. On a fresh bootstrap,
+verify that ESO's CRDs are Established before expecting its `SecretStore` and
+`ExternalSecret` resources to become Ready.
+
 After the pull request is merged, Argo CD installs ESO. Check the child app and
 controller pods without reading Kubernetes Secret data:
 
@@ -79,6 +86,17 @@ namespace-scoped Vault store:
 kubectl -n argocd get application external-secrets-edge oci-edge-vault-store
 kubectl -n external-secrets get deployment external-secrets-edge
 kubectl -n edge-system get secretstore oci-vault-edge
+```
+
+Authelia uses its own controller and Vault store in `auth-system`. Its Vault
+secret names and payload shapes are documented in the
+[Authelia runbook](authelia.md#prepare-the-oci-vault-secrets). Check the
+controller, store, and ExternalSecret status only:
+
+```bash
+kubectl -n argocd get application external-secrets-auth oci-auth-vault-store
+kubectl -n external-secrets get deployment external-secrets-auth
+kubectl -n auth-system get secretstore,externalsecrets
 ```
 
 Terraform provisions the Vault, key, and instance-principal policy. The Vault

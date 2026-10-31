@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authelia
+  namespace: auth-system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: authelia
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: authelia
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: authelia
+          image: ghcr.io/authelia/authelia:4.39.28
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: AUTHELIA_SESSION_SECRET_FILE
+              value: /run/secrets/core/session_secret
+            - name: AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE
+              value: /run/secrets/core/storage_encryption_key
+            - name: AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE
+              value: /run/secrets/core/reset_password_jwt_secret
+            - name: AUTHELIA_NOTIFIER_SMTP_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: authelia-smtp
+                  key: address
+            - name: AUTHELIA_NOTIFIER_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: authelia-smtp
+                  key: username
+            - name: AUTHELIA_NOTIFIER_SMTP_SENDER
+              valueFrom:
+                secretKeyRef:
+                  name: authelia-smtp
+                  key: sender
+            - name: AUTHELIA_NOTIFIER_SMTP_STARTUP_CHECK_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: authelia-smtp
+                  key: startup_check_address
+            - name: AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE
+              value: /run/secrets/smtp/password
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: users
+              mountPath: /run/secrets/users
+              readOnly: true
+            - name: core-secrets
+              mountPath: /run/secrets/core
+              readOnly: true
+            - name: smtp-secrets
+              mountPath: /run/secrets/smtp
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health/verbose
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: config
+          configMap:
+            name: authelia-config
+            defaultMode: 0444
+        - name: users
+          secret:
+            secretName: authelia-users
+            defaultMode: 0440
+        - name: core-secrets
+          secret:
+            secretName: authelia-core-secrets
+            defaultMode: 0440
+        - name: smtp-secrets
+          secret:
+            secretName: authelia-smtp
+            defaultMode: 0440
+        - name: data
+          persistentVolumeClaim:
+            claimName: authelia-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

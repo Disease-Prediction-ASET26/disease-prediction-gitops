@@ -15,7 +15,8 @@ kubectl diff -k clusters/oracle
 
 ## Apply and modify
 
-During initial bootstrap, apply the files after reviewing the diff:
+During initial bootstrap, establish the Gateway API and Traefik CRD bundle
+CRDs first, then apply the files after reviewing the diff:
 
 ```bash
 kubectl apply -k clusters/oracle
@@ -36,6 +37,29 @@ manifest.
 Do not add another Gateway API CRD chart when installing a future Gateway
 controller. Keep the current K3s host manifest as the single owner unless a
 reviewed change transfers ownership to Argo CD and removes the host manifest.
+
+## Traefik CRD bundle
+
+Traefik's Helm release skips CRDs. The checked-in
+`clusters/oracle/k3s-host-manifests/traefik-crds.yaml` contains all ten Traefik
+CRDs from v3.7.16, matching the pinned Traefik image. The CRD provider watches
+all ten kinds and needs read access to each in `disease-prediction`. The static
+CRD file is not part of the Argo root Kustomization. When upgrading Traefik,
+update this manifest and its namespaced RBAC from the matching upstream release.
+
+## Install K3s host manifests
+
+Copy both host manifests before applying the root configuration on a new
+cluster, or before merging a Git change that adds a Traefik CRD resource on an
+existing cluster. From the repository root:
+
+```bash
+scp clusters/oracle/k3s-host-manifests/gateway-api-crd.yaml oracle-k3s:/tmp/gateway-api-crd.yaml
+scp clusters/oracle/k3s-host-manifests/traefik-crds.yaml oracle-k3s:/tmp/traefik-crds.yaml
+ssh oracle-k3s 'sudo install -o root -g root -m 0644 /tmp/gateway-api-crd.yaml /var/lib/rancher/k3s/server/manifests/gateway-api-crd.yaml && sudo install -o root -g root -m 0644 /tmp/traefik-crds.yaml /var/lib/rancher/k3s/server/manifests/traefik-crds.yaml && rm -f /tmp/gateway-api-crd.yaml /tmp/traefik-crds.yaml'
+kubectl -n kube-system get helmchart gateway-api-crd
+kubectl wait --for=condition=Established crd/gatewayclasses.gateway.networking.k8s.io crd/gateways.gateway.networking.k8s.io crd/httproutes.gateway.networking.k8s.io crd/ingressroutes.traefik.io crd/ingressroutetcps.traefik.io crd/ingressrouteudps.traefik.io crd/middlewares.traefik.io crd/middlewaretcps.traefik.io crd/serverstransports.traefik.io crd/serverstransporttcps.traefik.io crd/tlsoptions.traefik.io crd/tlsstores.traefik.io crd/traefikservices.traefik.io --timeout=180s
+```
 
 ## Destroy the GitOps-managed resources
 
