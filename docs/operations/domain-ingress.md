@@ -2,10 +2,10 @@
 
 This guide covers the public edge for `pocket-doc.app`. Name.com is the
 registrar, while Cloudflare hosts DNS and the public edge. The Authelia login
-portal is configured at `auth.pocket-doc.app`. Argo CD is published at
-`argocd.pocket-doc.app` only after its native Authelia OIDC configuration is
-ready; other applications need their own reviewed route and authentication
-configuration.
+portal is published at `auth.pocket-doc.app`. The Argo CD UI is published at
+`argocd.pocket-doc.app` behind its native Authelia OIDC configuration. No
+product workload routes are currently published; each needs its own reviewed
+route and authentication configuration.
 
 ## How traffic reaches an app
 
@@ -38,25 +38,25 @@ OIDC login; keep its Service ClusterIP-only.
 - Traefik is an internal `ClusterIP` Gateway API controller. The `oracle-public`
   Gateway accepts routes only from namespaces labeled
   `pocket-doc.app/public-routes: "true"`.
-- Traefik has read access to Secrets in `traefik-system` and
-  `disease-prediction`, bound only in those namespaces. This is broader than
-  the current HTTP route needs; treat those namespaces' Secrets as readable
-  by Traefik and review this permission before adding sensitive values there.
+- Traefik has read access to Secrets in `traefik-system`, `disease-prediction`,
+  and `auth-system`, bound only in those namespaces. This is broader than the
+  current HTTP routes need; treat those namespaces' Secrets as readable by
+  Traefik and review this permission before adding sensitive values there.
 - Traefik's web port allows pod-originated traffic only from the `cloudflared`
   pods in `edge-system`; Kubernetes NetworkPolicy does not restrict
   node-originated traffic. Its trusted forwarded-header range matches the K3s
   pod CIDR (`10.42.0.0/16`). Keep this range and the NetworkPolicy aligned if
   the pod network changes.
-- Authelia lives in `auth-system`; Traefik can read its Service and HTTPRoute
-  resources there, but not its Secrets. The login route has the
-  `external-dns-public: "true"` label and Cloudflare proxy annotation.
-- Argo CD's route is in the `argocd` namespace and uses Argo CD's native OIDC
-  client against Authelia. Its local admin and anonymous accounts are disabled;
-  the route Application is manual-sync so it is not published before SSO is
-  configured. It does not use the generic ForwardAuth Middleware.
-- Traefik's read access in `argocd` is limited to routing resources, Services,
-  ConfigMaps, EndpointSlices, and pod metadata. It cannot read the OIDC client
-  Secret in that namespace.
+- Authelia and its HTTPRoute live in `auth-system`. Traefik has namespaced read
+  access there, including Secrets; keep the namespace limited to authentication
+  components. The login route has the `external-dns-public: "true"` label and
+  Cloudflare proxy annotation.
+- The `argocd-route` Application is in `argocd`, but its HTTPRoute and web proxy
+  are in `auth-system`. The route uses Argo CD's native OIDC client against
+  Authelia and does not use generic ForwardAuth. The manual-sync route has been
+  published after OIDC was configured.
+- Traefik has no namespaced role in `argocd` and cannot read the OIDC client
+  Secret there. The proxy forwards to Argo CD's ClusterIP Service.
 - ExternalDNS watches Gateway API HTTPRoutes only. A route must have
   `external-dns-public: "true"`, and its Gateway must pass the configured
   label filter. DNS is limited to `pocket-doc.app`, the configured Cloudflare

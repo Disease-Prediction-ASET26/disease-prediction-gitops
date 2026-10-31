@@ -57,16 +57,27 @@ helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd rollout status deployment/argocd-server
 ```
 
-Then update the `argocd` Namespace label and publish the route. The Argo CD
-route Application is intentionally not automated:
+The route and proxy are in `auth-system`; the Argo CD Application that manages
+them is `argocd-route` in `argocd`. The root Kustomization labels `auth-system`
+as eligible for public routes. The route Application is intentionally
+manual-sync. On a new cluster, publish it only after OIDC is configured and the
+OIDC ExternalSecret is Ready. In this cluster it has already been manually
+synced:
 
 ```bash
-kubectl apply -f platform/argocd/namespace.yaml
-argocd app sync argocd-route --core
-argocd app wait argocd-route --core
+kubectl get namespace auth-system --show-labels
+argocd --core app sync argocd-route
+argocd --core app wait argocd-route
 ```
 
-The route is served by the internal Gateway and points to a small, unprivileged proxy in `auth-system`, which forwards to the ClusterIP `argocd-server` Service. Keeping the route outside the Argo CD namespace lets Traefik watch it without read access to Argo CD's Kubernetes Secrets. TLS terminates at Cloudflare; the proxy connects to Argo CD's HTTP service port inside the cluster. Argo CD native OIDC is the authentication boundary, so this route deliberately does not add the generic Traefik ForwardAuth Middleware. The Argo CD service has no NodePort or LoadBalancer.
+The route is served by the internal Gateway and points to a small, unprivileged
+proxy in `auth-system`, which forwards to the ClusterIP `argocd-server` Service.
+Keeping the route outside the Argo CD namespace lets Traefik watch it without
+read access to Argo CD's Kubernetes Secrets. TLS terminates at Cloudflare; the
+proxy connects to Argo CD's HTTP service port inside the cluster. Argo CD native
+OIDC is the authentication boundary, so this route deliberately does not add the
+generic Traefik ForwardAuth Middleware. The Argo CD service has no NodePort or
+LoadBalancer.
 
 ## Sync and roll back
 
