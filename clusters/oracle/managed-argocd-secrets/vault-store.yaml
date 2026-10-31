@@ -1,0 +1,12 @@
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: oci-vault-argocd
+  namespace: argocd
+spec:
+  controller: oracle-argocd-oidc-secrets
+  provider:
+    oracle:
+      vault: ocid1.vault.oc1.eu-frankfurt-1.envojlj4aagyu.abtheljsikxywzxc5d7g5ihhgisobk2ssx57nlyrmuopbcmhxnfqkh66vxea
+      region: eu-frankfurt-1
+      principalType: InstancePrincipal

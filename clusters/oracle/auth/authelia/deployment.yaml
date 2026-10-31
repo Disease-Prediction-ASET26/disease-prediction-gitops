@@ -33,12 +33,16 @@ spec:
               containerPort: 9091
               protocol: TCP
           env:
+            - name: X_AUTHELIA_CONFIG_FILTERS
+              value: template
             - name: AUTHELIA_SESSION_SECRET_FILE
               value: /run/secrets/core/session_secret
             - name: AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE
               value: /run/secrets/core/storage_encryption_key
             - name: AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE
               value: /run/secrets/core/reset_password_jwt_secret
+            - name: AUTHELIA_IDENTITY_PROVIDERS_OIDC_HMAC_SECRET_FILE
+              value: /run/secrets/core/oidc_hmac_secret
             - name: AUTHELIA_NOTIFIER_SMTP_ADDRESS
               valueFrom:
                 secretKeyRef:

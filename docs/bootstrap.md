@@ -68,15 +68,22 @@ kubectl -n argocd get applications,appprojects
 
 The root Application follows `main`. After bootstrap, make changes in files, open a pull request, and merge after review. Argo CD then syncs the changes. App workloads are added only when their runnable ARM64 images and service contracts are ready.
 
-## Open Argo CD privately
+## Bootstrap Argo CD through Kubernetes
 
-Use a second terminal while Tailscale is connected:
+The Helm values disable Argo CD's local `admin` account and anonymous access.
+Before Authelia's OIDC secrets and public route are ready, use the CLI's core
+mode with the trusted kubeconfig to manage Argo CD directly through Kubernetes:
 
 ```bash
-kubectl -n argocd port-forward svc/argocd-server 8080:443
+argocd --core app list
+argocd --core app sync oracle-root
 ```
 
-Open `https://localhost:8080`. Keep the Argo CD UI private. Read the initial admin password and rotate it by following [the Argo CD guide](operations/argocd.md#access-the-ui-privately).
+Once OIDC is configured and the route is manually synced, sign in at
+[`https://argocd.pocket-doc.app`](https://argocd.pocket-doc.app) through
+Authelia. See the [Argo CD runbook](operations/argocd.md) for the activation
+steps and emergency recovery.
 
-The Kubernetes API and Argo CD remain private. This bootstrap does not expose
-an application or configure public DNS.
+The Kubernetes API remains private. This bootstrap does not expose an
+application or configure public DNS; Argo CD's route is published later after
+its Authelia OIDC configuration is ready.

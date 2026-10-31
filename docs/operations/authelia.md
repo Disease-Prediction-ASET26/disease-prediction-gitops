@@ -4,8 +4,9 @@ Authelia provides a shared login portal for approved routes under
 `pocket-doc.app`. The configured portal is at
 [`https://auth.pocket-doc.app`](https://auth.pocket-doc.app). The first factor
 is a local account and password; WebAuthn passkeys are the second factor.
-Passwordless passkey login and TOTP are disabled. An application route is not
-protected until its `HTTPRoute` uses the ForwardAuth middleware.
+Passwordless passkey login and TOTP are disabled. Most protected applications
+use the Traefik ForwardAuth middleware. Argo CD uses its native OpenID Connect
+integration so the browser and CLI receive real Argo CD sessions from Authelia.
 
 ## How it is deployed
 
@@ -13,6 +14,9 @@ protected until its `HTTPRoute` uses the ForwardAuth middleware.
   as one ARM64 replica in `auth-system`.
 - Account YAML and runtime secrets are synchronized from OCI Vault by an
   External Secrets controller scoped to `auth-system`.
+- Authelia's OIDC provider signs tokens with a Vault-backed RSA key and a
+  separate HMAC secret. Its Argo CD client secret is stored as a digest in
+  Vault; the plaintext client secret is stored separately for Argo CD.
 - Authelia uses a 1 GiB `local-path` PVC for SQLite state, including registered
   WebAuthn credentials. The file backend and single replica are intended for
   this single-node cluster, not horizontal scaling.
@@ -40,11 +44,12 @@ upgrading Traefik beyond v3.
 
 ## Prepare the OCI Vault secrets
 
-Create these five secrets in the cluster's OCI Vault before applying the root
-configuration on a new cluster or merging the change that adds Authelia. Argo
-CD automatically syncs the child Application. Enter values through the OCI
-Console or another secure secret-entry workflow. Do not put values in Git,
-Terraform, shell arguments, chat, or logs.
+Create these nine secrets in the cluster's OCI Vault before applying the root
+configuration on a new cluster. For an existing Authelia deployment, add the
+four OIDC secrets before merging the SSO change. Argo CD automatically syncs
+the child Applications. Enter values through the OCI Console or another secure
+secret-entry workflow. Do not put values in Git, Terraform, shell arguments,
+chat, or logs.
 
 | OCI Vault secret | Payload |
 |---|---|
@@ -53,6 +58,10 @@ Terraform, shell arguments, chat, or logs.
 | `authelia-storage-encryption-key` | Random key used to encrypt SQLite data |
 | `authelia-reset-password-jwt-secret` | Random signing secret; required by Authelia even though password reset is disabled |
 | `authelia-smtp` | JSON object described below |
+| `authelia-oidc-hmac-secret` | Random 64+ character string used by the OIDC provider |
+| `authelia-oidc-signing-key` | PEM-encoded RSA private key used to sign OIDC tokens |
+| `authelia-argocd-client-secret-hash` | PBKDF2-SHA512 digest of the Argo CD OIDC client secret |
+| `argocd-oidc-client-secret` | Plaintext secret paired with that digest, synced only into `argocd` |
 
 Generate a password digest locally with the same pinned Authelia image. The
 CLI prompts for the password without putting it in shell history:
@@ -73,7 +82,7 @@ users:
     password: '<argon2 digest>'
     email: '<account email>'
     groups:
-      - admins
+      - argocd-admins
 ```
 
 Create random session and encryption values locally with the pinned CLI. Use a
@@ -84,10 +93,38 @@ docker run --rm ghcr.io/authelia/authelia:4.39.28 \
   authelia crypto rand --length 64 --charset alphanumeric
 ```
 
-Repeat for each of the three random string secrets. Do not reuse a value for
-different purposes. The Authelia CLI and user-file format are documented in
+Repeat for session, storage, and reset-password JWT secrets. Do not reuse a
+value for different purposes. The Authelia CLI and user-file format are documented in
 the [password guide](https://www.authelia.com/reference/guides/passwords/) and
 [secure-value guide](https://www.authelia.com/reference/guides/generating-secure-values/).
+
+Generate the OIDC signing key and HMAC secret locally. Keep the key file private
+and enter its full PEM content into OCI Vault as `authelia-oidc-signing-key`:
+
+```bash
+umask 077
+openssl rand -hex 48 > authelia-oidc-hmac-secret
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 \
+  -out authelia-oidc-signing-key.pem
+```
+
+Generate the OIDC client secret and its matching digest together with the
+pinned Authelia CLI. Store the **Random Password** output as
+`argocd-oidc-client-secret` and the **Digest** output as
+`authelia-argocd-client-secret-hash`:
+
+```bash
+docker run --rm ghcr.io/authelia/authelia:4.39.28 \
+  authelia crypto hash generate pbkdf2 --variant sha512 --random \
+  --random.length 72 --random.charset rfc3986
+```
+
+The command prints both values to the local terminal. Enter each directly in
+OCI Vault; never paste them into Git, chat, or a command argument. Also add
+`argocd-admins` to the `groups` list for the account that should administer
+Argo CD. The PBKDF2 digest is read from a mounted file by Authelia's config
+template filter, while Argo CD gets the plaintext value through its own
+namespace-scoped ESO controller.
 
 `authelia-smtp` must be a JSON object with string fields matching the SMTP
 provider configuration:
@@ -112,10 +149,11 @@ See the [SMTP configuration reference](https://www.authelia.com/configuration/no
 for provider-specific address formats.
 
 ESO creates `authelia-users`, `authelia-core-secrets`, and `authelia-smtp` in
-`auth-system`. The Deployment requires all three Kubernetes Secrets before it
-can start. Password changes and password resets are disabled in the portal
-because the user database is read-only; update its hash through OCI Vault
-instead.
+`auth-system`. The Deployment requires these Kubernetes Secrets and the OIDC
+values before it can start. Password changes and password resets are disabled
+in the portal because the user database is read-only; update its hash through
+OCI Vault instead. A separate ESO controller creates `argocd-oidc-client` in
+the `argocd` namespace and is restricted to that namespace.
 
 The ESO `controllerClass` setting is experimental. Before inviting users,
 validate `external-secrets-auth` with a non-sensitive canary in `auth-system`,
@@ -149,16 +187,19 @@ kubectl kustomize clusters/oracle
 kubectl diff -k clusters/oracle
 ```
 
-Merge the reviewed pull request after the Vault values and Traefik CRD bundle are
-ready. Argo CD creates the namespace-scoped ESO controller, Vault store,
-Authelia portal, and ForwardAuth Middleware. No application route is attached
-to the Middleware yet.
+Merge the reviewed pull request only after the Vault values and Traefik CRD
+bundle are ready. Argo CD creates the namespace-scoped ESO controllers, Vault
+stores, Authelia portal, ForwardAuth Middleware, and Argo CD OIDC configuration.
+The `argocd-route` Application is created but its route is not synced
+automatically. Follow the [Argo CD SSO runbook](argocd.md#enable-sso-and-publish-the-route)
+to apply Helmfile values and publish the route after the secret sync.
 
 Check status without printing Kubernetes Secret data:
 
 ```bash
-kubectl -n argocd get applications external-secrets-auth oci-auth-vault-store authelia authelia-forwardauth
+kubectl -n argocd get applications external-secrets-auth oci-auth-vault-store authelia authelia-forwardauth external-secrets-argocd-oidc argocd-oidc-vault-store argocd-route
 kubectl -n auth-system get deployments,pods,services,secretstores,externalsecrets
+kubectl -n argocd get secretstores,externalsecrets
 kubectl -n auth-system get httproute authelia
 kubectl -n traefik-system get gateway oracle-public
 ```
