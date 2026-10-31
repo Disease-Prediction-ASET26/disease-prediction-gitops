@@ -11,7 +11,7 @@ spec:
     path: clusters/oracle/ingress/argocd
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: auth-system
   # Publish the route only after Authelia's OIDC provider and Argo CD's OIDC
   # client are configured. Apply this Application's resources manually then.
   syncPolicy:

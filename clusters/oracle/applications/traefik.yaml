@@ -39,7 +39,6 @@ spec:
               - traefik-system
               - disease-prediction
               - auth-system
-              - argocd
 
         ingressClass:
           enabled: false
