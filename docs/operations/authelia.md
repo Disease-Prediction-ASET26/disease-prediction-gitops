@@ -82,7 +82,7 @@ users:
     password: '<argon2 digest>'
     email: '<account email>'
     groups:
-      - argocd-admins
+      - admins
 ```
 
 Create random session and encryption values locally with the pinned CLI. Use a
@@ -124,11 +124,11 @@ docker run --rm ghcr.io/authelia/authelia:4.39.28 \
 ```
 
 The command prints both values to the local terminal. Enter each directly in
-OCI Vault; never paste them into Git, chat, or a command argument. Also add
-`argocd-admins` to the `groups` list for the account that should administer
-Argo CD. The PBKDF2 digest is read from a mounted file by Authelia's config
-template filter, while Argo CD gets the plaintext value through its own
-namespace-scoped ESO controller.
+OCI Vault; never paste them into Git, chat, or a command argument. Ensure the
+`groups` list includes `admins` for each account that should administer Argo CD.
+The existing `admins` group maps to Argo CD's administrator role. Authelia's
+config template reads the PBKDF2 digest from a mounted file, while Argo CD gets
+the plaintext value through its own namespace-scoped ESO controller.
 
 `authelia-smtp` must be a JSON object with string fields matching the SMTP
 provider configuration:

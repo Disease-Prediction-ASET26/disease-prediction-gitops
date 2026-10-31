@@ -27,9 +27,9 @@ Do not enable a password-based admin account as a routine recovery method.
 
 ## Access through Authelia
 
-After SSO is configured, open [`https://argocd.pocket-doc.app`](https://argocd.pocket-doc.app) and choose Authelia. Sign in to Authelia with your account and complete its second factor. Argo CD's local `admin` login and anonymous access are disabled. The `argocd-admins` Authelia group receives Argo CD administrator permissions; other authenticated users receive no Argo CD permissions by default.
+After SSO is configured, open [`https://argocd.pocket-doc.app`](https://argocd.pocket-doc.app) and choose Authelia. Sign in to Authelia with your account and complete its second factor. Argo CD's local `admin` login and anonymous access are disabled. Members of the existing Authelia `admins` group receive Argo CD administrator permissions; other authenticated users receive no Argo CD permissions by default.
 
-Add `argocd-admins` to the account's `groups` list in the `authelia-users` Vault secret, then wait for its ExternalSecret to become Ready and restart Authelia. Do not put the group mapping in Argo CD's default policy, since that would grant every authenticated user administrator access.
+Accounts in the existing `admins` group are administrators in Argo CD. No additional group is needed. Wait for the `authelia-users` ExternalSecret to become Ready and restart Authelia after changing group membership. Do not put the group mapping in Argo CD's default policy, since that would grant every authenticated user administrator access.
 
 The Argo CD CLI uses the same OIDC flow:
 
