@@ -21,6 +21,9 @@ protected until its `HTTPRoute` uses the ForwardAuth middleware.
 - Traefik's Gateway provider has read-only access to Secrets in `auth-system`,
   as required to watch Gateway API resources in that namespace. Keep this
   namespace limited to authentication components.
+- The Authelia Service uses Traefik native load balancing so requests go to its
+  ClusterIP; direct Traefik-to-pod IP connections are unavailable on this
+  cluster.
 - Traefik limits pod-originated web traffic to `cloudflared`; Kubernetes
   NetworkPolicy does not restrict node-originated traffic. Its trusted
   forwarded-header range is the K3s pod CIDR `10.42.0.0/16`; keep the

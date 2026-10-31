@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: authelia
   namespace: auth-system
+  annotations:
+    traefik.io/service.nativelb: "true"
 spec:
   type: ClusterIP
   selector:
