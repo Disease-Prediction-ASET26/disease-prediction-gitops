@@ -39,6 +39,7 @@ spec:
               - traefik-system
               - disease-prediction
               - auth-system
+              - monitoring
 
         ingressClass:
           enabled: false
