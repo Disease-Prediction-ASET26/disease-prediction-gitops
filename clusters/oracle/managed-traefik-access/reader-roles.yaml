@@ -155,19 +155,36 @@ metadata:
   namespace: monitoring
 rules:
   - apiGroups: [""]
-    resources: [services]
+    resources: [configmaps, services]
     verbs: [get, list, watch]
   - apiGroups: [""]
     resources: [pods]
     verbs: [get]
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [get, list, watch]
   - apiGroups: [discovery.k8s.io]
     resources: [endpointslices]
     verbs: [list, watch]
   - apiGroups: [gateway.networking.k8s.io]
-    resources: [httproutes]
+    resources:
+      - backendtlspolicies
+      - gateways
+      - grpcroutes
+      - httproutes
+      - referencegrants
+      - tcproutes
+      - tlsroutes
     verbs: [get, list, watch]
   - apiGroups: [gateway.networking.k8s.io]
-    resources: [httproutes/status]
+    resources:
+      - backendtlspolicies/status
+      - gateways/status
+      - grpcroutes/status
+      - httproutes/status
+      - referencegrants/status
+      - tcproutes/status
+      - tlsroutes/status
     verbs: [update]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
