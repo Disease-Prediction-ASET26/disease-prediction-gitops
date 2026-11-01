@@ -3,9 +3,11 @@
 This guide covers the public edge for `pocket-doc.app`. Name.com is the
 registrar, while Cloudflare hosts DNS and the public edge. The Authelia login
 portal is published at `auth.pocket-doc.app`. The Argo CD UI is published at
-`argocd.pocket-doc.app` behind its native Authelia OIDC configuration. No
-product workload routes are currently published; each needs its own reviewed
-route and authentication configuration.
+`argocd.pocket-doc.app` behind its native Authelia OIDC configuration. Grafana
+is configured for `grafana.pocket-doc.app` with the same native OIDC
+integration. Its separate route remains manual-sync until the Grafana OIDC
+client is ready. Product workload routes still need their own reviewed route
+and authentication configuration.
 
 ## How traffic reaches an app
 
@@ -22,8 +24,8 @@ Cloudflare handles browser-facing TLS. Traffic from `cloudflared` to Traefik,
 and from Traefik to the app, uses HTTP inside the cluster. Add origin TLS if an
 application requires encryption on those internal hops. The VM has no public
 inbound rule for ports 80 or 443. Do not publish the Kubernetes API or SSH.
-Argo CD is reachable publicly only through its Gateway API route and native
-OIDC login; keep its Service ClusterIP-only.
+Argo CD and Grafana are reachable publicly only through their Gateway API
+routes and native OIDC login; keep their Services ClusterIP-only.
 
 ## Current platform settings
 
@@ -38,10 +40,11 @@ OIDC login; keep its Service ClusterIP-only.
 - Traefik is an internal `ClusterIP` Gateway API controller. The `oracle-public`
   Gateway accepts routes only from namespaces labeled
   `pocket-doc.app/public-routes: "true"`.
-- Traefik has read access to Secrets in `traefik-system`, `disease-prediction`,
-  and `auth-system`, bound only in those namespaces. This is broader than the
-  current HTTP routes need; treat those namespaces' Secrets as readable by
-  Traefik and review this permission before adding sensitive values there.
+- Traefik has namespaced read access in `traefik-system`, `disease-prediction`,
+  `auth-system`, and `monitoring`. In the first three namespaces it can read
+  Secrets; in `monitoring` it has a narrower Role for Services, Pods,
+  EndpointSlices, and HTTPRoutes. Keep Grafana's OIDC Secret out of namespaces
+  where Traefik can read Secrets.
 - Traefik's web port allows pod-originated traffic only from the `cloudflared`
   pods in `edge-system`; Kubernetes NetworkPolicy does not restrict
   node-originated traffic. Its trusted forwarded-header range matches the K3s
@@ -55,6 +58,13 @@ OIDC login; keep its Service ClusterIP-only.
   are in `auth-system`. The route uses Argo CD's native OIDC client against
   Authelia and does not use generic ForwardAuth. The manual-sync route has been
   published after OIDC was configured.
+- The Grafana route is a separate manual-sync Application in `monitoring`.
+  Grafana uses native OIDC with Authelia, disables local basic authentication,
+  and maps the `admins` group to Grafana server administrator. The namespace is
+  opted into public routes so the route can attach to `oracle-public`. Traefik
+  has limited read access in `monitoring` to resolve the route and backend
+  Service; its private HTTPS listener accepts OIDC back-channel requests from
+  Grafana pods.
 - Traefik has no namespaced role in `argocd` and cannot read the OIDC client
   Secret there. The proxy forwards to Argo CD's ClusterIP Service.
 - ExternalDNS watches Gateway API HTTPRoutes only. A route must have
@@ -175,8 +185,9 @@ and ARM64 image are ready and public access is approved. In the app namespace:
    The route still needs its backend reference. An app in another namespace
    must define its own namespaced Middleware and have it allowed by its
    AppProject; cross-namespace middleware references are not enabled.
-   Argo CD is an exception: use its native OIDC integration as documented in
-   the [Argo CD runbook](argocd.md), and do not add ForwardAuth to its route.
+   Argo CD and Grafana use native OIDC instead. See the [Argo CD runbook](argocd.md)
+   and [observability runbook](observability.md); do not add ForwardAuth to
+   those routes.
 4. Add the ExternalDNS opt-in label and Cloudflare proxy annotation:
 
    ```yaml

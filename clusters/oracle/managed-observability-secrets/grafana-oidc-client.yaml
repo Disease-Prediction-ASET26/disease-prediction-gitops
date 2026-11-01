@@ -1,0 +1,21 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-oidc-client
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-observability
+    kind: SecretStore
+  target:
+    name: grafana-oidc-client
+    creationPolicy: Owner
+    template:
+      metadata:
+        labels:
+          app.kubernetes.io/part-of: grafana
+  data:
+    - secretKey: clientSecret
+      remoteRef:
+        key: grafana-oidc-client-secret

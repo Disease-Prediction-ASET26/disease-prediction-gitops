@@ -9,11 +9,13 @@ resources:
   - projects/ingress.yaml
   - projects/auth.yaml
   - projects/argocd-oidc.yaml
+  - projects/observability.yaml
   - namespaces/disease-prediction.yaml
   - namespaces/auth-system.yaml
   - namespaces/eso.yaml
   - namespaces/edge-system.yaml
   - namespaces/traefik-system.yaml
+  - namespaces/observability.yaml
   - applications/root.yaml
   - applications/eso.yaml
   - applications/eso-edge.yaml
@@ -32,3 +34,7 @@ resources:
   - applications/cloudflared.yaml
   - applications/external-dns.yaml
   - applications/disease-prediction-quota.yaml
+  - applications/observability.yaml
+  - applications/eso-observability-oidc-controller.yaml
+  - applications/observability-oidc-vault-store.yaml
+  - applications/grafana-route.yaml
