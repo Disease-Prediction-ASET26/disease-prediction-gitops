@@ -120,6 +120,11 @@ kubeProxy:
 kubeScheduler:
   enabled: false
 
+# The chart places its CoreDNS metrics Service in kube-system, outside this
+# application's allowed namespaces.
+coreDns:
+  enabled: false
+
 kubelet:
   jobNameOverride: k3s-server
 

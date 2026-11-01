@@ -112,9 +112,11 @@ kubectl -n monitoring port-forward service/monitoring-kube-prometheus-prometheus
 
 Grafana includes the chart's Kubernetes dashboards. K3s-specific control plane
 jobs that are not exposed as separate services by default (controller manager,
-scheduler, kube-proxy, and etcd) are disabled. The kubelet job label uses the
-`k3s-server` name expected by the chart's K3s dashboards and rules. Default
-alert rules are loaded into Prometheus and Alertmanager, but no external
+scheduler, kube-proxy, and etcd) are disabled. CoreDNS scraping is also
+disabled because the chart creates its metrics Service in `kube-system`,
+outside the observability project's allowed namespaces. The kubelet job label
+uses the `k3s-server` name expected by the chart's K3s dashboards and rules.
+Default alert rules are loaded into Prometheus and Alertmanager, but no external
 notification receiver is configured.
 
 ## Preview and update
