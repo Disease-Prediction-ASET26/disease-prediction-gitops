@@ -79,6 +79,39 @@ OIDC is the authentication boundary, so this route deliberately does not add the
 generic Traefik ForwardAuth Middleware. The Argo CD service has no NodePort or
 LoadBalancer.
 
+## Route OIDC back-channel inside the cluster
+
+The internal path uses the public OIDC issuer but sends Argo CD's server-side
+requests directly to Traefik's private HTTPS listener. Prepare the Cloudflare
+Origin CA certificate and Vault secrets as described in the
+[Authelia runbook](authelia.md#prepare-the-internal-oidc-certificate), then
+merge the GitOps changes for the TLS Gateway listener and route.
+
+Wait for External Secrets to create the TLS Secret and for the Gateway listener
+to be programmed before applying the Argo CD Helmfile values:
+
+```bash
+kubectl -n auth-system wait --for=condition=Ready externalsecret/authelia-origin-tls --timeout=5m
+kubectl -n traefik-system wait --for=condition=Programmed gateway/oracle-public --timeout=5m
+kubectl -n auth-system get httproute authelia -o yaml
+```
+
+The HTTPRoute status must show the `websecure` parent as accepted. Then review
+and apply Helmfile from the GitOps repository:
+
+```bash
+helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
+kubectl -n argocd rollout status deployment/argocd-server
+kubectl -n argocd exec deploy/argocd-server -- getent ahostsv4 auth.pocket-doc.app
+```
+
+The final command should return Traefik's ClusterIP (`10.43.66.80`). Complete a
+browser SSO login, then remove any temporary Cloudflare exception for Oracle's
+public egress IP and OIDC paths. If login fails, restore the previous Helmfile
+values and apply them before troubleshooting; the public Cloudflare route stays
+available as a recovery path.
+
 ## Sync and roll back
 
 Normal updates come from reviewed Git changes. If you need to sync immediately after a merge, use the Argo CD UI. To roll back an application, revert its image digest in Git and merge the change. Do not use a mutable image tag.

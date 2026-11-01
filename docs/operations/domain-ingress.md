@@ -89,6 +89,28 @@ considers. The Cloudflare token still has DNS edit permission across the
 selected zone; the filters are controller settings, not Cloudflare permission
 boundaries.
 
+## Internal OIDC traffic and geo restrictions
+
+Argo CD keeps the public OIDC issuer `https://auth.pocket-doc.app`, so browser
+redirects and issuer validation use the canonical host. A host alias in the
+Argo pods sends server-side discovery, token, and userinfo requests for that
+host to Traefik's ClusterIP. Traefik terminates TLS on a private HTTPS Gateway
+listener using an Authelia Origin CA certificate, then forwards the request to
+Authelia over the existing cluster HTTP Service. Argo CD trusts Cloudflare's
+Origin CA root. This internal path avoids Cloudflare's country check for
+Argo's back-channel requests while public browser traffic still passes through
+Cloudflare.
+
+The Origin certificate and private key come from OCI Vault and are synced into
+`auth-system/authelia-origin-tls`; see the [Authelia runbook](authelia.md#prepare-the-internal-oidc-certificate).
+Keep the Romania-only Cloudflare block for public requests. After confirming
+Argo CD login works through the internal listener, remove any temporary
+Cloudflare exception made for the Oracle egress IP and OIDC paths. Do not add
+a broad IP allow rule. Cloudflare Origin CA certificates are not browser-
+trusted, so browser traffic must continue to use Cloudflare's edge
+certificate. The Origin CA root currently expires in 2029; rotate Argo CD's
+trusted root before then. See Cloudflare's [Origin CA documentation](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/).
+
 ## Set up the registrar and Cloudflare zone
 
 This setup is already complete. Use these steps if you move DNS providers or

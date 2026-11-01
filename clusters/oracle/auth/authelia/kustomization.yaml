@@ -6,4 +6,5 @@ resources:
   - service.yaml
   - pvc.yaml
   - httproute.yaml
+  - oidc-tls-reference-grant.yaml
   - networkpolicy.yaml

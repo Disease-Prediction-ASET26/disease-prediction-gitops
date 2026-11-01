@@ -37,5 +37,7 @@ spec:
       kind: SecretStore
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: ReferenceGrant
     - group: networking.k8s.io
       kind: NetworkPolicy

@@ -52,6 +52,7 @@ spec:
           enabled: true
           spec:
             type: ClusterIP
+            clusterIP: 10.43.66.80
 
         rbac:
           enabled: false
@@ -74,7 +75,9 @@ spec:
               insecure: false
           websecure:
             expose:
-              default: false
+              default: true
+            exposedPort: 443
+            protocol: TCP
 
         resources:
           requests:

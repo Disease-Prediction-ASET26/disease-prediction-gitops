@@ -48,10 +48,11 @@ upgrading Traefik beyond v3.
 
 Create these nine secrets in the cluster's OCI Vault before applying the root
 configuration on a new cluster. For an existing Authelia deployment, add the
-four OIDC secrets before merging the SSO change. Argo CD automatically syncs
-the child Applications. Enter values through the OCI Console or another secure
-secret-entry workflow. Do not put values in Git, Terraform, shell arguments,
-chat, or logs.
+four OIDC secrets before merging the SSO change. To enable Argo CD's internal
+OIDC path, also create the two TLS secrets described below. Argo CD
+automatically syncs the child Applications. Enter values through the OCI
+Console or another secure secret-entry workflow. Do not put values in Git,
+Terraform, shell arguments, chat, or logs.
 
 | OCI Vault secret | Payload |
 |---|---|
@@ -131,6 +132,25 @@ OCI Vault; never paste them into Git, chat, or a command argument. Ensure the
 The existing `admins` group maps to Argo CD's administrator role. Authelia's
 config template reads the PBKDF2 digest from a mounted file, while Argo CD gets
 the plaintext value through its own namespace-scoped ESO controller.
+
+## Prepare the internal OIDC certificate
+
+In Cloudflare, open SSL/TLS → Origin Server → Create Certificate. Create a
+Cloudflare Origin CA RSA certificate for exactly `auth.pocket-doc.app`. Store
+its certificate PEM in OCI Vault secret `authelia-origin-tls-cert` and its
+private key PEM in `authelia-origin-tls-key`. Do not put the private key in
+Git or paste it into chat. External Secrets syncs these values into the
+`auth-system/authelia-origin-tls` TLS Secret, which Traefik reads through a
+narrow Gateway API `ReferenceGrant`. Create both Vault secrets before merging
+the internal OIDC route change.
+
+The Argo CD configuration trusts the public Cloudflare Origin RSA CA root
+certificate for connections to the OIDC issuer. The root is public and is
+checked in as `oidc.config.rootCA`; the private certificate key remains in OCI
+Vault. The current root expires in 2029, so renew it before expiry and update
+the checked-in root certificate when Cloudflare rotates its CA. The origin
+certificate is used only by Argo CD's in-cluster back-channel. Browser access
+continues to use Cloudflare's edge certificate.
 
 The current deployment uses Authelia's SMTP notifier and requires an SMTP
 server it can reach during startup. The `authelia-smtp` Vault secret must be a
