@@ -20,3 +20,20 @@ spec:
           selector:
             matchLabels:
               pocket-doc.app/public-routes: "true"
+    - name: websecure
+      hostname: auth.pocket-doc.app
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: authelia-origin-tls
+            namespace: auth-system
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              pocket-doc.app/public-routes: "true"
