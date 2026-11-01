@@ -1,0 +1,185 @@
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+grafana:
+  enabled: true
+  hostAliases:
+    # Match Argo CD's private OIDC path through Traefik's HTTPS Gateway.
+    - ip: 10.43.66.80
+      hostnames:
+        - auth.pocket-doc.app
+  admin:
+    existingSecret: monitoring-grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+  envValueFrom:
+    GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+      secretKeyRef:
+        name: grafana-oidc-client
+        key: clientSecret
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: prometheus
+          url: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/
+          access: proxy
+          isDefault: true
+          editable: false
+          jsonData:
+            timeInterval: 60s
+  extraConfigmapMounts:
+    - name: grafana-oidc-ca
+      mountPath: /etc/grafana/oidc-certs
+      configMap: grafana-oidc-ca
+      readOnly: true
+  grafana.ini:
+    server:
+      domain: grafana.pocket-doc.app
+      root_url: https://grafana.pocket-doc.app
+    auth:
+      disable_login_form: true
+    auth.basic:
+      enabled: false
+    auth.generic_oauth:
+      enabled: true
+      name: Authelia
+      icon: signin
+      allow_sign_up: true
+      client_id: grafana
+      scopes: openid profile email groups
+      empty_scopes: false
+      auth_url: https://auth.pocket-doc.app/api/oidc/authorization
+      token_url: https://auth.pocket-doc.app/api/oidc/token
+      api_url: https://auth.pocket-doc.app/api/oidc/userinfo
+      login_attribute_path: preferred_username
+      groups_attribute_path: groups
+      name_attribute_path: name
+      use_pkce: true
+      auth_style: InHeader
+      role_attribute_path: "contains(groups[*], 'admins') && 'GrafanaAdmin' || 'Viewer'"
+      role_attribute_strict: true
+      allow_assign_grafana_admin: true
+      tls_client_ca: /etc/grafana/oidc-certs/cloudflare-origin-ca.pem
+    security:
+      cookie_secure: true
+  sidecar:
+    dashboards:
+      # Grafana's file provider polls every 30s; avoid Basic-auth reload calls.
+      skipReload: true
+      provider:
+        updateIntervalSeconds: 30
+    datasources:
+      enabled: false
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# K3s combines the control-plane processes. Scrape only endpoints that are
+# available by default; expose supervisor metrics separately if needed later.
+kubeControllerManager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubelet:
+  jobNameOverride: k3s-server
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+  admissionWebhooks:
+    patch:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    shards: 1
+    scrapeInterval: 60s
+    evaluationInterval: 60s
+    retention: 7d
+    retentionSize: 8GiB
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1536Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi

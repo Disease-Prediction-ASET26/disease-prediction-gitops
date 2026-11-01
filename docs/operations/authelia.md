@@ -46,11 +46,11 @@ upgrading Traefik beyond v3.
 
 ## Prepare the OCI Vault secrets
 
-Create these nine secrets in the cluster's OCI Vault before applying the root
+Create these eleven secrets in the cluster's OCI Vault before applying the root
 configuration on a new cluster. For an existing Authelia deployment, add the
-four OIDC secrets before merging the SSO change. To enable Argo CD's internal
-OIDC path, also create the two TLS secrets described below. Argo CD
-automatically syncs the child Applications. Enter values through the OCI
+two Grafana OIDC secrets before merging the Grafana SSO change. To enable Argo
+CD's internal OIDC path, also create the two TLS secrets described below. Argo
+CD automatically syncs the child Applications. Enter values through the OCI
 Console or another secure secret-entry workflow. Do not put values in Git,
 Terraform, shell arguments, chat, or logs.
 
@@ -65,6 +65,8 @@ Terraform, shell arguments, chat, or logs.
 | `authelia-oidc-signing-key` | PEM-encoded RSA private key used to sign OIDC tokens |
 | `authelia-argocd-client-secret-hash` | PBKDF2-SHA512 digest of the Argo CD OIDC client secret |
 | `argocd-oidc-client-secret` | Plaintext secret paired with that digest, synced only into `argocd` |
+| `authelia-grafana-client-secret-hash` | PBKDF2-SHA512 digest of the Grafana OIDC client secret |
+| `grafana-oidc-client-secret` | Plaintext secret paired with that digest, synced only into `monitoring` |
 
 Generate a password digest locally with the same pinned Authelia image. The
 CLI prompts for the password without putting it in shell history:
@@ -115,10 +117,12 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 \
   -out "$AUTHELIA_SECRET_DIR/authelia-oidc-signing-key.pem"
 ```
 
-Generate the OIDC client secret and its matching digest together with the
+Generate each OIDC client secret and its matching digest separately with the
 pinned Authelia CLI. Store the **Random Password** output as
 `argocd-oidc-client-secret` and the **Digest** output as
-`authelia-argocd-client-secret-hash`:
+`authelia-argocd-client-secret-hash` for Argo CD. Repeat the command for
+Grafana, storing the outputs as `grafana-oidc-client-secret` and
+`authelia-grafana-client-secret-hash`:
 
 ```bash
 docker run --rm ghcr.io/authelia/authelia:4.39.28 \
@@ -128,10 +132,11 @@ docker run --rm ghcr.io/authelia/authelia:4.39.28 \
 
 The command prints both values to the local terminal. Enter each directly in
 OCI Vault; never paste them into Git, chat, or a command argument. Ensure the
-`groups` list includes `admins` for each account that should administer Argo CD.
-The existing `admins` group maps to Argo CD's administrator role. Authelia's
-config template reads the PBKDF2 digest from a mounted file, while Argo CD gets
-the plaintext value through its own namespace-scoped ESO controller.
+`groups` list includes `admins` for each account that should administer Argo CD
+or Grafana. The existing `admins` group maps to administrator roles in both
+applications. Authelia reads the PBKDF2 digest from its mounted core Secret;
+each application gets the plaintext value through a namespace-scoped ESO
+controller.
 
 ## Prepare the internal OIDC certificate
 
@@ -180,7 +185,8 @@ for provider-specific address formats.
 
 ESO creates `authelia-users`, `authelia-core-secrets`, and `authelia-smtp` in
 `auth-system`. The Deployment requires these Kubernetes Secrets and the OIDC
-values before it can start. Password changes and password resets are disabled
+values before it can start. Grafana's separate ESO controller syncs its client
+secret to `monitoring`. Password changes and password resets are disabled
 in the portal because the user database is read-only; update its hash through
 OCI Vault instead. A separate ESO controller creates `argocd-oidc-client` in
 the `argocd` namespace and is restricted to that namespace.
