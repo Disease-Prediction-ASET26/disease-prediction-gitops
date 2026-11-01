@@ -69,6 +69,18 @@ assigns `tailscale0` to a restricted firewalld zone that allows only SSH and
 the Kubernetes API, and adds `oracle-k3s` to the K3s API certificate. K3s
 restarts only if its certificate configuration changes.
 
+The playbook sets `--accept-dns=false` so Tailscale does not replace the VM's
+OCI resolver. K3s CoreDNS forwards external DNS through the VM resolver, while
+the VM's Tailscale connection still supports private SSH and Kubernetes API
+access. After applying, verify both host and cluster DNS:
+
+```bash
+ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s \
+  'cat /etc/resolv.conf; getent ahostsv4 auth.pocket-doc.app'
+kubectl -n argocd exec deploy/argocd-server -- \
+  getent ahostsv4 auth.pocket-doc.app
+```
+
 The playbook also enables Oracle Linux's post-quantum SSH policy. If an older
 SSH client cannot connect, restore the default policy from an existing VM
 session:

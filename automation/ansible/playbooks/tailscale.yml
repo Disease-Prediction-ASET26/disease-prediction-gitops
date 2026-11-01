@@ -90,6 +90,7 @@
         /usr/bin/tailscale up
         --hostname={{ tailscale_hostname }}
         --advertise-tags={{ tailscale_tag }}
+        --accept-dns=false
         --auth-key="$TAILSCALE_AUTH_KEY"
       args:
         executable: /bin/bash
@@ -105,6 +106,7 @@
           - up
           - "--hostname={{ tailscale_hostname }}"
           - "--advertise-tags={{ tailscale_tag }}"
+          - --accept-dns=false
       changed_when: false
       when: tailscale_backend_state == 'Running' and not ansible_check_mode
 
