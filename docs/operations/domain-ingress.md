@@ -40,11 +40,15 @@ routes and native OIDC login; keep their Services ClusterIP-only.
 - Traefik is an internal `ClusterIP` Gateway API controller. The `oracle-public`
   Gateway accepts routes only from namespaces labeled
   `pocket-doc.app/public-routes: "true"`.
-- Traefik has namespaced read access in `traefik-system`, `disease-prediction`,
-  `auth-system`, and `monitoring`. In the first three namespaces it can read
-  Secrets; in `monitoring` it has a narrower Role for Services, Pods,
-  EndpointSlices, and HTTPRoutes. Keep Grafana's OIDC Secret out of namespaces
-  where Traefik can read Secrets.
+- Traefik's provider watch scope and Kubernetes RBAC are separate settings.
+  Its Gateway provider watches `traefik-system`, `disease-prediction`,
+  `auth-system`, and `monitoring`; namespaced Roles are managed in
+  `managed-traefik-access/reader-roles.yaml`. The `monitoring` Role includes
+  read access to ConfigMaps and Secrets (including Grafana's OIDC Secret),
+  discovery access to Services, Pods, EndpointSlices, and Gateway API objects,
+  plus updates to selected Gateway API status subresources. Treat each watched
+  namespace and its Secrets as accessible to Traefik; do not place unrelated
+  high-trust credentials there.
 - Traefik's web port allows pod-originated traffic only from the `cloudflared`
   pods in `edge-system`; Kubernetes NetworkPolicy does not restrict
   node-originated traffic. Its trusted forwarded-header range matches the K3s
@@ -62,9 +66,9 @@ routes and native OIDC login; keep their Services ClusterIP-only.
   Grafana uses native OIDC with Authelia, disables local basic authentication,
   and maps the `admins` group to Grafana server administrator. The namespace is
   opted into public routes so the route can attach to `oracle-public`. Traefik
-  has limited read access in `monitoring` to resolve the route and backend
-  Service; its private HTTPS listener accepts OIDC back-channel requests from
-  Grafana pods.
+  can read Secrets in `monitoring`. Grafana's Service uses NativeLB because
+  direct Pod IP connections from Traefik failed; its private HTTPS listener
+  also accepts OIDC back-channel requests from Grafana pods.
 - Traefik has no namespaced role in `argocd` and cannot read the OIDC client
   Secret there. The proxy forwards to Argo CD's ClusterIP Service.
 - ExternalDNS watches Gateway API HTTPRoutes only. A route must have
@@ -164,51 +168,107 @@ trusted workstation. Do not copy it to Kubernetes or Git.
 ## Publish an application route
 
 Only publish an app after its API boundary, authentication, health behavior,
-and ARM64 image are ready and public access is approved. In the app namespace:
+and ARM64 image are ready and public access is approved. Keep the Service
+internal (`ClusterIP`); the Gateway and Cloudflare Tunnel provide public
+ingress.
 
-1. Add namespace label `pocket-doc.app/public-routes: "true"` in the same
-   reviewed change as its route.
-2. Create an HTTPRoute attached to `oracle-public` in `traefik-system`. Use
-   the app's hostname under `pocket-doc.app` and the app's internal Service.
-3. For a route protected by Authelia, add the ForwardAuth filter to each rule.
-   The shared Middleware is in the `disease-prediction` namespace:
+### Choose how Authelia protects the app
 
-   ```yaml
-   filters:
-     - type: ExtensionRef
-       extensionRef:
-         group: traefik.io
-         kind: Middleware
-         name: authelia-forwardauth
-   ```
+- **ForwardAuth:** use this for an app without its own OIDC login. Traefik
+  checks each request with Authelia; the app does not receive an app-specific
+  OIDC session. Add the `ExtensionRef` filter to every route rule and retain
+  the rule's backend reference. The shared Middleware is
+  `disease-prediction/authelia-forwardauth`, so this works only for routes in
+  `disease-prediction`. For another namespace, create a Middleware there, add
+  that namespace to Traefik's CRD provider watch scope and namespaced RBAC, and
+  allow the resource in its Argo CD AppProject. Do not enable cross-namespace
+  Middleware references cluster-wide as a shortcut.
+- **Native OIDC:** use this when the app supports OIDC and needs its own
+  session, scopes, or role mapping. Register the exact callback URL in
+  Authelia, sync the plaintext client secret only to the app namespace through
+  ESO, and configure the app's issuer, claims, and local-login policy. Do not
+  also add ForwardAuth to that route. Grafana and Argo CD use this pattern;
+  their runbooks cover their app-specific callback and internal OIDC network
+  paths.
 
-   The route still needs its backend reference. An app in another namespace
-   must define its own namespaced Middleware and have it allowed by its
-   AppProject; cross-namespace middleware references are not enabled.
-   Argo CD and Grafana use native OIDC instead. See the [Argo CD runbook](argocd.md)
-   and [observability runbook](observability.md); do not add ForwardAuth to
-   those routes.
-4. Add the ExternalDNS opt-in label and Cloudflare proxy annotation:
+### Add and publish the route
 
-   ```yaml
-   metadata:
-     labels:
-       external-dns-public: "true"
-     annotations:
-       external-dns.kubernetes.io/cloudflare-proxied: "true"
-   ```
+In the app namespace, check all the routing gates before adding the HTTPRoute:
 
-5. Render `clusters/oracle`, review the Argo CD project permissions and diff,
-   then merge the change. Do not use a direct public IP, NodePort, or
-   LoadBalancer.
-6. Check route and Gateway status, DNS, TLS, and an HTTPS request:
+| Setting | Value | Purpose |
+|---|---|---|
+| Namespace label | `pocket-doc.app/public-routes: "true"` | Allows attachment to `oracle-public` |
+| Route label | `external-dns-public: "true"` | Opts the hostname into ExternalDNS |
+| Route annotation | `external-dns.kubernetes.io/cloudflare-proxied: "true"` | Requests Cloudflare proxying |
+| Gateway label | `external-dns.pocket-doc.app/eligible: "true"` | Allows the Gateway to be an ExternalDNS target |
 
-   ```sh
-   kubectl -n <app-namespace> get httproute <route-name>
-   kubectl -n traefik-system get gateway oracle-public
-   dig <app-host>.pocket-doc.app A
-   curl -I https://<app-host>.pocket-doc.app/
-   ```
+The app's Argo CD AppProject must allow the namespace destination and route
+resources. Traefik's Gateway provider must watch the route namespace, and the
+matching Role in `managed-traefik-access/reader-roles.yaml` must grant the
+provider's namespaced API access. The Helm chart's `rbac.enabled` is false, so
+changing watch scope alone does not create these Roles. If the route uses a
+Traefik Middleware, check the separate CRD provider watch scope and RBAC too.
+
+The following is a ForwardAuth example for an app in `disease-prediction`,
+where the shared Middleware lives. For another namespace, create the Middleware
+there with the same name and add its CRD provider scope and RBAC. For native
+OIDC, omit the `filters` block and configure the app as described above:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: <app-name>
+  namespace: <app-namespace>
+  labels:
+    external-dns-public: "true"
+  annotations:
+    external-dns.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  parentRefs:
+    - name: oracle-public
+      namespace: traefik-system
+      sectionName: web
+  hostnames:
+    - <app-host>.pocket-doc.app
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: authelia-forwardauth
+      backendRefs:
+        - name: <app-service>
+          port: <service-port>
+```
+
+Keep the route manifest and namespace opt-in label in the same reviewed Git
+change. Render `clusters/oracle`, review the Argo CD AppProject and diff, then
+merge and sync the relevant Application. Do not use a direct public IP,
+NodePort, or LoadBalancer.
+
+Check discovery, backend connectivity, route status, DNS, and authentication:
+
+```sh
+kubectl -n <app-namespace> get service,endpointslices
+kubectl -n <app-namespace> get httproute <route-name> -o yaml
+kubectl -n traefik-system get gateway oracle-public
+dig <app-host>.pocket-doc.app A
+curl -I https://<app-host>.pocket-doc.app/
+```
+
+The HTTPRoute's parent conditions must show `Accepted=True` and
+`ResolvedRefs=True`.
+Test in a private browser session: unauthenticated access should go to
+Authelia; after login, verify both allowed and denied application paths. Check
+that the app has no public Service, NodePort, or LoadBalancer bypass. A
+Cloudflare-proxied public response may be a redirect or app response; check
+the expected authentication result, not only for HTTP 200.
 
 ExternalDNS writes a proxied CNAME to the tunnel hostname and a prefixed TXT
 ownership record. It does not create Tunnel ingress rules; the wildcard Tunnel
@@ -246,14 +306,24 @@ remove owned DNS records. Keep Vault secrets until their consumers are gone.
   logs. Do not print Secret values.
 - **DNS resolves but the page fails:** check Cloudflare Tunnel health, the
   wildcard config, Gateway status, route parent conditions, and backend
-  Service endpoints.
+  Service endpoints. Check Traefik informer logs for namespace-scoped RBAC
+  denials if the route is not accepted or references remain unresolved.
 - **HTTPS works with curl but not a browser:** check local DNS cache and
   browser secure-DNS settings. Compare `Resolve-DnsName`/`dig` with a public
   resolver and try a clean browser session.
-- **Traefik cannot reach a backend Pod IP:** the smoke test succeeded through
-  the Service ClusterIP when the Service had
-  `traefik.io/service.nativelb: "true"`. Diagnose cluster pod networking before
-  choosing that setting for another app.
+- **Accepted route returns 502:** check that the Service port maps to a ready
+  EndpointSlice. Test Service ClusterIP and Pod IP connectivity from the
+  cluster path Traefik uses. On this cluster, Grafana's Pod IP was unreachable
+  while its Service ClusterIP worked; `traefik.io/service.nativelb: "true"`
+  fixed it. Apply NativeLB only after confirming the same connectivity issue.
+
+## References
+
+- [Traefik Gateway API provider](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-gateway/)
+- [Traefik Gateway API routing](https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/gateway-api/)
+- [Authelia with Traefik](https://www.authelia.com/integration/proxies/traefik/)
+- [Authelia forwarded headers](https://www.authelia.com/integration/proxies/forwarded-headers/)
+- [Gateway API security](https://gateway-api.sigs.k8s.io/docs/concepts/security/)
 
 For admin access and cluster recovery, use the [Tailscale guide](tailscale.md),
 [Authelia runbook](authelia.md), and [recovery runbook](recovery.md). Keep the
