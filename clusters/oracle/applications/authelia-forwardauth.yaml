@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
     targetRevision: main
-    path: clusters/oracle/apps/authelia-forwardauth
+    path: clusters/oracle/ingress/authelia-forwardauth
   destination:
     server: https://kubernetes.default.svc
     namespace: disease-prediction

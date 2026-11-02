@@ -1,40 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - projects/root.yaml
-  - projects/apps.yaml
-  - projects/platform.yaml
-  - projects/edge-secrets.yaml
-  - projects/edge-dns.yaml
-  - projects/ingress.yaml
-  - projects/auth.yaml
-  - projects/argocd-oidc.yaml
-  - projects/observability.yaml
-  - namespaces/disease-prediction.yaml
-  - namespaces/auth-system.yaml
-  - namespaces/eso.yaml
-  - namespaces/edge-system.yaml
-  - namespaces/traefik-system.yaml
-  - namespaces/observability.yaml
-  - applications/root.yaml
-  - applications/eso.yaml
-  - applications/eso-edge.yaml
-  - applications/oci-vault-store.yaml
-  - applications/oci-edge-vault-store.yaml
-  - applications/traefik.yaml
-  - applications/traefik-access.yaml
-  - applications/external-secrets-auth.yaml
-  - applications/oracle-public-gateway.yaml
-  - applications/oci-auth-vault-store.yaml
-  - applications/eso-argocd-oidc-controller.yaml
-  - applications/argocd-oidc-vault-store.yaml
-  - applications/argocd-route.yaml
-  - applications/authelia.yaml
-  - applications/authelia-forwardauth.yaml
-  - applications/cloudflared.yaml
-  - applications/external-dns.yaml
-  - applications/disease-prediction-quota.yaml
-  - applications/observability.yaml
-  - applications/eso-observability-oidc-controller.yaml
-  - applications/observability-oidc-vault-store.yaml
-  - applications/grafana-route.yaml
+  - projects
+  - namespaces
+  - applications

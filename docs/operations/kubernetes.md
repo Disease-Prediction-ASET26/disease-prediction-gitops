@@ -1,6 +1,6 @@
 # kubectl and Kustomize
 
-Kubernetes objects are stored as YAML under `clusters/oracle/` and, when app images are ready, `apps/`. The Kustomize files list the manifests that belong to each deployment.
+Kubernetes objects are stored as YAML under `clusters/oracle/`. Product workloads go in `clusters/oracle/apps/` after their API and image are ready. Kustomize files list the manifests managed by each Argo CD Application.
 
 ## Render and preview
 
@@ -46,6 +46,31 @@ requests at `1` CPU and `2Gi` memory, and limits at `2` CPU and `3Gi` memory.
 Application containers must set CPU and memory requests and limits. This
 keeps future app pods inside the measured node budget; it does not cap pods in
 other namespaces.
+
+## Pod Security Standards
+
+Pod Security Admission labels are pinned to the cluster's Kubernetes minor
+version, `v1.37`. The `default`, `disease-prediction`, `auth-system`,
+`edge-system`, `external-secrets`, `traefik-system`, and `argocd` namespaces
+enforce Restricted and also audit and warn at that level.
+
+`monitoring` enforces Baseline and audits and warns at Restricted. Grafana's
+init container needs to change ownership on its data volume. `node-exporter`
+is isolated in its own namespace with Privileged enforcement because it mounts
+the node's `/proc`, `/sys`, and root filesystem. Its host network and PID
+namespace are disabled. Keep host-access workloads out of other namespaces.
+
+K3s owns the Pods in `kube-system`; this policy set does not change that namespace.
+
+Check the active policy labels with:
+
+```bash
+kubectl get namespaces -L pod-security.kubernetes.io/enforce,pod-security.kubernetes.io/warn,pod-security.kubernetes.io/audit
+```
+
+When adding a workload, validate all containers and init containers against
+the namespace's enforced level. Use Restricted unless the workload has a
+documented host-access requirement.
 
 ## K3s system-pod resource defaults
 

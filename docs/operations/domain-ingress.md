@@ -27,7 +27,7 @@ for an app.
   `external-dns.pocket-doc.app/eligible: "true"` label.
 - Traefik must watch a route's namespace and have a Role there. These are
   separate settings. The Roles are in
-  [`reader-roles.yaml`](../../clusters/oracle/managed-traefik-access/reader-roles.yaml);
+  [`reader-roles.yaml`](../../clusters/oracle/ingress/traefik-access/reader-roles.yaml);
   Traefik's chart does not create them.
 - The app's Argo CD AppProject must allow the namespace and route resources.
 - Traefik can read Secrets in each watched namespace. Keep unrelated sensitive

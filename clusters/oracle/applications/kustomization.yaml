@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - argocd-oidc-vault-store.yaml
+  - argocd-route.yaml
+  - authelia-forwardauth.yaml
+  - authelia.yaml
+  - cloudflared.yaml
+  - disease-prediction-quota.yaml
+  - eso-argocd-oidc-controller.yaml
+  - eso-edge.yaml
+  - eso-observability-oidc-controller.yaml
+  - eso.yaml
+  - external-dns.yaml
+  - external-secrets-auth.yaml
+  - grafana-route.yaml
+  - observability-oidc-vault-store.yaml
+  - observability.yaml
+  - oci-auth-vault-store.yaml
+  - oci-edge-vault-store.yaml
+  - oci-vault-store.yaml
+  - oracle-public-gateway.yaml
+  - root.yaml
+  - traefik-access.yaml
+  - traefik.yaml

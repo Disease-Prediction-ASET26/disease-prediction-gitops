@@ -5,6 +5,11 @@ Grafana, kube-state-metrics, and node-exporter. Chart version and values are in
 [`observability.yaml`](../../clusters/oracle/applications/observability.yaml)
 and [`values.yaml`](../../clusters/oracle/observability/values.yaml).
 
+Monitoring enforces the Baseline Pod Security Standard because Grafana's data
+volume init container changes file ownership. Node exporter runs in the
+separate `node-exporter` namespace, which allows its read-only host filesystem
+mounts. Its host network and PID namespace are disabled.
+
 Grafana uses native Authelia OIDC at `grafana.pocket-doc.app`. The `admins`
 group gets the Grafana admin role; other signed-in users are Viewers. Local
 password login is disabled. Its public route is a separate Application. Sync
@@ -98,14 +103,29 @@ kubectl -n auth-system rollout restart deployment/authelia
 kubectl -n auth-system rollout status deployment/authelia --timeout=180s
 ```
 
-After reviewing the diff and merging the Git change, sync the monitoring
-Application and wait for it to become healthy:
+After reviewing the diff and merging the Git change, confirm the root
+Application has created the `node-exporter` namespace. Review the monitoring
+diff, then sync the Application. The first sync after moving node-exporter
+from `monitoring` uses pruning to remove its old DaemonSet, Service, and
+ServiceMonitor:
 
 ```bash
-argocd app sync monitoring
+kubectl get namespace node-exporter
+argocd app sync monitoring --prune
 argocd app wait monitoring --sync --health --timeout 300
 kubectl -n monitoring get pods,pvc,services
+kubectl -n node-exporter rollout status daemonset/monitoring-prometheus-node-exporter --timeout=180s
+kubectl -n node-exporter get daemonset,service,servicemonitor
+kubectl -n monitoring get daemonset,service,servicemonitor
 ```
+
+Review the diff before running the one-time prune. Later syncs do not need
+`--prune`. The exporter ServiceMonitor remains visible to Prometheus because
+the chart selects ServiceMonitors across all namespaces.
+
+The root sync can warn that the old exporter Pod violates Baseline until this
+sync replaces it. Complete the child sync promptly; a replacement Pod in
+`monitoring` would be rejected.
 
 Check that the OIDC `ExternalSecret` is Ready. Do not print its Secret value.
 Then sync the separate route Application:

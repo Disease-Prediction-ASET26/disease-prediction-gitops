@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
     targetRevision: main
-    path: clusters/oracle/managed-traefik-access
+    path: clusters/oracle/ingress/traefik-access
   destination:
     server: https://kubernetes.default.svc
     namespace: traefik-system

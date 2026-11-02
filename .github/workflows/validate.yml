@@ -20,7 +20,25 @@ jobs:
         with:
           persist-credentials: false
       - name: Render Oracle manifests
-        run: kustomize build clusters/oracle > /dev/null
+        run: |
+          kustomize build clusters/oracle > /dev/null
+          for app_path in \
+            clusters/oracle/auth/authelia \
+            clusters/oracle/edge/cloudflared \
+            clusters/oracle/ingress/authelia-forwardauth \
+            clusters/oracle/ingress/argocd \
+            clusters/oracle/ingress/gateway \
+            clusters/oracle/ingress/traefik-access \
+            clusters/oracle/managed-argocd-secrets \
+            clusters/oracle/managed-auth-secrets \
+            clusters/oracle/managed-edge-secrets \
+            clusters/oracle/managed-observability-secrets \
+            clusters/oracle/managed-secrets \
+            clusters/oracle/observability \
+            clusters/oracle/observability/route \
+            clusters/oracle/policies/disease-prediction-quota; do
+            kustomize build "$app_path" > /dev/null
+          done
       - name: Install pinned Ansible Core
         run: |
           python3 -m venv "${RUNNER_TEMP}/ansible-venv"

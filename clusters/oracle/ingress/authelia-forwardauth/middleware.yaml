@@ -6,5 +6,4 @@ metadata:
 spec:
   forwardAuth:
     address: http://authelia.auth-system.svc.cluster.local:9091/api/authz/forward-auth
-    # The web entrypoint trusts upstream headers only from the restricted pod CIDR.
     trustForwardHeader: true
