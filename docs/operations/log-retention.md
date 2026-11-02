@@ -6,13 +6,15 @@ policy adds no Kubernetes workload.
 | Log source | Policy |
 |---|---|
 | System journal | Keep up to seven days on disk, capped at 256 MiB. Runtime is capped at 64 MiB. |
-| Pod logs | Kubelet rotates at 10 MiB and keeps up to five files. A daily timer deletes rotated files older than seven days. |
+| Pod logs in every namespace, including `monitoring` | Kubelet rotates at 10 MiB and keeps up to five files. A daily timer deletes rotated files older than seven days. |
 | K3s containerd | Rotate daily and compress old files. A daily timer deletes rotations older than seven days. |
 
-The cleanup timer only deletes rotated files. It leaves active log files
-alone. Size rotation can remove pod logs sooner when a container writes
-quickly. The system journal can also remove entries sooner if it reaches its
-size cap.
+This includes logs from Prometheus, Alertmanager, Grafana, and the other
+monitoring pods. The cluster has no log collector, so pod logs stay on the
+Oracle VM. The seven-day limit applies to rotated files; active files remain,
+and size-based rotation can remove older entries sooner. The cleanup timer
+only deletes rotated files. The system journal can also remove entries sooner
+if it reaches its size cap.
 
 ## Preview and apply
 
