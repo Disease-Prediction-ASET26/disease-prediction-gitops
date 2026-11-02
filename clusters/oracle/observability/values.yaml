@@ -167,6 +167,8 @@ prometheusOperator:
       memory: 128Mi
   admissionWebhooks:
     patch:
+      # Keep completed Helm hook Jobs visible long enough for Argo CD to observe them.
+      ttlSecondsAfterFinished: 300
       resources:
         requests:
           cpu: 25m
