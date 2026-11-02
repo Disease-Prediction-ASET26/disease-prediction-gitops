@@ -72,7 +72,11 @@ restarts only if its certificate configuration changes.
 The playbook sets `--accept-dns=false` so Tailscale does not replace the VM's
 OCI resolver. K3s CoreDNS forwards external DNS through the VM resolver, while
 the VM's Tailscale connection still supports private SSH and Kubernetes API
-access. After applying, verify both host and cluster DNS:
+access. It also assigns `cni0` and `flannel.1` to firewalld's `trusted` zone so
+Pod-to-Pod and Pod-to-node traffic works. Pods can then reach host services,
+including the OCI metadata endpoint used by ESO. Run only trusted workloads
+until network policies restrict that access. After applying, verify both host
+and cluster DNS:
 
 ```bash
 ssh -i "$HOME/.ssh/disease-prediction-oci.key" opc@oracle-k3s \
