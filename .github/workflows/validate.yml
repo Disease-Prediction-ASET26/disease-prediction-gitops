@@ -29,11 +29,11 @@ jobs:
             clusters/oracle/ingress/argocd \
             clusters/oracle/ingress/gateway \
             clusters/oracle/ingress/traefik-access \
-            clusters/oracle/managed-argocd-secrets \
-            clusters/oracle/managed-auth-secrets \
-            clusters/oracle/managed-edge-secrets \
-            clusters/oracle/managed-observability-secrets \
-            clusters/oracle/managed-secrets \
+            clusters/oracle/external-secrets/argocd \
+            clusters/oracle/external-secrets/auth-system \
+            clusters/oracle/external-secrets/disease-prediction \
+            clusters/oracle/external-secrets/edge-system \
+            clusters/oracle/external-secrets/monitoring \
             clusters/oracle/observability \
             clusters/oracle/observability/route \
             clusters/oracle/policies/disease-prediction-quota; do
