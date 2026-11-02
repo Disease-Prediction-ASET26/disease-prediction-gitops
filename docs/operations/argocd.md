@@ -31,13 +31,52 @@ After SSO is configured, open [`https://argocd.pocket-doc.app`](https://argocd.p
 
 Accounts in the existing `admins` group are administrators in Argo CD. No additional group is needed. Wait for the `authelia-users` ExternalSecret to become Ready and restart Authelia after changing group membership. Do not put the group mapping in Argo CD's default policy, since that would grant every authenticated user administrator access.
 
-The Argo CD CLI uses the same OIDC flow:
+The Argo CD CLI uses the same OIDC flow. In WSL, prevent the CLI from trying
+to launch a Linux browser. Run:
 
 ```bash
-argocd login argocd.pocket-doc.app --sso --grpc-web
+argocd login argocd.pocket-doc.app --sso --grpc-web --sso-launch-browser=false
 ```
 
-The browser callback uses `http://localhost:8085/auth/callback`. Keep the CLI callback local; do not publish that hostname or port. For emergency recovery with a trusted kubeconfig, use Argo CD core mode (`argocd login --core`) or restore the checked-in Helmfile configuration through the normal review workflow. Do not leave the local admin account enabled as a recovery method.
+Copy the printed authorization URL into a Windows browser and complete Authelia
+login and the second factor. Keep the WSL command running until it reports a
+successful login. The browser returns to the CLI at
+`http://localhost:8085/auth/callback`; keep this callback local and do not
+publish the hostname or port.
+
+Check the SSO identity and list applications:
+
+```bash
+argocd account get-user-info
+argocd app list
+```
+
+The `Groups` line should include `admins` for an administrator account. The
+Argo CD OIDC config requests the `groups` scope and the `groups` ID-token claim.
+Users without the `admins` group have no application permissions by default.
+
+For emergency recovery with a trusted kubeconfig, use Argo CD core mode
+(`argocd --core app list`) or restore the checked-in Helmfile configuration
+through the normal review workflow. Do not leave the local admin account
+enabled as a recovery method.
+
+## Inspect and sync applications
+
+Use the application name shown by `argocd app list`. Review the application and
+its proposed changes before syncing:
+
+```bash
+argocd app get <application>
+argocd app diff <application>
+argocd app sync <application>
+argocd app wait <application> --sync --health
+```
+
+Replace `<application>` with a name such as `oracle-root` or `observability`.
+Sync applies the versioned manifests from Git. Keep Git as the source of truth;
+make lasting changes in the repository and merge them through the normal review
+workflow. Some applications, including the Argo CD public route, use manual
+sync and need an explicit sync after their prerequisites are ready.
 
 ## Enable SSO and publish the route
 
