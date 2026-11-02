@@ -16,6 +16,9 @@ redis-ha:
   enabled: false
 
 controller:
+  env:
+    - name: GOMEMLIMIT
+      value: 650MiB
   resources:
     requests:
       cpu: 100m

@@ -4,6 +4,7 @@ resources:
   - apps.yaml
   - argocd-oidc.yaml
   - auth.yaml
+  - default.yaml
   - edge-dns.yaml
   - edge-secrets.yaml
   - ingress.yaml
