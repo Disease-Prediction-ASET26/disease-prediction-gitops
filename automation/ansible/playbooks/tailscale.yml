@@ -228,6 +228,33 @@
       changed_when: true
       notify: Reload firewalld
 
+    - name: Check whether K3s Pod interfaces are assigned to the trusted firewalld zone
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=trusted
+          - "--query-interface={{ item }}"
+      loop:
+        - cni0
+        - flannel.1
+      register: tailscale_firewalld_pod_interfaces
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Allow K3s Pod networking through firewalld
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/firewall-cmd
+          - --permanent
+          - --zone=trusted
+          - "--add-interface={{ item.item }}"
+      loop: "{{ tailscale_firewalld_pod_interfaces.results | selectattr('rc', 'ne', 0) | list }}"
+      when: not ansible_check_mode
+      changed_when: true
+      notify: Reload firewalld
+
     - name: Add the Tailscale DNS name to the K3s API certificate configuration
       ansible.builtin.blockinfile:
         path: /etc/rancher/k3s/config.yaml
