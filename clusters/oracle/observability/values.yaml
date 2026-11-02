@@ -141,7 +141,8 @@ kube-state-metrics:
 
 prometheus-node-exporter:
   namespaceOverride: node-exporter
-  hostNetwork: false
+  # Node exporter listens on the node address that Prometheus scrapes.
+  hostNetwork: true
   hostPID: false
   resources:
     requests:
