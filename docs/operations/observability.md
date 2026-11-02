@@ -30,10 +30,11 @@ not be committed to Git.
 
 The first eight hours of metrics showed Grafana at 414 MiB peak and Prometheus
 at 481 MiB peak. Grafana's 512 MiB limit is already close to its observed use,
-so keep that limit. Its request is 512 MiB to match its measured footprint and
-help the scheduler account for it. Prometheus keeps its 512 MiB request and
-1.5 GiB limit until metrics cover a full seven-day retention window and normal
-query use; its observed peak is not enough history to safely lower that limit.
+so keep that limit. Its request is 512 MiB, above the observed peak, so the
+scheduler reserves headroom for its measured footprint. Prometheus keeps its
+512 MiB request and 1.5 GiB limit until metrics cover a full seven-day retention
+window and normal query use; its observed peak is not enough history to safely
+lower that limit.
 The Prometheus and Alertmanager config-reloader sidecars peaked at 23 MiB and
 13 MiB, so they use 32 MiB requests and 64 MiB limits.
 
