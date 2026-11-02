@@ -1,0 +1,174 @@
+---
+- name: Keep K3s node logs for seven days
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Ensure logrotate is installed
+      ansible.builtin.dnf:
+        name: logrotate
+        state: present
+
+    - name: Create persistent journal directory
+      ansible.builtin.file:
+        path: /var/log/journal
+        state: directory
+        owner: root
+        group: systemd-journal
+        mode: "2755"
+      register: log_retention_journal_dir
+
+    - name: Ensure journald drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Set journal size and age limits
+      ansible.builtin.copy:
+        dest: /etc/systemd/journald.conf.d/60-cluster-retention.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Journal]
+          Storage=persistent
+          SystemMaxUse=256M
+          SystemMaxFileSize=64M
+          RuntimeMaxUse=64M
+          RuntimeMaxFileSize=16M
+          MaxFileSec=1day
+          MaxRetentionSec=7day
+      register: log_retention_journal_config
+
+    - name: Restart journald when its storage or settings change
+      ansible.builtin.systemd_service:
+        name: systemd-journald.service
+        state: restarted
+      when:
+        - not ansible_check_mode
+        - log_retention_journal_dir.changed or log_retention_journal_config.changed
+
+    - name: Move the runtime journal to persistent storage
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/journalctl
+          - --flush
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Remove archived journal entries older than seven days
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/journalctl
+          - --vacuum-time=7day
+      changed_when: "'freed 0B' not in log_retention_vacuum.stdout"
+      register: log_retention_vacuum
+      when: not ansible_check_mode
+
+    - name: Rotate the K3s containerd log daily and keep seven days
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/k3s-containerd
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          /var/lib/rancher/k3s/agent/containerd/containerd.log {
+              daily
+              rotate 7
+              maxage 7
+              compress
+              delaycompress
+              missingok
+              notifempty
+              copytruncate
+          }
+
+    - name: Install the rotated K3s log cleanup script
+      ansible.builtin.copy:
+        dest: /usr/local/sbin/prune-k3s-logs
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          set -eu
+          if [ -d /var/log/pods ]; then
+            find /var/log/pods -xdev -type f -name '*.log.*' -mmin +10080 -delete
+          fi
+          if [ -d /var/lib/rancher/k3s/agent/containerd ]; then
+            find /var/lib/rancher/k3s/agent/containerd -xdev -type f -name 'containerd.log.*' -mmin +10080 -delete
+          fi
+
+    - name: Install the rotated K3s log cleanup service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/k3s-log-prune.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Remove rotated K3s logs older than seven days
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/prune-k3s-logs
+          NoNewPrivileges=true
+          ProtectHome=true
+          PrivateTmp=true
+      register: log_retention_prune_service
+
+    - name: Install the daily rotated K3s log cleanup timer
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/k3s-log-prune.timer
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Daily cleanup of old K3s logs
+
+          [Timer]
+          OnCalendar=daily
+          Persistent=true
+          RandomizedDelaySec=30m
+          Unit=k3s-log-prune.service
+
+          [Install]
+          WantedBy=timers.target
+      register: log_retention_prune_timer
+
+    - name: Enable and restart the K3s log timer when its units change
+      ansible.builtin.systemd_service:
+        name: k3s-log-prune.timer
+        enabled: true
+        state: restarted
+        daemon_reload: true
+      when:
+        - not ansible_check_mode
+        - log_retention_prune_service.changed or log_retention_prune_timer.changed
+
+    - name: Ensure the K3s log cleanup timer is enabled and running
+      ansible.builtin.systemd_service:
+        name: k3s-log-prune.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+      when: not ansible_check_mode
+
+    - name: Ensure the standard logrotate timer is enabled and running
+      ansible.builtin.systemd_service:
+        name: logrotate.timer
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+
+    - name: Remove rotated K3s logs that already exceed seven days
+      ansible.builtin.command:
+        argv:
+          - /usr/local/sbin/prune-k3s-logs
+      changed_when: false
+      when: not ansible_check_mode
