@@ -1,61 +1,53 @@
 # Prometheus and Grafana
 
-The `monitoring` Argo CD Application installs the Prometheus Operator stack,
-Prometheus, Alertmanager, Grafana, kube-state-metrics, and node-exporter. The
-chart and its values are pinned in
-[`clusters/oracle/applications/observability.yaml`](../../clusters/oracle/applications/observability.yaml)
-and [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
-Grafana stays on a ClusterIP Service. Its public route is separately managed
-and manually synced only after the Authelia OIDC client and Grafana are ready.
-The route publishes `https://grafana.pocket-doc.app` through Cloudflare and
-requires Authelia's two-factor login. The `admins` Authelia group receives
-Grafana server administrator access; other authenticated users receive the
-Viewer role. Grafana's local login form and basic authentication are disabled.
-Traefik's Gateway controller has a read-only Role in `monitoring` so it can
-watch the route and its backend; this also gives Traefik read access to Secrets
-in that namespace, including Grafana's OIDC client Secret.
-Grafana's Service enables Traefik NativeLB so requests use the reachable
-ClusterIP instead of direct Pod IPs.
-For the shared route checklist and the distinction between ForwardAuth and
-native OIDC, see the [domain ingress guide](domain-ingress.md#publish-an-application-route).
+The `monitoring` Argo CD Application installs Prometheus, Alertmanager,
+Grafana, kube-state-metrics, and node-exporter. Chart version and values are in
+[`observability.yaml`](../../clusters/oracle/applications/observability.yaml)
+and [`values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-Prometheus keeps seven days of metrics on a 10 GiB `local-path` volume, with an
-8 GiB retention cap. Grafana uses a 1 GiB `local-path` volume. Both volumes are
-stored on the single K3s node and are lost if that node's local storage is
-lost. The initial Grafana administrator password is supplied from a
-Kubernetes Secret created locally; it is not the public login path and must
-not be committed to Git.
+Grafana uses native Authelia OIDC at `grafana.pocket-doc.app`. The `admins`
+group gets the Grafana admin role; other signed-in users are Viewers. Local
+password login is disabled. Its public route is a separate Application. Sync
+that route only after the Grafana OIDC secret is ready. See the
+[public route guide](domain-ingress.md) for route requirements.
+
+Prometheus keeps seven days of metrics, up to 8 GiB, on a 10 GiB local volume.
+Grafana uses a 1 GiB local volume. Both are stored on the K3s node; they are
+lost if its disk is lost. Traefik can read Secrets in `monitoring`, including
+Grafana's OIDC Secret. Grafana uses Traefik NativeLB because direct Pod IP
+connections failed in this cluster.
+
+The local Grafana admin Secret is for recovery only. Do not commit it or use
+it as the public login.
 
 ## Resource sizing
 
-The first eight hours of metrics showed Grafana at 414 MiB peak and Prometheus
-at 481 MiB peak. Grafana's 512 MiB limit is already close to its observed use,
-so keep that limit. Its request is 512 MiB, above the observed peak, so the
-scheduler reserves headroom for its measured footprint. Prometheus keeps its
-512 MiB request and 1.5 GiB limit until metrics cover a full seven-day retention
-window and normal query use; its observed peak is not enough history to safely
-lower that limit.
-The Prometheus and Alertmanager config-reloader sidecars peaked at 23 MiB and
-13 MiB, so they use 32 MiB requests and 64 MiB limits.
+Recent metrics show Grafana using up to 434 MiB and Prometheus up to 505 MiB.
+Grafana's request is 384 MiB, close to its earlier 364 MiB p95; its 512 MiB
+limit stays above the measured peak. Prometheus keeps a 512 MiB request and a
+1.5 GiB limit until data covers its full seven-day retention and normal query
+use.
 
-Resource requests and limits do not lower current working-set memory. Avoid
-reducing scrape coverage, dashboard loading, or retention just to lower a
-number; those change monitoring features or history. Review usage before
-changing limits:
+Recent peaks were 18 MiB for Alertmanager, 35 MiB for the operator, 36 MiB for
+kube-state-metrics, and 9 MiB for node-exporter. Their new request/limit pairs
+are 32/64, 64/128, 48/96, and 16/32 MiB. The Grafana dashboard sidecar peaked
+at 79 MiB, so its 64/128 MiB settings stay. Requests reserve scheduler
+capacity; limits cap use. Neither setting lowers a running process's current
+memory. Check for restarts and OOM events after changing limits.
 
 ```bash
 kubectl top pods -n monitoring --containers
 kubectl top node
 ```
 
-For a longer sample, query Prometheus for the maximum working set per container
-over the observation window, such as `[7d]`, before changing the Prometheus or
-Grafana limits.
+Use at least a seven-day sample before lowering the Prometheus or Grafana
+limits. The node journal and rotated logs also have local retention rules; see
+the [log retention guide](log-retention.md).
 
-## First install
+## Prepare and sync
 
-Before syncing the monitoring chart, create the Grafana admin Secret. Choose a
-unique password at the prompt:
+Before the first sync, create the local Grafana admin Secret. Choose a unique
+password at the prompt:
 
 ```bash
 set +x
@@ -73,19 +65,16 @@ kubectl -n monitoring create secret generic monitoring-grafana-admin \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-The `monitoring` child Application uses manual sync so it cannot start Grafana
-before this Secret exists. Also follow the
-[Authelia runbook](authelia.md#prepare-the-oci-vault-secrets) to create the
-Grafana OIDC client secret pair in OCI Vault. ESO syncs the plaintext client
-secret to `monitoring/grafana-oidc-client`; never create it in Git. The Grafana
-chart references that Secret and the checked-in public Cloudflare Origin CA
-bundle used for its internal Authelia OIDC back-channel. This is the same CA
-root Argo CD uses; rotate it before its 2029 expiry. Render the repository
-manifests and chart before syncing:
+The manual-sync `monitoring` Application needs this Secret before it starts
+Grafana. Create the OIDC client secret pair in OCI Vault by following the
+[Authelia guide](authelia.md#prepare-the-oci-vault-secrets). ESO syncs the
+plaintext secret to `monitoring/grafana-oidc-client`. Never put it in Git. The
+Grafana chart also uses the checked-in Origin CA bundle for its private OIDC
+connection to Authelia. Render the manifests and chart, then review the diff:
 
 ```bash
 kubectl kustomize clusters/oracle > /dev/null
-helm template monitoring prometheus-community/kube-prometheus-stack \
+helm template monitoring kube-prometheus-stack \
   --repo https://prometheus-community.github.io/helm-charts \
   --version 92.17.0 \
   --namespace monitoring \
@@ -93,15 +82,16 @@ helm template monitoring prometheus-community/kube-prometheus-stack \
 argocd app diff monitoring
 ```
 
-After the Grafana Vault secrets are synced, restart Authelia so it loads the
-new client configuration:
+After ESO syncs the new Grafana OIDC secret, restart Authelia so it loads the
+client configuration:
 
 ```bash
 kubectl -n auth-system rollout restart deployment/authelia
 kubectl -n auth-system rollout status deployment/authelia --timeout=180s
 ```
 
-After reviewing the diff, sync the application and wait for its workloads:
+After reviewing the diff and merging the Git change, sync the monitoring
+Application and wait for it to become healthy:
 
 ```bash
 argocd app sync monitoring
@@ -109,8 +99,8 @@ argocd app wait monitoring --sync --health --timeout 300
 kubectl -n monitoring get pods,pvc,services
 ```
 
-Check that the monitoring OIDC `ExternalSecret` is Ready without printing its
-Secret value. Then sync the separate public route Application to publish DNS:
+Check that the OIDC `ExternalSecret` is Ready. Do not print its Secret value.
+Then sync the separate route Application:
 
 ```bash
 kubectl -n monitoring wait --for=condition=Ready externalsecret/grafana-oidc-client --timeout=5m
@@ -119,58 +109,37 @@ argocd app sync grafana-route
 argocd app wait grafana-route --sync --health --timeout 120
 ```
 
-Verify the HTTPRoute is accepted and programmed, then open
-[`https://grafana.pocket-doc.app`](https://grafana.pocket-doc.app) and sign in
-with Authelia. ExternalDNS creates the proxied DNS record after the route is
-synced. Because its policy is `upsert-only`, remove stale DNS records manually
-after deleting the route.
+Check that the HTTPRoute is accepted, then open
+[`grafana.pocket-doc.app`](https://grafana.pocket-doc.app) and sign in with
+Authelia. ExternalDNS creates the DNS record. It does not delete old records;
+remove them in Cloudflare after deleting the route.
 
 ## Open Grafana and Prometheus
 
-Use the private Tailscale Kubernetes context. Forward Grafana to localhost for
-recovery:
+Use the private Tailscale context. Forward Grafana to localhost for recovery:
 
 ```bash
 kubectl -n monitoring port-forward service/monitoring-grafana 3000:80
 ```
 
-Open `http://127.0.0.1:3000`. Normal Grafana access uses the public Authelia
-route. For login recovery, temporarily restore the Grafana login form and basic
-authentication in the values, sync the chart, then revert that temporary
-change. To inspect Prometheus directly, use a second terminal:
+Open `http://127.0.0.1:3000`. For recovery, temporarily enable Grafana's local
+login form in the values and sync the change. Revert it after access is restored.
+To inspect Prometheus, use a second terminal:
 
 ```bash
 kubectl -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
 ```
 
-Grafana includes the chart's Kubernetes dashboards. K3s-specific control plane
-jobs that are not exposed as separate services by default (controller manager,
-scheduler, kube-proxy, and etcd) are disabled. CoreDNS scraping is also
-disabled because the chart creates its metrics Service in `kube-system`,
-outside the observability project's allowed namespaces. The kubelet job label
-uses the `k3s-server` name expected by the chart's K3s dashboards and rules.
-Default alert rules are loaded into Prometheus and Alertmanager, but no external
-notification receiver is configured.
+Grafana loads the chart's Kubernetes dashboards from ConfigMaps in `monitoring`.
+Scrapes for unavailable K3s control-plane services and CoreDNS are disabled.
+Default alerts load into Prometheus and Alertmanager, but no notification
+receiver is configured.
 
-## Preview and update
+## Update or remove
 
-Edit the values file or update the pinned chart version in the Application.
-Render both the Kustomize root and Helm chart, then review Argo CD's diff:
-
-```bash
-kubectl kustomize clusters/oracle > /dev/null
-helm template monitoring prometheus-community/kube-prometheus-stack \
-  --repo https://prometheus-community.github.io/helm-charts \
-  --version 92.17.0 \
-  --namespace monitoring \
-  --values clusters/oracle/observability/values.yaml > /dev/null
-argocd app diff monitoring
-```
-
-After the Git change is merged, run `argocd app sync monitoring` and check
-`argocd app wait monitoring --sync --health`. Keep the chart version pinned.
-Review upstream chart upgrade notes before changing major chart versions or
-Prometheus Operator CRDs.
+For changes, edit the values or pinned chart version and use the render, diff,
+and sync steps above. Keep the chart version pinned. Check upgrade notes before
+changing chart versions or Prometheus Operator CRDs.
 
 Keep the Authelia client secret and Grafana's synchronized Secret in place
 while the client is configured. To remove public access, delete the

@@ -1,0 +1,53 @@
+---
+- name: Remove K3s log age policies
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check whether the K3s log cleanup timer is installed
+      ansible.builtin.stat:
+        path: /etc/systemd/system/k3s-log-prune.timer
+      register: k3s_log_timer_file
+
+    - name: Stop and disable the rotated K3s log cleanup timer
+      ansible.builtin.systemd_service:
+        name: k3s-log-prune.timer
+        enabled: false
+        state: stopped
+      when: k3s_log_timer_file.stat.exists
+
+    - name: Remove the K3s log cleanup units and script
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/k3s-log-prune.timer
+        - /etc/systemd/system/k3s-log-prune.service
+        - /usr/local/sbin/prune-k3s-logs
+      register: removed_pod_log_units
+
+    - name: Remove the containerd log rotation rule
+      ansible.builtin.file:
+        path: /etc/logrotate.d/k3s-containerd
+        state: absent
+
+    - name: Remove the journald age and size policy
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d/60-cluster-retention.conf
+        state: absent
+      register: removed_journal_policy
+
+    - name: Reload systemd after removing K3s log units
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/systemctl
+          - daemon-reload
+      changed_when: false
+      when: removed_pod_log_units.changed
+
+    - name: Restart journald after removing its policy
+      ansible.builtin.systemd_service:
+        name: systemd-journald.service
+        state: restarted
+      when: removed_journal_policy.changed

@@ -5,10 +5,10 @@ alertmanager:
     resources:
       requests:
         cpu: 25m
-        memory: 64Mi
+        memory: 32Mi
       limits:
         cpu: 100m
-        memory: 128Mi
+        memory: 64Mi
 
 grafana:
   enabled: true
@@ -31,7 +31,7 @@ grafana:
   resources:
     requests:
       cpu: 50m
-      memory: 512Mi
+      memory: 384Mi
     limits:
       cpu: 250m
       memory: 512Mi
@@ -94,6 +94,7 @@ grafana:
       cookie_secure: true
   sidecar:
     dashboards:
+      searchNamespace: monitoring
       # Grafana's file provider polls every 30s; avoid Basic-auth reload calls.
       skipReload: true
       provider:
@@ -134,19 +135,19 @@ kube-state-metrics:
   resources:
     requests:
       cpu: 25m
-      memory: 64Mi
+      memory: 48Mi
     limits:
       cpu: 100m
-      memory: 128Mi
+      memory: 96Mi
 
 prometheus-node-exporter:
   resources:
     requests:
       cpu: 25m
-      memory: 32Mi
+      memory: 16Mi
     limits:
       cpu: 100m
-      memory: 64Mi
+      memory: 32Mi
 
 prometheusOperator:
   prometheusConfigReloader:
@@ -160,10 +161,10 @@ prometheusOperator:
   resources:
     requests:
       cpu: 25m
-      memory: 128Mi
+      memory: 64Mi
     limits:
       cpu: 100m
-      memory: 256Mi
+      memory: 128Mi
   admissionWebhooks:
     patch:
       resources:

@@ -1,50 +1,29 @@
 # Authelia login and passkeys
 
-Authelia provides a shared login portal for approved routes under
-`pocket-doc.app`. The configured portal is at
-[`https://auth.pocket-doc.app`](https://auth.pocket-doc.app). The first factor
-is a local account and password; WebAuthn passkeys are the second factor.
-Passwordless passkey login and TOTP are disabled. Future protected workload
-routes can use the Traefik ForwardAuth middleware. Argo CD uses its native
-OpenID Connect integration so the browser and CLI receive real Argo CD sessions
-from Authelia.
-For new public routes, first choose ForwardAuth or app-native OIDC using the
-[domain ingress route guide](domain-ingress.md#choose-how-authelia-protects-the-app).
+Authelia is the login portal for approved apps at
+[`auth.pocket-doc.app`](https://auth.pocket-doc.app). Users sign in with a
+password, then a WebAuthn passkey. TOTP and passwordless passkey login are
+disabled.
+
+Apps can use Traefik ForwardAuth or their own OIDC login. Choose the method
+and follow the route steps in the [public route guide](domain-ingress.md).
 
 ## How it is deployed
 
-- The Authelia image is pinned to `ghcr.io/authelia/authelia:4.39.28` and runs
-  as one ARM64 replica in `auth-system`.
-- Account YAML and runtime secrets are synchronized from OCI Vault by an
-  External Secrets controller scoped to `auth-system`.
-- Authelia's OIDC provider signs tokens with a Vault-backed RSA key and a
-  separate HMAC secret. Its Argo CD client secret is stored as a digest in
-  Vault; the plaintext client secret is stored separately for Argo CD.
-- Authelia uses a 1 GiB `local-path` PVC for SQLite state, including registered
-  WebAuthn credentials. The file backend and single replica are intended for
-  this single-node cluster, not horizontal scaling.
-- Traefik serves the portal through Gateway API. Its ForwardAuth Middleware
-  lives in `disease-prediction` and calls Authelia over the cluster network.
-- Traefik's namespaced reader is bound in `auth-system` and includes read access
-  to Secrets there. Keep this namespace limited to authentication components.
-  Traefik has no matching read permission in `argocd`, so it cannot read the
-  Argo CD OIDC client Secret.
-- The Authelia Service uses Traefik native load balancing so requests go to its
-  ClusterIP; direct Traefik-to-pod IP connections are unavailable on this
-  cluster.
-- Traefik limits pod-originated web traffic to `cloudflared`; Kubernetes
-  NetworkPolicy does not restrict node-originated traffic. Its trusted
-  forwarded-header range is the K3s pod CIDR `10.42.0.0/16`; keep the
-  NetworkPolicy and that CIDR aligned if the cluster network changes. See
-  Authelia's [forwarded-header guidance](https://www.authelia.com/integration/proxies/forwarded-headers/).
-
-The Middleware only enforces authentication and redirects unauthenticated
-users to the portal. It does not configure application-specific SSO headers or
-OIDC. Follow an application's own guide before enabling those features.
-Traefik passes the original HTTPS scheme to Authelia using forwarded headers.
-Its `trustForwardHeader` setting is paired with the entrypoint's trusted pod
-range and the Cloudflared-only pod ingress policy; review this behavior when
-upgrading Traefik beyond v3.
+- One ARM64 replica runs in `auth-system`.
+- External Secrets syncs its account database and runtime secrets from OCI
+  Vault. The namespace is limited to authentication services.
+- Authelia uses a 1 GiB `local-path` volume for SQLite data, including passkey
+  registrations. This setup is for one node and one replica.
+- Argo CD and Grafana use Authelia OIDC. Their client secrets are scoped to
+  their own namespaces; Traefik can read Secrets in `auth-system` but not in
+  `argocd`.
+- Traefik serves the login portal and the ForwardAuth Middleware. The Middleware
+  is in `disease-prediction`. The public route guide covers namespace access,
+  Gateway attachment, and route checks.
+- OIDC back-channel traffic uses Traefik's private HTTPS listener and an Origin
+  CA certificate. The Argo CD and Grafana runbooks cover their app-specific
+  host and CA settings.
 
 ## Prepare the OCI Vault secrets
 
@@ -261,36 +240,10 @@ Use the same canonical host, `auth.pocket-doc.app`, when accessing the portal.
 
 ## Protect an application route
 
-Add the ForwardAuth filter to an app's `HTTPRoute` in the
-`disease-prediction` namespace. Keep its existing backend and route matches:
-
-```yaml
-rules:
-  - matches:
-      - path:
-          type: PathPrefix
-          value: /
-    filters:
-      - type: ExtensionRef
-        extensionRef:
-          group: traefik.io
-          kind: Middleware
-          name: authelia-forwardauth
-    backendRefs:
-      - name: <app-service>
-        port: <service-port>
-```
-
-The namespace must be allowed by the `oracle-public` Gateway. The application
-must not also expose a direct public route, NodePort, or LoadBalancer that
-bypasses Traefik. Render and review the `HTTPRoute` change, merge it, then check
-its Gateway conditions and test a private browser session before public use.
-
-The current Middleware is namespaced to `disease-prediction`. If an application
-is placed in another namespace, add a namespaced Middleware there through its
-reviewed app configuration and permit that resource in the appropriate
-AppProject. Do not enable cross-namespace Middleware references cluster-wide
-without reviewing the broader trust boundary.
+Follow the [public route guide](domain-ingress.md). It explains when to use
+ForwardAuth or native OIDC, the labels and permissions a route needs, and how
+to test it. Keep app-specific OIDC clients and secrets in this runbook and the
+app's own guide.
 
 ## Rotate an account password or secret
 

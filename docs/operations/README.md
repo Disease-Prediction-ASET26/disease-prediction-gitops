@@ -14,6 +14,7 @@ For a quick map of the cluster and its trust boundaries, start with the
 | Sync secrets from OCI Vault | [Secrets](secrets.md) |
 | Manage login and passkey authentication | [Authelia](authelia.md) |
 | View cluster metrics and Grafana dashboards | [Observability](observability.md) |
+| Check or change host log retention | [Log retention](log-retention.md) |
 | Recover the single-node cluster | [Recovery](recovery.md) |
 | Manage Cloudflare DNS and public app routes | [Domain and ingress](domain-ingress.md) |
 | Create or change OCI resources | [Infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md) |
