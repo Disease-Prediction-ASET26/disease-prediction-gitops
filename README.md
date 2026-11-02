@@ -31,8 +31,9 @@ ownership, administration and secrets, and public traffic. Use the
 - `clusters/oracle/namespaces/`: namespaces created by the root Application.
 - `clusters/oracle/auth/`, `edge/`, `ingress/`, and `observability/`: local
   resources managed by child Applications.
-- `clusters/oracle/managed-secrets/` and `managed-*-secrets/`: External Secrets
-  resources that read OCI Vault; these files contain references, not values.
+- `clusters/oracle/external-secrets/<namespace>/`: namespace-scoped
+  `SecretStore` and `ExternalSecret` resources that read OCI Vault. These files
+  contain references, not secret values.
 - `clusters/oracle/policies/`: workload quotas and related policies.
 - `clusters/oracle/apps/`: product workloads, added when their API and
   publishable images are ready.

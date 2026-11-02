@@ -116,9 +116,9 @@ kubectl -n monitoring get secretstore oci-vault-observability externalsecret gra
 
 Terraform provisions the Vault, key, and instance-principal policy. The Vault
 OCID and region are metadata, not secret values. The checked-in
-`clusters/oracle/managed-secrets/vault-store.yaml` uses those Terraform outputs
-and is deployed by the `oci-vault-store` child Application in the `oracle-apps`
-project. The provider configuration is:
+`clusters/oracle/external-secrets/disease-prediction/vault-store.yaml` uses
+those Terraform outputs and is deployed by the `oci-vault-store` child
+Application in the `oracle-apps` project. The provider configuration is:
 
 ```yaml
 apiVersion: external-secrets.io/v1
