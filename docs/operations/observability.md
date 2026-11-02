@@ -14,6 +14,8 @@ Viewer role. Grafana's local login form and basic authentication are disabled.
 Traefik's Gateway controller has a read-only Role in `monitoring` so it can
 watch the route and its backend; this also gives Traefik read access to Secrets
 in that namespace, including Grafana's OIDC client Secret.
+Grafana's Service enables Traefik NativeLB so requests use the reachable
+ClusterIP instead of direct Pod IPs.
 
 Prometheus keeps seven days of metrics on a 10 GiB `local-path` volume, with an
 8 GiB retention cap. Grafana uses a 1 GiB `local-path` volume. Both volumes are
