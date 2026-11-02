@@ -109,8 +109,7 @@ grafana:
         cpu: 100m
         memory: 128Mi
 
-# K3s combines the control-plane processes. Scrape only endpoints that are
-# available by default; expose supervisor metrics separately if needed later.
+# K3s combines the control-plane processes; these metrics endpoints are unavailable.
 kubeControllerManager:
   enabled: false
 
@@ -141,6 +140,9 @@ kube-state-metrics:
       memory: 96Mi
 
 prometheus-node-exporter:
+  namespaceOverride: node-exporter
+  hostNetwork: false
+  hostPID: false
   resources:
     requests:
       cpu: 25m

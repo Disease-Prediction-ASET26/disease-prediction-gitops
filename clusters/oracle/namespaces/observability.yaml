@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: monitoring
-  labels:
-    pocket-doc.app/public-routes: "true"
-  annotations:
-    argocd.argoproj.io/sync-wave: "-1"
