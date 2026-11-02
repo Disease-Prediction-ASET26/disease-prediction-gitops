@@ -89,6 +89,9 @@ configs:
         - openid
         - email
         - groups
+      requestedIDTokenClaims:
+        groups:
+          essential: true
       rootCA: |
         -----BEGIN CERTIFICATE-----
         MIIEADCCAuigAwIBAgIID+rOSdTGfGcwDQYJKoZIhvcNAQELBQAwgYsxCzAJBgNV
