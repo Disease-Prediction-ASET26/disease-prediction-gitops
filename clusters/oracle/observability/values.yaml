@@ -31,7 +31,7 @@ grafana:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 512Mi
     limits:
       cpu: 250m
       memory: 512Mi
@@ -149,6 +149,14 @@ prometheus-node-exporter:
       memory: 64Mi
 
 prometheusOperator:
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
   resources:
     requests:
       cpu: 25m

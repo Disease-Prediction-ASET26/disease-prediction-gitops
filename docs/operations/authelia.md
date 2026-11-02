@@ -8,6 +8,8 @@ Passwordless passkey login and TOTP are disabled. Future protected workload
 routes can use the Traefik ForwardAuth middleware. Argo CD uses its native
 OpenID Connect integration so the browser and CLI receive real Argo CD sessions
 from Authelia.
+For new public routes, first choose ForwardAuth or app-native OIDC using the
+[domain ingress route guide](domain-ingress.md#choose-how-authelia-protects-the-app).
 
 ## How it is deployed
 

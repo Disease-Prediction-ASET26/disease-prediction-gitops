@@ -16,6 +16,8 @@ watch the route and its backend; this also gives Traefik read access to Secrets
 in that namespace, including Grafana's OIDC client Secret.
 Grafana's Service enables Traefik NativeLB so requests use the reachable
 ClusterIP instead of direct Pod IPs.
+For the shared route checklist and the distinction between ForwardAuth and
+native OIDC, see the [domain ingress guide](domain-ingress.md#publish-an-application-route).
 
 Prometheus keeps seven days of metrics on a 10 GiB `local-path` volume, with an
 8 GiB retention cap. Grafana uses a 1 GiB `local-path` volume. Both volumes are
@@ -23,6 +25,31 @@ stored on the single K3s node and are lost if that node's local storage is
 lost. The initial Grafana administrator password is supplied from a
 Kubernetes Secret created locally; it is not the public login path and must
 not be committed to Git.
+
+## Resource sizing
+
+The first eight hours of metrics showed Grafana at 414 MiB peak and Prometheus
+at 481 MiB peak. Grafana's 512 MiB limit is already close to its observed use,
+so keep that limit. Its request is 512 MiB to match its measured footprint and
+help the scheduler account for it. Prometheus keeps its 512 MiB request and
+1.5 GiB limit until metrics cover a full seven-day retention window and normal
+query use; its observed peak is not enough history to safely lower that limit.
+The Prometheus and Alertmanager config-reloader sidecars peaked at 23 MiB and
+13 MiB, so they use 32 MiB requests and 64 MiB limits.
+
+Resource requests and limits do not lower current working-set memory. Avoid
+reducing scrape coverage, dashboard loading, or retention just to lower a
+number; those change monitoring features or history. Review usage before
+changing limits:
+
+```bash
+kubectl top pods -n monitoring --containers
+kubectl top node
+```
+
+For a longer sample, query Prometheus for the maximum working set per container
+over the observation window, such as `[7d]`, before changing the Prometheus or
+Grafana limits.
 
 ## First install
 
