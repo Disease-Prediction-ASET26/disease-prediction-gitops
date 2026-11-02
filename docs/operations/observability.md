@@ -17,6 +17,14 @@ lost if its disk is lost. Traefik can read Secrets in `monitoring`, including
 Grafana's OIDC Secret. Grafana uses Traefik NativeLB because direct Pod IP
 connections failed in this cluster.
 
+Logs from Prometheus, Alertmanager, Grafana, and other monitoring pods use
+Kubernetes pod logs on the node. Kubelet rotates them at 10 MiB and keeps up to
+five files. A daily host timer deletes rotated pod logs older than seven days
+across all namespaces, including `monitoring`. Active logs remain, and size
+rotation can remove older entries sooner. There is no log collector, so logs
+are only available on the node. This is separate from Prometheus metric
+retention. See the [log retention guide](log-retention.md).
+
 The local Grafana admin Secret is for recovery only. Do not commit it or use
 it as the public login.
 
