@@ -14,5 +14,6 @@ kubeconfig*
 !clusters/oracle/applications/external-secrets-auth.yaml
 !clusters/oracle/namespaces/external-secrets.yaml
 !clusters/oracle/projects/edge-secrets.yaml
+!clusters/oracle/external-secrets/auth-system/authelia-core-secrets.yaml
 !clusters/oracle/managed-*/**/*secret*.yaml
 !clusters/oracle/managed-*/**/*secret*.yml
