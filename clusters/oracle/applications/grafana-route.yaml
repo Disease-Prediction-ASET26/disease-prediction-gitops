@@ -14,7 +14,9 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
-  # Publish Grafana only after the OIDC client Secret and Grafana SSO config are ready.
   syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
     syncOptions:
       - ServerSideApply=true
