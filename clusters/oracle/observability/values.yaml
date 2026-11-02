@@ -37,6 +37,8 @@ grafana:
       memory: 512Mi
   service:
     type: ClusterIP
+    annotations:
+      traefik.io/service.nativelb: "true"
   envValueFrom:
     GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
       secretKeyRef:
