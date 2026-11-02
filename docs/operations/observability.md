@@ -12,9 +12,14 @@ mounts. Its host network and PID namespace are disabled.
 
 Grafana uses native Authelia OIDC at `grafana.pocket-doc.app`. The `admins`
 group gets the Grafana admin role; other signed-in users are Viewers. Local
-password login is disabled. Its public route is a separate Application. Sync
-that route only after the Grafana OIDC secret is ready. See the
-[public route guide](domain-ingress.md) for route requirements.
+password login is disabled. Its public route is managed by a separate
+Application. Argo CD automatically syncs and self-heals both the monitoring
+stack and its public route. Automatic pruning is disabled. The root
+Application's sync waves order child Application creation but do not wait for
+child health, so during a fresh bootstrap the route can be created before
+Grafana and OIDC are ready. Do not rely on the wave as a readiness or
+authentication gate.
+See the [public route guide](domain-ingress.md) for route requirements.
 
 Prometheus keeps seven days of metrics, up to 8 GiB, on a 10 GiB local volume.
 Grafana uses a 1 GiB local volume. Both are stored on the K3s node; they are
@@ -78,8 +83,8 @@ kubectl -n monitoring create secret generic monitoring-grafana-admin \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-The manual-sync `monitoring` Application needs this Secret before it starts
-Grafana. Create the OIDC client secret pair in OCI Vault by following the
+The `monitoring` Application needs this Secret before Grafana can start. Create
+the OIDC client secret pair in OCI Vault by following the
 [Authelia guide](authelia.md#prepare-the-oci-vault-secrets). ESO syncs the
 plaintext secret to `monitoring/grafana-oidc-client`. Never put it in Git. The
 Grafana chart also uses the checked-in Origin CA bundle for its private OIDC
@@ -104,14 +109,12 @@ kubectl -n auth-system rollout status deployment/authelia --timeout=180s
 ```
 
 After reviewing the diff and merging the Git change, confirm the root
-Application has created the `node-exporter` namespace. Review the monitoring
-diff, then sync the Application. The first sync after moving node-exporter
-from `monitoring` uses pruning to remove its old DaemonSet, Service, and
-ServiceMonitor:
+Application has created the `node-exporter` namespace. The `monitoring` and
+`grafana-route` Applications sync automatically and do not prune resources.
+Wait for the stack and check its resources:
 
 ```bash
 kubectl get namespace node-exporter
-argocd app sync monitoring --prune
 argocd app wait monitoring --sync --health --timeout 300
 kubectl -n monitoring get pods,pvc,services
 kubectl -n node-exporter rollout status daemonset/monitoring-prometheus-node-exporter --timeout=180s
@@ -119,21 +122,29 @@ kubectl -n node-exporter get daemonset,service,servicemonitor
 kubectl -n monitoring get daemonset,service,servicemonitor
 ```
 
-Review the diff before running the one-time prune. Later syncs do not need
-`--prune`. The exporter ServiceMonitor remains visible to Prometheus because
-the chart selects ServiceMonitors across all namespaces.
+If migrating an older installation that still has the previous node-exporter
+resources in `monitoring`, review the diff and run this one-time prune to remove
+its old DaemonSet, Service, and ServiceMonitor:
 
-The root sync can warn that the old exporter Pod violates Baseline until this
-sync replaces it. Complete the child sync promptly; a replacement Pod in
+```bash
+argocd app diff monitoring
+argocd app sync monitoring --prune
+argocd app wait monitoring --sync --health --timeout 300
+```
+
+During this migration, the root sync can warn that the old exporter Pod
+violates Baseline. Complete the child sync promptly; a replacement Pod in
 `monitoring` would be rejected.
 
-Check that the OIDC `ExternalSecret` is Ready. Do not print its Secret value.
-Then sync the separate route Application:
+This cluster has completed that migration. The exporter ServiceMonitor remains
+visible to Prometheus because the chart selects ServiceMonitors across all
+namespaces.
+
+Check that the OIDC `ExternalSecret` is Ready and the route Application is
+healthy. Do not print the Secret value:
 
 ```bash
 kubectl -n monitoring wait --for=condition=Ready externalsecret/grafana-oidc-client --timeout=5m
-argocd app diff grafana-route
-argocd app sync grafana-route
 argocd app wait grafana-route --sync --health --timeout 120
 ```
 
