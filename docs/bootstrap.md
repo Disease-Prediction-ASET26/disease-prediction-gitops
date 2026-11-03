@@ -15,7 +15,8 @@ flowchart LR
   cluster --> addons[Platform add-ons]
 ```
 
-See [cluster architecture](architecture.md) for system ownership and traffic paths.
+See the [cross-repository DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md)
+for system ownership and traffic paths.
 
 ## Before you start
 
