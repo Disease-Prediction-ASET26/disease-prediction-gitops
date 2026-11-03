@@ -3,7 +3,7 @@
 Use the guide for the tool that owns the change:
 
 For a quick map of the cluster and its trust boundaries, start with the
-[architecture page](../architecture.md).
+[cross-repository DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md).
 
 | Task | Guide |
 |---|---|

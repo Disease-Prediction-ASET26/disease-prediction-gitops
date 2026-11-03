@@ -20,8 +20,8 @@ See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD relea
 
 ## Architecture and operations
 
-See the [cluster map](docs/architecture.md) for separate views of resource
-ownership, administration and secrets, and public traffic. Use the
+See the [cross-repository DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md)
+for resource ownership, administration and secrets, and public traffic. Use the
 [operations index](docs/operations/README.md) to find the runbook for a task.
 
 ## Layout
