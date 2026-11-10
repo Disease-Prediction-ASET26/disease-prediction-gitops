@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: proxmox-vault
+  namespace: argocd
+spec:
+  description: Local Vault for the Proxmox k3s cluster
+  sourceRepos:
+    - https://helm.releases.hashicorp.com
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: vault-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: ""
+      kind: Pod
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: apps
+      kind: StatefulSet
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: rbac.authorization.k8s.io
+      kind: Role
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding

@@ -17,6 +17,7 @@ Workstation setup below applies to both clusters.
 | Edit Kubernetes manifests | [Kubernetes](kubernetes.md) |
 | Check Argo CD sync or access its UI | [Argo CD](argocd.md) |
 | Sync secrets from OCI Vault | [Secrets](secrets.md) |
+| Manage local PostgreSQL and Vault secrets | [Proxmox data services](proxmox-data-services.md) |
 | Manage login and passkey authentication | [Authelia](authelia.md) |
 | View cluster metrics and Grafana dashboards | [Observability](observability.md) |
 | Check or change host log retention | [Log retention](log-retention.md) |
@@ -42,6 +43,8 @@ are in the relevant Application manifests. The Proxmox pins are under
 | Argo CD chart | 10.11.6 |
 | Argo CD image | v3.5.6 |
 | External Secrets chart and image | 2.14.0 |
+| HashiCorp Vault chart / server | 0.34.1 / 2.0.4 |
+| CloudNativePG chart / operator | 0.29.1 / 1.30.1 |
 | ExternalDNS chart and image | 1.23.0 / 0.23.0 |
 | Authelia image | 4.39.28 |
 | kube-prometheus-stack chart | 92.17.0 |

@@ -1,0 +1,74 @@
+global:
+  enabled: true
+  tlsDisable: true
+
+injector:
+  enabled: false
+
+csi:
+  enabled: false
+
+server:
+  enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+  authDelegator:
+    enabled: true
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: local-path
+    accessMode: ReadWriteOnce
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  ha:
+    enabled: true
+    replicas: 1
+    disruptionBudget:
+      enabled: false
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+        disable_mlock = true
+
+        listener "tcp" {
+          address = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_disable = 1
+        }
+
+        storage "raft" {
+          path = "/vault/data"
+        }
+
+        service_registration "kubernetes" {}
+  service:
+    enabled: true
+    active:
+      enabled: true
+    standby:
+      enabled: false
+  statefulSet:
+    securityContext:
+      pod:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      container:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+ui:
+  enabled: true
+  serviceType: ClusterIP
+  activeVaultPodOnly: true

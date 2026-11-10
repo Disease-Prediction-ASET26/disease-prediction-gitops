@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: proxmox-postgres
+  namespace: argocd
+spec:
+  description: PostgreSQL cluster and database roles for the Proxmox k3s cluster
+  sourceRepos:
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: postgres
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+    - group: postgresql.cnpg.io
+      kind: Cluster
+    - group: postgresql.cnpg.io
+      kind: DatabaseRole

@@ -1,0 +1,15 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: disease-prediction
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  name: disease_prediction
+  login: true
+  superuser: false
+  createdb: false
+  databaseRoleReclaimPolicy: retain
+  passwordSecret:
+    name: postgres-app-credentials
