@@ -1,0 +1,12 @@
+---
+all:
+  children:
+    proxmox_k3s:
+      hosts:
+        local-k3s:
+          ansible_host: "{{ proxmox_tailscale_ip | mandatory }}"
+      vars:
+        k3s_version: v1.37.1+k3s1
+        k3s_node_ip: 192.168.30.10
+        k3s_api_sans: []
+        k3s_allow_upgrade: false

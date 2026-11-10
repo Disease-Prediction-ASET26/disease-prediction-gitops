@@ -7,6 +7,7 @@ For a quick map of the cluster and its trust boundaries, start with the
 
 | Task | Guide |
 |---|---|
+| Install and manage the local Proxmox K3s node | [Local K3s](proxmox-k3s.md) |
 | Private SSH, kubectl, and K9s access | [Tailscale](tailscale.md) |
 | Install or update Argo CD | [Helmfile](helmfile.md) |
 | Edit Kubernetes manifests | [Kubernetes](kubernetes.md) |
@@ -42,7 +43,9 @@ Use these versions for this cluster. Versions are pinned in `helmfile.yaml`,
 ## Install workstation tools
 
 These commands use Ubuntu or WSL with Zsh or Bash. Install Ansible in a
-repository-local virtual environment:
+repository-local virtual environment with a supported Python version. The
+pinned Ansible Core was checked with Python 3.14; it does not start with Python
+3.15 in this environment.
 
 ```bash
 sudo apt update

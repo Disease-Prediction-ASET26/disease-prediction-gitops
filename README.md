@@ -1,6 +1,7 @@
 ﻿# Disease Prediction GitOps
 
-Kubernetes configuration for the single-node Oracle k3s cluster. The
+Kubernetes configuration for the independent single-node Oracle and local
+Proxmox K3s clusters. The
 infrastructure repository owns OCI resources and Terraform. Application
 source, images, and CI live in their respective repositories.
 
@@ -17,6 +18,9 @@ source, images, and CI live in their respective repositories.
 ## Bootstrap
 
 See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD release with Helmfile and applies the Oracle root application. The root app reads this public repository over HTTPS. Bootstrap does not depend on the domain.
+
+For the isolated Ubuntu VM, use the [local K3s guide](docs/operations/proxmox-k3s.md).
+Its Ansible install and optional Argo CD bootstrap are separate from Oracle.
 
 ## Architecture and operations
 
@@ -40,8 +44,10 @@ for resource ownership, administration and secrets, and public traffic. Use the
 - `clusters/oracle/k3s-host-manifests/`: K3s-owned host add-ons; these files
   are not part of the Argo Kustomization.
 - `platform/argocd/`: Argo CD namespace and Helm values; the root `helmfile.yaml` pins its chart.
+- `clusters/proxmox/` and `platform/argocd-proxmox/`: the local cluster's
+  independent Argo CD root and Helmfile settings.
 - `docs/operations/`: cluster access, deployment, secrets, and recovery runbooks.
-- `automation/ansible/`: repeatable host setup for Tailscale.
+- `automation/ansible/`: repeatable Oracle host setup and local K3s installation.
 
 The root Kustomization groups its `applications/`, `namespaces/`, and
 `projects/` resources by type. Each child Application points to a local

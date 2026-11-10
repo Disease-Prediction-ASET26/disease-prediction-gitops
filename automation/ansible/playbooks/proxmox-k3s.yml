@@ -1,0 +1,194 @@
+---
+- name: Install a standalone K3s server on the local VM
+  hosts: proxmox_k3s
+  gather_facts: true
+  vars:
+    k3s_install_marker: /etc/rancher/k3s/ansible-install-version
+
+  tasks:
+    - name: Check the target and input
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == 'Ubuntu'
+          - k3s_node_ip in ansible_facts['all_ipv4_addresses']
+          - k3s_version is match('^v[0-9]+\.[0-9]+\.[0-9]+\+k3s[0-9]+$')
+          - k3s_api_sans is sequence and k3s_api_sans is not string
+        fail_msg: Check the Ubuntu target, node IP, pinned release, and API SAN list.
+
+    - name: Inspect K3s installation and data
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /usr/local/bin/k3s
+        - /etc/systemd/system/k3s.service
+        - /etc/rancher/k3s/config.yaml
+        - /var/lib/rancher/k3s
+        - "{{ k3s_install_marker }}"
+      register: k3s_paths
+      become: true
+
+    - name: Refuse to take over an existing unmanaged installation
+      ansible.builtin.assert:
+        that:
+          - k3s_paths.results[4].stat.exists or not (k3s_paths.results[:4] | selectattr('stat.exists') | list | length)
+        fail_msg: >-
+          Existing K3s files or data have no Ansible install marker. Stop and
+          inspect the host; do not remove cluster data to bypass this check.
+
+    - name: Read the installed release
+      ansible.builtin.command:
+        argv: [/usr/local/bin/k3s, --version]
+      register: k3s_installed
+      changed_when: false
+      check_mode: false
+      when: k3s_paths.results[4].stat.exists
+
+    - name: Require explicit approval for a release change
+      ansible.builtin.assert:
+        that:
+          - k3s_installed.stdout_lines[0].split()[2] == k3s_version or k3s_allow_upgrade | bool
+        fail_msg: >-
+          The installed K3s release differs. Back up and review the upgrade
+          guide, then explicitly set k3s_allow_upgrade=true for the run.
+      when: k3s_paths.results[4].stat.exists
+
+    - name: Create the K3s configuration directory
+      ansible.builtin.file:
+        path: /etc/rancher/k3s
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Write K3s server configuration
+      ansible.builtin.template:
+        src: ../templates/k3s-config.yaml.j2
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: "0600"
+      register: k3s_config
+      become: true
+      when: not ansible_check_mode or k3s_paths.results[4].stat.exists
+
+    - name: Install or explicitly upgrade K3s
+      when:
+        - not ansible_check_mode
+        - not k3s_paths.results[4].stat.exists or k3s_installed.stdout_lines[0].split()[2] != k3s_version
+      become: true
+      block:
+        - name: Download the official installer
+          ansible.builtin.get_url:
+            url: https://get.k3s.io
+            dest: /tmp/k3s-install-ansible.sh
+            owner: root
+            group: root
+            mode: "0700"
+
+        - name: Run the installer as a standalone server
+          ansible.builtin.command:
+            argv: [sh, /tmp/k3s-install-ansible.sh]
+          environment:
+            INSTALL_K3S_VERSION: "{{ k3s_version }}"
+            INSTALL_K3S_EXEC: server
+          changed_when: true
+
+        - name: Record the managed release
+          ansible.builtin.copy:
+            dest: "{{ k3s_install_marker }}"
+            content: "{{ k3s_version }}\n"
+            owner: root
+            group: root
+            mode: "0600"
+      always:
+        - name: Remove the downloaded installer
+          ansible.builtin.file:
+            path: /tmp/k3s-install-ansible.sh
+            state: absent
+
+    - name: Restart K3s after a configuration change
+      ansible.builtin.systemd_service:
+        name: k3s.service
+        enabled: true
+        state: restarted
+      become: true
+      when:
+        - not ansible_check_mode
+        - k3s_paths.results[4].stat.exists
+        - k3s_config.changed
+        - k3s_installed.stdout_lines[0].split()[2] == k3s_version
+
+    - name: Ensure K3s is enabled and running
+      ansible.builtin.systemd_service:
+        name: k3s.service
+        enabled: true
+        state: started
+      become: true
+      when: not ansible_check_mode
+
+    - name: Ensure logrotate is installed
+      ansible.builtin.apt:
+        name: logrotate
+        state: present
+      become: true
+
+    - name: Create the journald configuration directory
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: Limit journal size and age
+      ansible.builtin.copy:
+        dest: /etc/systemd/journald.conf.d/60-cluster-retention.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Journal]
+          SystemMaxUse=256M
+          RuntimeMaxUse=64M
+          MaxFileSec=1day
+          MaxRetentionSec=7day
+      become: true
+      notify: Restart journald
+      when: not ansible_check_mode or k3s_paths.results[4].stat.exists
+
+    - name: Rotate the K3s containerd log
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/k3s-containerd
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          /var/lib/rancher/k3s/agent/containerd/containerd.log {
+              daily
+              rotate 7
+              maxage 7
+              compress
+              delaycompress
+              missingok
+              notifempty
+              copytruncate
+          }
+      become: true
+
+    - name: Enable the logrotate timer
+      ansible.builtin.systemd_service:
+        name: logrotate.timer
+        enabled: true
+        state: started
+      become: true
+      when: not ansible_check_mode
+
+  handlers:
+    - name: Restart journald
+      ansible.builtin.systemd_service:
+        name: systemd-journald.service
+        state: restarted
+      become: true
+      when: not ansible_check_mode
