@@ -7,6 +7,7 @@ spec:
   description: CloudNativePG operator for the local PostgreSQL cluster
   sourceRepos:
     - https://cloudnative-pg.github.io/charts
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
   destinations:
     - namespace: postgres
       server: https://kubernetes.default.svc
