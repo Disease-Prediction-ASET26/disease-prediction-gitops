@@ -7,7 +7,8 @@ repositories.
 
 ## Current scope
 
-- Bootstrap and manage Oracle with Argo CD. The Proxmox Argo CD install is optional.
+- Bootstrap and manage Oracle and Proxmox with Argo CD. Proxmox runs the local
+  PostgreSQL database and Vault secret store; it does not deploy application workloads.
 - Use Tailscale for private SSH and Kubernetes access.
 - Keep the Kubernetes APIs private. On Oracle, protect the Argo CD UI with
   Authelia SSO.
@@ -36,8 +37,9 @@ Each cluster has its own directory:
 - `clusters/oracle/`: the Oracle root Kustomization, Applications, projects,
   namespaces, and the components those Applications manage. The
   `k3s-host-manifests/` directory contains K3s-owned host add-ons.
-- `clusters/proxmox/`: the local root Kustomization and its independent Argo CD
-  project and root Application. It does not include application workloads.
+- `clusters/proxmox/`: the local root Kustomization, Vault, External Secrets,
+  CloudNativePG, and PostgreSQL. It does not include application workloads or
+  public routes.
 - `clusters/<cluster>/bootstrap/argocd/`: that cluster's Argo CD namespace,
   Helmfile, and values.
 - `clusters/<cluster>/automation/ansible/`: that cluster's host automation.
@@ -46,7 +48,9 @@ Each cluster has its own directory:
 
 Oracle's component directories include `auth/`, `edge/`, `external-secrets/`,
 `ingress/`, `observability/`, and `policies/`. External Secrets files contain
-OCI Vault references, not secret values.
+OCI Vault references, not secret values. Proxmox runs its own Vault and
+External Secrets Operator; its policies and secret references live under
+`clusters/proxmox/`.
 
 The root Kustomizations list the Kubernetes resources Argo CD manages. Bootstrap
 files, Ansible playbooks, and Oracle host manifests are applied separately;

@@ -7,8 +7,12 @@ cluster with SQLite. It does not join Oracle or deploy applications.
 The VM uses `192.168.30.10/24` and gateway `192.168.30.1`. K3s uses the
 inventory's pinned release, Secret encryption, and the default Flannel,
 CoreDNS, Traefik, ServiceLB, local-path provisioner, and metrics-server.
-Local-path volumes use the VM disk. Check CPU, RAM, disk, DNS and outbound
-HTTPS against the [K3s requirements](https://docs.k3s.io/installation/requirements).
+The local Argo CD root manages Vault, External Secrets Operator, and one
+PostgreSQL instance. It does not join Oracle or deploy application workloads.
+See the [Proxmox data services runbook](proxmox-data-services.md) for database,
+Vault, and secret operations. Local-path volumes use the VM disk. Check CPU,
+RAM, disk, DNS and outbound HTTPS against the
+[K3s requirements](https://docs.k3s.io/installation/requirements).
 
 Both clusters use pod CIDR `10.42.0.0/16` and service CIDR `10.43.0.0/16`.
 They overlap, so do not route pods or services between clusters. Check other

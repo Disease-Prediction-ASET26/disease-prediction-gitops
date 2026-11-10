@@ -10,6 +10,9 @@ spec:
   destinations:
     - namespace: argocd
       server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
   namespaceResourceWhitelist:
     - group: argoproj.io
       kind: Application
