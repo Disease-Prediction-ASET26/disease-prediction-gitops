@@ -1,6 +1,10 @@
-# Helmfile and Helm Diff
+# Helmfile and Helm Diff for Oracle
 
-Helmfile manages the Argo CD chart from `helmfile.yaml`. Chart values live in `platform/argocd/values.yaml`. Do not use Helmfile to manage workloads that Argo CD already owns.
+Helmfile manages the Oracle Argo CD chart from
+`clusters/oracle/bootstrap/argocd/helmfile.yaml`, with values in the same
+directory. For Proxmox, use the [local K3s guide](proxmox-k3s.md#optional-argo-cd-bootstrap).
+Do not use Helmfile to manage workloads that Argo CD already owns. Run these
+commands from the GitOps repository root and check the Kubernetes context.
 
 ## Install the tools
 
@@ -35,16 +39,19 @@ allow Helm Diff to render releases that are not installed yet. Keep Secret
 values suppressed:
 
 ```bash
-helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml diff --diff-args "--allow-unreleased" --suppress-secrets
 ```
 
 Apply after reviewing the diff. Add `--interactive` to require confirmation before changing the release:
 
 ```bash
-helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 ```
 
-Use `helmfile sync` only for an already reviewed scripted run because it applies without the prompt. To change Argo CD, edit its chart version in `helmfile.yaml` or its values file, then run `helmfile diff --diff-args "--allow-unreleased" --suppress-secrets` before applying.
+Use `helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml sync` only for
+an already reviewed scripted run because it applies without a prompt. To change
+Argo CD, edit the chart version or values in that directory, then preview the
+diff above before applying.
 
 Use Helmfile as the source of truth for applying this release.
 
@@ -53,13 +60,13 @@ Use Helmfile as the source of truth for applying this release.
 First remove the root Argo CD Application using the steps in [Kubernetes operations](kubernetes.md#destroy-the-gitops-managed-resources). Then remove the Helm release:
 
 ```bash
-helmfile destroy --interactive
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml destroy --interactive
 ```
 
 The `argocd` namespace is a separate checked-in manifest. Remove it only after Helmfile has removed the release and the namespace is empty:
 
 ```bash
-kubectl delete -f platform/argocd/namespace.yaml
+kubectl delete -f clusters/oracle/bootstrap/argocd/namespace.yaml
 ```
 
 The chart keeps its CustomResourceDefinitions (CRDs) when the Helm release is

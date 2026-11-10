@@ -123,4 +123,4 @@ Back up any application data first. Deleting the root Application cascades to th
 kubectl -n argocd delete application oracle-root --wait=true
 ```
 
-This removes the GitOps-managed resources and keeps Argo CD installed. Recreate them with `kubectl apply -k clusters/oracle` if needed. Use `helmfile destroy` only when you also want to remove Argo CD. For full VM and cluster teardown, use the Terraform destroy guide in the infrastructure repository.
+This removes the GitOps-managed resources and keeps Argo CD installed. Recreate them with `kubectl apply -k clusters/oracle` if needed. Use `helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml destroy` only when you also want to remove Argo CD. For full VM and cluster teardown, use the Terraform destroy guide in the infrastructure repository.

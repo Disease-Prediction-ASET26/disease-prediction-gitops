@@ -1,12 +1,17 @@
 # Operations
 
-Use the guide for the tool that owns the change:
+Unless a guide says otherwise, run its commands from the GitOps repository root.
+Check the Kubernetes context before making cluster changes.
 
 For a quick map of the cluster and its trust boundaries, start with the
 [cross-repository DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md).
 
+The local K3s guide covers Proxmox. The other cluster runbooks cover Oracle.
+Workstation setup below applies to both clusters.
+
 | Task | Guide |
 |---|---|
+| Install and manage the local Proxmox K3s node | [Local K3s](proxmox-k3s.md) |
 | Private SSH, kubectl, and K9s access | [Tailscale](tailscale.md) |
 | Install or update Argo CD | [Helmfile](helmfile.md) |
 | Edit Kubernetes manifests | [Kubernetes](kubernetes.md) |
@@ -21,8 +26,10 @@ For a quick map of the cluster and its trust boundaries, start with the
 
 ## Pinned versions
 
-Use these versions for this cluster. Versions are pinned in `helmfile.yaml`,
-`platform/argocd/values.yaml`, or the relevant application manifests.
+These are the workstation and Oracle cluster versions. The Oracle Argo CD chart
+and values are pinned under `clusters/oracle/bootstrap/argocd/`; other versions
+are in the relevant Application manifests. The Proxmox pins are under
+`clusters/proxmox/`.
 
 | Tool | Version |
 |---|---|
@@ -42,14 +49,16 @@ Use these versions for this cluster. Versions are pinned in `helmfile.yaml`,
 ## Install workstation tools
 
 These commands use Ubuntu or WSL with Zsh or Bash. Install Ansible in a
-repository-local virtual environment:
+repository-local virtual environment with a supported Python version. The
+pinned Ansible Core was checked with Python 3.14; it does not start with Python
+3.15 in this environment.
 
 ```bash
 sudo apt update
 sudo apt install -y ca-certificates curl git gnupg openssh-client python3-venv
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r automation/ansible/requirements.txt
+python -m pip install -r requirements-ansible.txt
 ```
 
 Install the pinned `kubectl`, Helm, Helmfile, and K9s versions from the

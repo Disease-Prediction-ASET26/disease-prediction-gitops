@@ -27,7 +27,7 @@ ansible-playbook --check --diff \
   -i 'oracle-k3s,' \
   -u opc \
   --private-key "$HOME/.ssh/disease-prediction-oci.key" \
-  automation/ansible/playbooks/log-retention.yml
+  clusters/oracle/automation/ansible/playbooks/log-retention.yml
 ```
 
 Review the diff, then run the same command without `--check --diff` to apply
@@ -56,14 +56,14 @@ Edit the tracked Ansible playbook to change the limits or age, then preview and
 apply it again. Keep the playbook and this guide in sync.
 
 To remove the seven-day policies, preview and run
-`automation/ansible/playbooks/remove-log-retention.yml`:
+`clusters/oracle/automation/ansible/playbooks/remove-log-retention.yml`:
 
 ```bash
 ansible-playbook --check --diff \
   -i 'oracle-k3s,' \
   -u opc \
   --private-key "$HOME/.ssh/disease-prediction-oci.key" \
-  automation/ansible/playbooks/remove-log-retention.yml
+  clusters/oracle/automation/ansible/playbooks/remove-log-retention.yml
 ```
 
 Review the diff, then run it again without `--check --diff`. It stops the K3s

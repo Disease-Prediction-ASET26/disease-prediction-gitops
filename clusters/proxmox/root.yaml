@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: proxmox-root
+  namespace: argocd
+spec:
+  project: proxmox-root
+  source:
+    repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+    targetRevision: main
+    path: clusters/proxmox
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
