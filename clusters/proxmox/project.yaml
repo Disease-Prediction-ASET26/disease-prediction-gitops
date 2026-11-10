@@ -3,6 +3,8 @@ kind: AppProject
 metadata:
   name: proxmox-root
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   description: Root configuration for the local K3s cluster
   sourceRepos:
