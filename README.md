@@ -1,16 +1,17 @@
 ﻿# Disease Prediction GitOps
 
 Kubernetes configuration for the independent single-node Oracle and local
-Proxmox K3s clusters. The
-infrastructure repository owns OCI resources and Terraform. Application
-source, images, and CI live in their respective repositories.
+Proxmox K3s clusters. The infrastructure repository owns OCI resources and
+Terraform. Application source, images, and CI live in their respective
+repositories.
 
 ## Current scope
 
-- Bootstrap and manage the cluster with Argo CD.
+- Bootstrap and manage Oracle with Argo CD. The Proxmox Argo CD install is optional.
 - Use Tailscale for private SSH and Kubernetes access.
-- Keep the Kubernetes API private and protect the Argo CD UI with Authelia SSO.
-- Use the `pocket-doc.app` Cloudflare zone, Cloudflare Tunnel, Traefik, and
+- Keep the Kubernetes APIs private. On Oracle, protect the Argo CD UI with
+  Authelia SSO.
+- On Oracle, use the `pocket-doc.app` Cloudflare zone, Cloudflare Tunnel, Traefik, and
   ExternalDNS for reviewed public routes. Argo CD's route is enabled manually
   after its OIDC setup is ready; no workload application route is published.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
@@ -30,36 +31,42 @@ for resource ownership, administration and secrets, and public traffic. Use the
 
 ## Layout
 
-- `clusters/oracle/applications/`: Argo CD root and child Applications.
-- `clusters/oracle/projects/`: Argo CD source, destination, and resource allowlists.
-- `clusters/oracle/namespaces/`: namespaces created by the root Application.
-- `clusters/oracle/auth/`, `edge/`, `ingress/`, and `observability/`: local
-  resources managed by child Applications.
-- `clusters/oracle/external-secrets/<namespace>/`: namespace-scoped
-  `SecretStore` and `ExternalSecret` resources that read OCI Vault. These files
-  contain references, not secret values.
-- `clusters/oracle/policies/`: workload quotas and related policies.
-- `clusters/oracle/apps/`: product workloads, added when their API and
-  publishable images are ready.
-- `clusters/oracle/k3s-host-manifests/`: K3s-owned host add-ons; these files
-  are not part of the Argo Kustomization.
-- `platform/argocd/`: Argo CD namespace and Helm values; the root `helmfile.yaml` pins its chart.
-- `clusters/proxmox/` and `platform/argocd-proxmox/`: the local cluster's
-  independent Argo CD root and Helmfile settings.
+Each cluster has its own directory:
+
+- `clusters/oracle/`: the Oracle root Kustomization, Applications, projects,
+  namespaces, and the components those Applications manage. The
+  `k3s-host-manifests/` directory contains K3s-owned host add-ons.
+- `clusters/proxmox/`: the local root Kustomization and its independent Argo CD
+  project and root Application. It does not include application workloads.
+- `clusters/<cluster>/bootstrap/argocd/`: that cluster's Argo CD namespace,
+  Helmfile, and values.
+- `clusters/<cluster>/automation/ansible/`: that cluster's host automation.
+- `requirements-ansible.txt`: the Ansible Core version used by both clusters.
 - `docs/operations/`: cluster access, deployment, secrets, and recovery runbooks.
-- `automation/ansible/`: repeatable Oracle host setup and local K3s installation.
 
-The root Kustomization groups its `applications/`, `namespaces/`, and
-`projects/` resources by type. Each child Application points to a local
-component path or a pinned Helm chart.
+Oracle's component directories include `auth/`, `edge/`, `external-secrets/`,
+`ingress/`, `observability/`, and `policies/`. External Secrets files contain
+OCI Vault references, not secret values.
 
-The root app uses automated sync and self-healing, with pruning disabled. Removing a manifest from Git therefore does not automatically delete its live resource. Persistent data deletion remains an explicit operator action. The root project can manage approved Argo CD configuration and namespace manifests from the trusted root path; workload apps are limited to the `disease-prediction` namespace and an allowlist of resource kinds.
+The root Kustomizations list the Kubernetes resources Argo CD manages. Bootstrap
+files, Ansible playbooks, and Oracle host manifests are applied separately;
+placing a file in a cluster directory does not apply it. Oracle's root groups
+its `applications/`, `namespaces/`, and `projects/` by type. Each child
+Application points to a component path or a pinned Helm chart and has its own
+sync policy.
+
+Both root Applications use automated sync and self-healing, with pruning
+disabled. Removing a manifest from Git does not automatically delete its live
+resource. Persistent data deletion remains an explicit operator action. The
+Oracle root project can manage approved Argo CD configuration and namespace
+manifests; workload apps are limited to the `disease-prediction` namespace and
+an allowlist of resource kinds.
 
 External Secrets Operator syncs selected OCI Vault values to Kubernetes
 Secrets. See the [secrets guide](docs/operations/secrets.md) before changing
 synced credentials.
 
-GitHub Actions validates the Oracle manifests and Ansible playbooks, and runs
+GitHub Actions validates both cluster manifests and the Ansible playbooks, and runs
 the shared secret scan on pull requests and pushes to `main`.
 
 Pod Security Admission enforces Restricted in workload and platform

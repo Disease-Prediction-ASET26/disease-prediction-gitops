@@ -76,7 +76,7 @@ The commands below use the tested user, key and Tailscale IP. Update them if
 the VM or workstation changes. Run from the GitOps repository root:
 
 ```bash
-ansible -i automation/ansible/inventories/proxmox.yml proxmox_k3s \
+ansible -i clusters/proxmox/automation/ansible/inventories/proxmox.yml proxmox_k3s \
   -e 'proxmox_tailscale_ip=100.70.61.105' \
   -u k3s --private-key ~/.ssh/local-k3s -m ping
 ```
@@ -88,7 +88,7 @@ changing the system default. Confirm the path on a replacement VM:
 ```bash
 ssh -i ~/.ssh/local-k3s k3s@100.70.61.105 \
   'readlink -f /usr/bin/sudo; ls -l /usr/bin/sudo.ws'
-ansible -i automation/ansible/inventories/proxmox.yml proxmox_k3s \
+ansible -i clusters/proxmox/automation/ansible/inventories/proxmox.yml proxmox_k3s \
   -e 'proxmox_tailscale_ip=100.70.61.105 ansible_become_exe=/usr/bin/sudo.ws' \
   -u k3s --private-key ~/.ssh/local-k3s -b -K -m command -a id
 ```
@@ -101,8 +101,8 @@ Preview first. On a fresh VM, check mode skips the configuration template and
 installer, so it cannot show or test the full installation:
 
 ```bash
-ansible-playbook -i automation/ansible/inventories/proxmox.yml \
-  automation/ansible/playbooks/proxmox-k3s.yml \
+ansible-playbook -i clusters/proxmox/automation/ansible/inventories/proxmox.yml \
+  clusters/proxmox/automation/ansible/playbooks/proxmox-k3s.yml \
   -u k3s --private-key ~/.ssh/local-k3s \
   -e '{"proxmox_tailscale_ip":"100.70.61.105","k3s_api_sans":["100.70.61.105"],"ansible_become_exe":"/usr/bin/sudo.ws"}' \
   --check --diff --ask-become-pass
@@ -111,8 +111,8 @@ ansible-playbook -i automation/ansible/inventories/proxmox.yml \
 Review the diff, then run the same command without `--check`:
 
 ```bash
-ansible-playbook -i automation/ansible/inventories/proxmox.yml \
-  automation/ansible/playbooks/proxmox-k3s.yml \
+ansible-playbook -i clusters/proxmox/automation/ansible/inventories/proxmox.yml \
+  clusters/proxmox/automation/ansible/playbooks/proxmox-k3s.yml \
   -u k3s --private-key ~/.ssh/local-k3s \
   -e '{"proxmox_tailscale_ip":"100.70.61.105","k3s_api_sans":["100.70.61.105"],"ansible_become_exe":"/usr/bin/sudo.ws"}' \
   --diff --ask-become-pass
@@ -204,10 +204,10 @@ credentials expire. Verify the context and node before applying:
 ```bash
 kubectl config current-context
 kubectl get nodes -o wide
-kubectl diff -f platform/argocd/namespace.yaml
-kubectl apply -f platform/argocd/namespace.yaml
-helmfile -f platform/argocd-proxmox/helmfile.yaml diff --diff-args "--allow-unreleased" --suppress-secrets
-helmfile -f platform/argocd-proxmox/helmfile.yaml apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
+kubectl diff -f clusters/proxmox/bootstrap/argocd/namespace.yaml
+kubectl apply -f clusters/proxmox/bootstrap/argocd/namespace.yaml
+helmfile -f clusters/proxmox/bootstrap/argocd/helmfile.yaml diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/proxmox/bootstrap/argocd/helmfile.yaml apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
 kubectl diff -k clusters/proxmox
 kubectl apply -k clusters/proxmox
@@ -256,7 +256,7 @@ installer replaces the binary and restarts K3s. Remove the override after the
 upgrade. Restore a tested backup instead of downgrading.
 
 To remove Argo CD, check the local context, review the Helmfile diff, then use
-`helmfile -f platform/argocd-proxmox/helmfile.yaml destroy`. Remove the local
+`helmfile -f clusters/proxmox/bootstrap/argocd/helmfile.yaml destroy`. Remove the local
 root and project deliberately. To remove K3s, back up first; the upstream
 `/usr/local/bin/k3s-uninstall.sh` removes cluster data and local-path volumes.
 The playbook does not automate uninstall. Tailscale and the VM remain separate.

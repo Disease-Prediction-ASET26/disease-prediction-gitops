@@ -1,9 +1,13 @@
 # Operations
 
-Use the guide for the tool that owns the change:
+Unless a guide says otherwise, run its commands from the GitOps repository root.
+Check the Kubernetes context before making cluster changes.
 
 For a quick map of the cluster and its trust boundaries, start with the
 [cross-repository DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md).
+
+The local K3s guide covers Proxmox. The other cluster runbooks cover Oracle.
+Workstation setup below applies to both clusters.
 
 | Task | Guide |
 |---|---|
@@ -22,8 +26,10 @@ For a quick map of the cluster and its trust boundaries, start with the
 
 ## Pinned versions
 
-Use these versions for this cluster. Versions are pinned in `helmfile.yaml`,
-`platform/argocd/values.yaml`, or the relevant application manifests.
+These are the workstation and Oracle cluster versions. The Oracle Argo CD chart
+and values are pinned under `clusters/oracle/bootstrap/argocd/`; other versions
+are in the relevant Application manifests. The Proxmox pins are under
+`clusters/proxmox/`.
 
 | Tool | Version |
 |---|---|
@@ -52,7 +58,7 @@ sudo apt update
 sudo apt install -y ca-certificates curl git gnupg openssh-client python3-venv
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r automation/ansible/requirements.txt
+python -m pip install -r requirements-ansible.txt
 ```
 
 Install the pinned `kubectl`, Helm, Helmfile, and K9s versions from the

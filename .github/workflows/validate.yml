@@ -43,9 +43,11 @@ jobs:
       - name: Install pinned Ansible Core
         run: |
           python3 -m venv "${RUNNER_TEMP}/ansible-venv"
-          "${RUNNER_TEMP}/ansible-venv/bin/python" -m pip install --disable-pip-version-check -r automation/ansible/requirements.txt
+          "${RUNNER_TEMP}/ansible-venv/bin/python" -m pip install --disable-pip-version-check -r requirements-ansible.txt
       - name: Check Ansible playbook syntax
         run: |
-          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' automation/ansible/playbooks/tailscale.yml
-          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' automation/ansible/playbooks/remove-tailscale.yml
-          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i automation/ansible/inventories/proxmox.yml automation/ansible/playbooks/proxmox-k3s.yml
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' clusters/oracle/automation/ansible/playbooks/tailscale.yml
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' clusters/oracle/automation/ansible/playbooks/remove-tailscale.yml
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' clusters/oracle/automation/ansible/playbooks/log-retention.yml
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i 'localhost,' clusters/oracle/automation/ansible/playbooks/remove-log-retention.yml
+          "${RUNNER_TEMP}/ansible-venv/bin/ansible-playbook" --syntax-check -i clusters/proxmox/automation/ansible/inventories/proxmox.yml clusters/proxmox/automation/ansible/playbooks/proxmox-k3s.yml
