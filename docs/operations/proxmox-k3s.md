@@ -178,6 +178,70 @@ Tailscale clients were not verified. Test those separately; a timeout alone
 does not prove a firewall rule blocked traffic. Do not change Proxmox rules as
 part of this workflow.
 
+### Ubuntu 26.04 AppArmor signal denials
+
+On 2026-11-10, Ubuntu 26.04.1 with kernel 7.0.0-43 and K3s 1.37.1
+(containerd 2.3.4-k3s1) denied signals between processes in a container.
+The audit label was `cri-containerd.apparmor.d//&unconfined`; PostgreSQL
+bootstrap and Vault were affected. The fix below keeps AppArmor enforcing and
+adds the exact stacked peer to containerd's signal and ptrace rules. The
+profile is a host setting, not a Kubernetes manifest.
+
+The profile source is pinned to a rendered containerd 2.3.4 profile with those
+two rules added. Check it against the containerd version bundled by K3s before
+using it after a runtime upgrade:
+
+```bash
+profile=/etc/apparmor.d/cri-containerd.apparmor.d
+tmpfile=$(mktemp)
+curl -fsSL \
+  'https://raw.githubusercontent.com/BogenTech/regnmed/fda78858e6eea5d226d1eeb5a4f56aa8d7e8cdaa/deploy/host/cri-containerd.apparmor.d' \
+  -o "$tmpfile"
+less "$tmpfile"
+sudo apparmor_parser -Q "$tmpfile"
+
+if sudo test -e "$profile"; then
+  sudo cp -a "$profile" "$profile.backup-$(date +%Y%m%d-%H%M%S)"
+fi
+sudo install -o root -g root -m 0644 "$tmpfile" "$profile"
+sudo apparmor_parser -r -W "$profile"
+rm "$tmpfile"
+```
+
+Make sure AppArmor loads the file before K3s at boot:
+
+```bash
+sudo install -d -m 0755 /etc/systemd/system/k3s.service.d
+sudo tee /etc/systemd/system/k3s.service.d/apparmor.conf >/dev/null <<'EOF'
+[Unit]
+Requires=apparmor.service
+After=apparmor.service
+EOF
+sudo systemctl daemon-reload
+sudo systemctl show k3s -p Requires -p After
+```
+
+Verify that the profile is loaded in enforce mode and that new denials stop:
+
+```bash
+sudo grep '^cri-containerd.apparmor.d ' /sys/kernel/security/apparmor/profiles
+sudo journalctl -k --since '10 minutes ago' --no-pager \
+  | grep 'apparmor="DENIED".*operation="signal"' | tail -n 10
+```
+
+If a fresh CNPG bootstrap remains stuck after the profile is loaded, check the
+cluster and Job first. Recreating only the stuck initdb pod allowed this
+cluster's Job to complete and its primary to become Ready. Do this only before
+application data is stored; CNPG can move a valid existing data directory
+aside during another initialization. Never delete the PVC as a troubleshooting
+step.
+
+The local profile must be reviewed when K3s changes its bundled containerd.
+Remove the override only during a maintenance window after a K3s release with
+the upstream profile fix is available; K3s must restart to load its bundled
+profile again. Track [containerd issue 14485](https://github.com/containerd/containerd/issues/14485)
+and [K3s issue 13625](https://github.com/k3s-io/k3s/issues/13625).
+
 ## Optional Argo CD bootstrap
 
 After the node is healthy and this change is merged to `main`, install Argo CD

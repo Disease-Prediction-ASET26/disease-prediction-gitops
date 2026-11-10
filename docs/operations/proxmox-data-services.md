@@ -97,66 +97,110 @@ kubectl -n vault-system port-forward pod/vault-0 8200:8200
 Open `http://127.0.0.1:8200/ui` for the UI. Keep the Vault pod unsealed before
 expecting the ESO stores or the PostgreSQL cluster to become Ready.
 
-In another terminal, initialize Vault. The command writes the keys to a
-permission-restricted file instead of printing them:
+The Vault container includes the Vault CLI, so a local Vault CLI is not needed
+for status or initialization. Check the state through Kubernetes and initialize
+only when it reports `Initialized false`:
 
 ```bash
-export VAULT_ADDR=http://127.0.0.1:8200
+kubectl -n vault-system exec vault-0 -- \
+  env VAULT_ADDR=http://127.0.0.1:8200 vault status
+```
+
+Choose a writable directory on encrypted offline storage for the key files.
+The path below is a placeholder: replace it with your actual path. Do not use
+`sudo` to work around a permission error, and do not store these files in Git
+or on the cluster VM.
+
+Vault writes the initialization output to a permission-restricted file instead
+of printing it:
+
+```bash
 umask 077
-offline_dir=/secure/offline/proxmox-vault
+offline_dir=/path/on/encrypted/offline-storage/proxmox-vault
 install -d -m 700 "$offline_dir"
-vault operator init -key-shares=1 -key-threshold=1 -format=json \
-  > "$offline_dir/init.json"
-jq -er '.unseal_keys_b64[0]' "$offline_dir/init.json" \
-  > "$offline_dir/unseal-key"
-jq -er '.root_token' "$offline_dir/init.json" \
-  > "$offline_dir/root-token"
-rm "$offline_dir/init.json"
+test -w "$offline_dir" || { echo "Directory is not writable"; exit 1; }
+kubectl -n vault-system exec vault-0 -- \
+  env VAULT_ADDR=http://127.0.0.1:8200 \
+  vault operator init -key-shares=1 -key-threshold=1 -format=json \
+  > "$offline_dir/init.json" && \
+  jq -er '.unseal_keys_b64[0]' "$offline_dir/init.json" \
+    > "$offline_dir/unseal-key" && \
+  jq -er '.root_token' "$offline_dir/init.json" \
+    > "$offline_dir/root-token" && \
+  rm "$offline_dir/init.json"
 ```
 
-The `/secure/offline` path must be encrypted offline storage with restricted
-access. Keep the root token and unseal key separate. This single-share setup
-fits one home-cluster operator; losing the key prevents unsealing, and anyone
-with it can unseal Vault.
+If initialization fails, stop and check `vault status`. Do not run
+initialization again if it reports `Initialized true`. If key extraction
+fails, keep `init.json` private; it may contain the only copy of the keys.
 
-Unseal the server using the interactive prompt, then enter the root token into
-the shell without echoing it:
+Keep the root token and unseal key separate in encrypted offline storage. This
+single-share setup fits one home-cluster operator; losing the key prevents
+unsealing, and anyone with it can unseal Vault.
+
+Unseal the server using the interactive prompt:
 
 ```bash
-vault operator unseal
-read -r -s -p 'Vault root token: ' VAULT_TOKEN
-printf '\n'
-export VAULT_TOKEN
-vault status
+kubectl -n vault-system exec -it vault-0 -- \
+  env VAULT_ADDR=http://127.0.0.1:8200 sh
 ```
 
-Check `vault auth list` and `vault secrets list`. Enable the Kubernetes auth
-method and KV v2 engine only if those paths are not already enabled. The Vault
-chart grants its service account the Kubernetes `system:auth-delegator` role;
-Vault uses its short-lived pod token for TokenReview.
+In the pod shell, run `vault operator unseal` and enter the unseal key at its
+prompt. The shell opened by `kubectl exec` does not read the root-token file on
+your workstation, so Vault commands there return `403 permission denied` until
+you authenticate. Exit the pod shell, then run Vault commands through this
+workstation helper. Update the file path if your protected root-token file is
+stored elsewhere:
 
 ```bash
-vault auth enable kubernetes
-vault write auth/kubernetes/config \
+export KUBECONFIG="$HOME/.kube/proxmox-k3s.yaml"
+
+vault_in_pod() {
+  kubectl -n vault-system exec -i vault-0 -- sh -c '
+    IFS= read -r VAULT_TOKEN || exit 1
+    export VAULT_TOKEN VAULT_ADDR=http://127.0.0.1:8200
+    exec vault "$@"
+  ' sh "$@" < "$HOME/keys/root-token"
+}
+```
+
+Check which methods and engines are already enabled. The `kubernetes/` auth
+method and `secret/` KV v2 engine should appear in these lists:
+
+```bash
+vault_in_pod auth list
+vault_in_pod secrets list
+```
+
+If either is missing, enable it with `vault_in_pod auth enable kubernetes` or
+`vault_in_pod secrets enable -path=secret kv-v2`. Configure Kubernetes auth
+only when it is not already configured:
+
+```bash
+vault_in_pod write auth/kubernetes/config \
   kubernetes_host=https://kubernetes.default.svc:443
-vault secrets enable -path=secret kv-v2
 ```
 
-If `kubernetes/` or `secret/` is already listed, do not enable it again. Load
-the read-only policies from this repository and bind each policy to a separate
+The Vault chart grants its service account the Kubernetes
+`system:auth-delegator` role; Vault uses its short-lived pod token for
+TokenReview. Copy the read-only policies from the repository into the Vault pod
+so the in-pod CLI can read them, then load them and bind each to a separate
 service account and namespace:
 
 ```bash
-vault policy write proxmox-postgres-read \
-  clusters/proxmox/vault/policies/proxmox-postgres-read.hcl
-vault policy write proxmox-apps-read \
-  clusters/proxmox/vault/policies/proxmox-apps-read.hcl
+kubectl cp clusters/proxmox/vault/policies/proxmox-postgres-read.hcl \
+  vault-system/vault-0:/tmp/proxmox-postgres-read.hcl
+kubectl cp clusters/proxmox/vault/policies/proxmox-apps-read.hcl \
+  vault-system/vault-0:/tmp/proxmox-apps-read.hcl
+vault_in_pod policy write proxmox-postgres-read /tmp/proxmox-postgres-read.hcl
+vault_in_pod policy write proxmox-apps-read /tmp/proxmox-apps-read.hcl
+kubectl -n vault-system exec vault-0 -- rm /tmp/proxmox-postgres-read.hcl /tmp/proxmox-apps-read.hcl
 
-vault write auth/kubernetes/role/proxmox-postgres \
+vault_in_pod write auth/kubernetes/role/proxmox-postgres \
   bound_service_account_names=vault-secret-reader \
   bound_service_account_namespaces=postgres \
   audience=vault policies=proxmox-postgres-read ttl=1h
-vault write auth/kubernetes/role/proxmox-apps \
+vault_in_pod write auth/kubernetes/role/proxmox-apps \
   bound_service_account_names=vault-secret-reader \
   bound_service_account_namespaces=disease-prediction \
   audience=vault policies=proxmox-apps-read ttl=1h
@@ -170,13 +214,15 @@ Kubernetes permissions because it serves two namespaces; keep its
 `ExternalSecret` resources in reviewed Git changes.
 
 Write the PostgreSQL password to Vault at
-`secret/proxmox/postgres/disease-prediction` with the field `password`. For
-example, keep the value in a protected local file and pass only its path to the
-CLI:
+`secret/proxmox/postgres/disease-prediction` with the field `password`. The
+Vault CLI runs in the pod, so first copy a protected local password file to a
+temporary pod path, then remove that copy after writing it:
 
 ```bash
-vault kv put secret/proxmox/postgres/disease-prediction \
-  password=@/secure/path/postgres-password
+kubectl cp /secure/path/postgres-password vault-system/vault-0:/tmp/postgres-password
+vault_in_pod kv put secret/proxmox/postgres/disease-prediction \
+  password=@/tmp/postgres-password
+kubectl -n vault-system exec vault-0 -- rm /tmp/postgres-password
 ```
 
 Do not put the password in a command argument, terminal output, or Git. The
@@ -185,10 +231,12 @@ Secrets from this Vault entry. CloudNativePG uses the Secret in `postgres` to
 create and rotate the `disease_prediction` role; the copy in
 `disease-prediction` is for the application to connect to the database. The
 Secrets are encrypted at rest by K3s, but Vault remains the source of truth.
-Unset the root token when finished:
+Remove the helper from the shell when finished. Its token is read from the
+protected file for each command and exists in the pod process only while that
+command runs:
 
 ```bash
-unset VAULT_TOKEN
+unset -f vault_in_pod
 ```
 
 For an application secret, write its fields under
