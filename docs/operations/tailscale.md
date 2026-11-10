@@ -43,7 +43,7 @@ chmod 600 "$HOME/.ssh/disease-prediction-oci.key"
 cd "$HOME/Projects/disease-prediction/disease-prediction-gitops"
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r automation/ansible/requirements.txt
+python -m pip install -r requirements-ansible.txt
 ```
 
 Before accepting the VM's SSH host key the first time, verify its fingerprint
@@ -60,7 +60,7 @@ ansible-playbook \
   -i "${ORACLE_PUBLIC_IP}," \
   -u opc \
   --private-key "$HOME/.ssh/disease-prediction-oci.key" \
-  automation/ansible/playbooks/tailscale.yml
+  clusters/oracle/automation/ansible/playbooks/tailscale.yml
 ```
 
 The playbook installs and enrolls Tailscale, sets the VM name to
@@ -175,7 +175,7 @@ ansible-playbook \
   -u opc \
   --private-key "$HOME/.ssh/disease-prediction-oci.key" \
   --check --diff \
-  automation/ansible/playbooks/tailscale.yml
+  clusters/oracle/automation/ansible/playbooks/tailscale.yml
 ```
 
 Apply by running the same command without `--check --diff`. The playbook does
@@ -190,7 +190,7 @@ ansible-playbook \
   -i '<oracle-public-ip>,' \
   -u opc \
   --private-key "$HOME/.ssh/disease-prediction-oci.key" \
-  automation/ansible/playbooks/remove-tailscale.yml
+  clusters/oracle/automation/ansible/playbooks/remove-tailscale.yml
 ```
 
 Remove `oracle-k3s` from the Tailscale admin console after the playbook

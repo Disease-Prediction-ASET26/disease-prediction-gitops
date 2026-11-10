@@ -28,23 +28,25 @@ for system ownership and traffic paths.
 
 ## Install Argo CD with Helmfile
 
-The Argo CD namespace is a checked-in manifest. Review it, then create it:
+Run these commands from the GitOps repository root. Check the current Kubernetes
+context, then review and create the checked-in Argo CD namespace:
 
 ```bash
-kubectl diff -f platform/argocd/namespace.yaml
-kubectl apply -f platform/argocd/namespace.yaml
+kubectl config current-context
+kubectl diff -f clusters/oracle/bootstrap/argocd/namespace.yaml
+kubectl apply -f clusters/oracle/bootstrap/argocd/namespace.yaml
 ```
 
 Review the pinned chart release and values:
 
 ```bash
-helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml diff --diff-args "--allow-unreleased" --suppress-secrets
 ```
 
 Install it after reviewing the diff. Add `--interactive` to require confirmation:
 
 ```bash
-helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd get pods
 ```
 

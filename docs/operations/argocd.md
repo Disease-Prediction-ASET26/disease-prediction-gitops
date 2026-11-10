@@ -1,6 +1,9 @@
 # Argo CD
 
-Argo CD watches the GitOps repository's `main` branch. It is installed by Helmfile, while the root Application and its child application configuration live in checked-in Kubernetes files.
+This guide covers Oracle. Argo CD watches the GitOps repository's `main`
+branch. It is installed by Helmfile, while the root Application and its child
+application configuration live in checked-in Kubernetes files. For the local
+cluster, see the [Proxmox guide](proxmox-k3s.md).
 
 ## Check status and view changes
 
@@ -91,8 +94,8 @@ kubectl -n auth-system rollout status deployment/authelia
 Apply the checked-in Argo CD Helmfile values from the GitOps repository after reviewing the diff:
 
 ```bash
-helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
-helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd rollout status deployment/argocd-server
 ```
 
@@ -139,8 +142,8 @@ The HTTPRoute status must show the `websecure` parent as accepted. Then review
 and apply Helmfile from the GitOps repository:
 
 ```bash
-helmfile diff --diff-args "--allow-unreleased" --suppress-secrets
-helmfile apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml diff --diff-args "--allow-unreleased" --suppress-secrets
+helmfile -f clusters/oracle/bootstrap/argocd/helmfile.yaml apply --interactive --diff-args "--allow-unreleased" --suppress-secrets
 kubectl -n argocd rollout status deployment/argocd-server
 kubectl -n argocd exec deploy/argocd-server -- getent ahostsv4 auth.pocket-doc.app
 ```
