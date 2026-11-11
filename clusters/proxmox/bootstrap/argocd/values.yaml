@@ -67,6 +67,15 @@ redis:
       cpu: 50m
       memory: 128Mi
 
+redisSecretInit:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
 configs:
   cm:
     admin.enabled: "false"
