@@ -2,22 +2,22 @@
 
 Each cluster has a `monitoring` Argo CD Application using kube-prometheus-stack
 92.17.0. Oracle Grafana now uses the Prometheus endpoint in Proxmox through
-Oracle's Tailscale egress Service. The Oracle data plane remains active during
-the Grafana cutover. The Proxmox stack runs Prometheus, Alertmanager, the
-operator, kube-state-metrics, and node-exporter with Grafana disabled. Its
-values are in
+Oracle's Tailscale egress Service. Oracle's Prometheus, Alertmanager,
+kube-state-metrics, and node-exporter are disabled. The Oracle Prometheus
+Operator remains enabled during resource cleanup. The Proxmox stack runs
+Prometheus, Alertmanager, the operator, kube-state-metrics, and node-exporter
+with Grafana disabled. Its values are in
 [`clusters/proxmox/observability/values.yaml`](../../clusters/proxmox/observability/values.yaml)
 and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-The migration is staged. Keep the Oracle data plane running until Grafana is
-confirmed to query Proxmox through
-`proxmox-prometheus.monitoring.svc.cluster.local:9090`. The tailnet policy is
-external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
-`tag:proxmox-metrics`. The Proxmox Prometheus starts with an empty data volume;
-the existing Oracle data remains on its PVC during this overlap and for later
-retention review.
+The migration is staged. Keep the Oracle Prometheus Operator enabled until
+Argo CD prunes the old Prometheus and Alertmanager resources. The tailnet policy
+is external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
+`tag:proxmox-metrics`. The Proxmox Prometheus starts with an empty data volume.
+The old Oracle Prometheus PVC remains for retention review, so its disk space
+is not freed yet.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
 Grafana's Oracle data-volume init container changes file ownership. Node
@@ -64,19 +64,19 @@ it as the public login.
 
 ## Resource sizing
 
-Recent Oracle metrics show Grafana using up to 434 MiB and Prometheus up to
+Before the move, Oracle Grafana used up to 434 MiB and Prometheus used up to
 505 MiB.
 Grafana's request is 384 MiB, close to its earlier 364 MiB p95; its 512 MiB
-limit stays above the measured peak. Prometheus keeps a 512 MiB request and a
-1.5 GiB limit until data covers its full seven-day retention and normal query
-use.
+limit stays above the measured peak. Proxmox Prometheus uses a 512 MiB request
+and a 1.5 GiB limit while data builds up to its full seven-day retention.
 
-Recent peaks were 18 MiB for Alertmanager, 35 MiB for the operator, 36 MiB for
-kube-state-metrics, and 9 MiB for node-exporter. Their new request/limit pairs
-are 32/64, 64/128, 48/96, and 16/32 MiB. The Grafana dashboard sidecar peaked
-at 79 MiB, so its 64/128 MiB settings stay. Requests reserve scheduler
-capacity; limits cap use. Neither setting lowers a running process's current
-memory. Check for restarts and OOM events after changing limits.
+Before the move, peaks were 18 MiB for Alertmanager, 35 MiB for the operator,
+36 MiB for kube-state-metrics, and 9 MiB for node-exporter. Proxmox uses
+request/limit pairs of 32/64, 64/128, 48/96, and 16/32 MiB for those
+components. The Grafana dashboard sidecar peaked at 79 MiB, so its 64/128 MiB
+settings stay. Requests reserve scheduler capacity; limits cap use. Neither
+setting lowers a running process's current memory. Check for restarts and OOM
+events after changing limits.
 
 ```bash
 kubectl top pods -n monitoring --containers
@@ -163,9 +163,10 @@ uses that endpoint before disabling the Oracle data-plane components. Keep the
 Oracle Prometheus PVC and its historical data until a separate retention
 review.
 
-If migrating an older installation that still has the previous node-exporter
-resources in `monitoring`, review the diff and run this one-time prune to remove
-its old DaemonSet, Service, and ServiceMonitor:
+To retire the Oracle data plane, first disable Prometheus, Alertmanager,
+kube-state-metrics, node-exporter, and default rules while keeping the operator
+enabled. After reviewing the diff, prune the old resources from the Oracle
+cluster:
 
 ```bash
 argocd app diff monitoring
@@ -173,13 +174,13 @@ argocd app sync monitoring --prune
 argocd app wait monitoring --sync --health --timeout 300
 ```
 
-During this migration, the root sync can warn that the old exporter Pod
-violates Baseline. Complete the child sync promptly; a replacement Pod in
-`monitoring` would be rejected.
+Wait for the Prometheus and Alertmanager pods to stop. Check that the old
+Prometheus PVC remains before making the next Git change to disable the
+operator. Its local-path PV uses a `Delete` reclaim policy by default; change
+that PV to `Retain` before pruning if its historical data must be kept.
 
-This cluster has completed that migration. The exporter ServiceMonitor remains
-visible to Prometheus because the chart selects ServiceMonitors across all
-namespaces.
+The Oracle root Application keeps the `node-exporter` namespace. Remove that
+namespace and its AppProject destination when the operator cleanup is complete.
 
 Check that the OIDC `ExternalSecret` is Ready and the route Application is
 healthy. Do not print the Secret value:
