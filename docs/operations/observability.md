@@ -3,27 +3,25 @@
 Each cluster has a `monitoring` Argo CD Application using kube-prometheus-stack
 92.17.0. Oracle Grafana now uses the Prometheus endpoint in Proxmox through
 Oracle's Tailscale egress Service. Oracle's Prometheus, Alertmanager,
-kube-state-metrics, and node-exporter are disabled. The Oracle Prometheus
-Operator remains enabled during resource cleanup. The Proxmox stack runs
-Prometheus, Alertmanager, the operator, kube-state-metrics, and node-exporter
-with Grafana disabled. Its values are in
+kube-state-metrics, node-exporter, and Prometheus Operator are disabled. The
+Proxmox stack runs Prometheus, Alertmanager, the operator, kube-state-metrics,
+and node-exporter with Grafana disabled. Its values are in
 [`clusters/proxmox/observability/values.yaml`](../../clusters/proxmox/observability/values.yaml)
 and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-The migration is staged. Keep the Oracle Prometheus Operator enabled until
-Argo CD prunes the old Prometheus and Alertmanager resources. The tailnet policy
-is external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
-`tag:proxmox-metrics`. The Proxmox Prometheus starts with an empty data volume.
-The old Oracle Prometheus PVC remains for retention review, so its disk space
-is not freed yet.
+The Oracle data-plane workloads have been retired. The Proxmox Prometheus
+starts with an empty data volume. The old Oracle Prometheus PVC remains for
+retention review, so its disk space is not freed yet. The tailnet policy is
+external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
+`tag:proxmox-metrics` for Grafana to reach the Proxmox endpoint.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
 Grafana's Oracle data-volume init container changes file ownership. Node
-exporter runs in the separate `node-exporter` namespace with Privileged
-enforcement for its host filesystem access. It uses host networking and does
-not use the host PID namespace.
+On Proxmox, node-exporter runs in the separate `node-exporter` namespace with
+Privileged enforcement for its host filesystem access. It uses host networking
+and does not use the host PID namespace.
 
 Grafana uses native Authelia OIDC at `grafana.pocket-doc.app`. The `admins`
 group gets the Grafana admin role; other signed-in users are Viewers. Local
@@ -141,9 +139,9 @@ kubectl -n auth-system rollout status deployment/authelia --timeout=180s
 ```
 
 After reviewing and merging the Git change, check the child `monitoring`
-Application in both clusters. Each root Application creates its own
-`node-exporter` namespace. Automated sync is enabled and pruning is disabled.
-Wait for the Proxmox stack and check its resources:
+Application in both clusters. Automated sync is enabled and pruning is
+disabled. The Proxmox root Application creates the `node-exporter` namespace;
+Oracle no longer uses it. Select the Proxmox context before checking the stack:
 
 ```bash
 kubectl get namespace node-exporter
@@ -163,10 +161,9 @@ uses that endpoint before disabling the Oracle data-plane components. Keep the
 Oracle Prometheus PVC and its historical data until a separate retention
 review.
 
-To retire the Oracle data plane, first disable Prometheus, Alertmanager,
-kube-state-metrics, node-exporter, and default rules while keeping the operator
-enabled. After reviewing the diff, prune the old resources from the Oracle
-cluster:
+The Oracle data-plane retirement used two syncs. First, Prometheus,
+Alertmanager, kube-state-metrics, node-exporter, and default rules were disabled
+while the operator remained enabled. The old resources were pruned from Oracle:
 
 ```bash
 argocd app diff monitoring
@@ -174,13 +171,17 @@ argocd app sync monitoring --prune
 argocd app wait monitoring --sync --health --timeout 300
 ```
 
-Wait for the Prometheus and Alertmanager pods to stop. Check that the old
-Prometheus PVC remains before making the next Git change to disable the
-operator. Its local-path PV uses a `Delete` reclaim policy by default; change
-that PV to `Retain` before pruning if its historical data must be kept.
+After the Prometheus and Alertmanager pods stopped, the old Prometheus PVC was
+checked and its local-path PV reclaim policy changed from `Delete` to `Retain`.
+Then the operator was disabled and the Oracle `node-exporter` namespace was
+removed in a second Git change. Because Oracle root pruning is disabled, prune
+the namespace explicitly after reviewing the root diff:
 
-The Oracle root Application keeps the `node-exporter` namespace. Remove that
-namespace and its AppProject destination when the operator cleanup is complete.
+```bash
+argocd app diff oracle-root
+argocd app sync oracle-root --prune
+argocd app wait oracle-root --sync --health --timeout 300
+```
 
 Check that the OIDC `ExternalSecret` is Ready and the route Application is
 healthy. Do not print the Secret value:

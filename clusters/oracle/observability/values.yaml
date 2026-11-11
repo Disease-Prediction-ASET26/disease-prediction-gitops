@@ -3,18 +3,11 @@ defaultRules:
 
 alertmanager:
   enabled: false
-  alertmanagerSpec:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 25m
-        memory: 32Mi
-      limits:
-        cpu: 100m
-        memory: 64Mi
 
 grafana:
   enabled: true
+  rbac:
+    namespaced: true
   hostAliases:
     # Match Argo CD's private OIDC path through Traefik's HTTPS Gateway.
     - ip: 10.43.66.80
@@ -42,6 +35,8 @@ grafana:
     type: ClusterIP
     annotations:
       traefik.io/service.nativelb: "true"
+  serviceMonitor:
+    enabled: false
   envValueFrom:
     GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
       secretKeyRef:
@@ -144,86 +139,12 @@ nodeExporter:
 
 kube-state-metrics:
   enabled: false
-  resources:
-    requests:
-      cpu: 25m
-      memory: 48Mi
-    limits:
-      cpu: 100m
-      memory: 96Mi
 
 prometheus-node-exporter:
   enabled: false
-  namespaceOverride: node-exporter
-  # Node exporter listens on the node address that Prometheus scrapes.
-  hostNetwork: true
-  hostPID: false
-  resources:
-    requests:
-      cpu: 25m
-      memory: 16Mi
-    limits:
-      cpu: 100m
-      memory: 32Mi
 
 prometheusOperator:
-  prometheusConfigReloader:
-    resources:
-      requests:
-        cpu: 25m
-        memory: 32Mi
-      limits:
-        cpu: 100m
-        memory: 64Mi
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-  admissionWebhooks:
-    patch:
-      # Keep completed Helm hook Jobs visible long enough for Argo CD to observe them.
-      ttlSecondsAfterFinished: 300
-      resources:
-        requests:
-          cpu: 25m
-          memory: 64Mi
-        limits:
-          cpu: 200m
-          memory: 128Mi
+  enabled: false
 
 prometheus:
   enabled: false
-  prometheusSpec:
-    replicas: 1
-    shards: 1
-    scrapeInterval: 60s
-    evaluationInterval: 60s
-    retention: 7d
-    retentionSize: 8GiB
-    additionalScrapeConfigs:
-      - job_name: proxmox-cnpg
-        scrape_interval: 60s
-        static_configs:
-          - targets:
-              - proxmox-postgres-metrics.monitoring.svc.cluster.local:9187
-            labels:
-              cluster: proxmox
-    resources:
-      requests:
-        cpu: 250m
-        memory: 512Mi
-      limits:
-        cpu: 1000m
-        memory: 1536Mi
-    storageSpec:
-      volumeClaimTemplate:
-        spec:
-          storageClassName: local-path
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 10Gi
