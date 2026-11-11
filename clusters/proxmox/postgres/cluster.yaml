@@ -38,17 +38,11 @@ spec:
         - selectorType: rw
           serviceTemplate:
             metadata:
-              name: postgres-metrics-tailnet
+              name: postgres-metrics
               labels:
-                app.kubernetes.io/name: postgres-metrics-tailnet
-              annotations:
-                tailscale.com/proxy-group: ingress-proxies
-                tailscale.com/hostname: proxmox-postgres-metrics
-                tailscale.com/tags: tag:proxmox-metrics
-                tailscale.com/proxy-class: tailscale-proxies
+                app.kubernetes.io/name: postgres-metrics
             spec:
-              type: LoadBalancer
-              loadBalancerClass: tailscale
+              type: ClusterIP
               ports:
                 - name: metrics
                   port: 9187

@@ -40,14 +40,11 @@ are lost if the disk is lost. Traefik can read Secrets in Oracle's `monitoring`
 namespace, including Grafana's OIDC Secret. Grafana uses Traefik NativeLB
 because direct Pod IP connections failed in this cluster.
 
-During the overlap, Oracle Prometheus scrapes the CloudNativePG exporter over
-Tailscale through `proxmox-postgres-metrics.monitoring.svc.cluster.local:9187`.
-Proxmox Prometheus scrapes the local exporter Service at
-`postgres-metrics-tailnet.postgres.svc.cluster.local:9187`. Both use a
-60-second interval and the `proxmox-cnpg` job name. Check the Proxmox target
-with `up{job="proxmox-cnpg"}`. These scrapes collect database metrics, not
-logs; logs remain on their cluster nodes until a separate log collector is
-configured.
+Proxmox Prometheus scrapes the CloudNativePG exporter through the
+cluster-local Service at `postgres-metrics.postgres.svc.cluster.local:9187`
+every 60 seconds with the `proxmox-cnpg` job name. Check the target with
+`up{job="proxmox-cnpg"}`. This collects database metrics, not logs; logs
+remain on their cluster nodes until a separate log collector is configured.
 
 Logs from Prometheus, Alertmanager, Grafana, and other monitoring pods use
 Kubernetes pod logs on the node. Kubelet rotates them at 10 MiB and keeps up to
@@ -154,12 +151,9 @@ kubectl -n monitoring get service prometheus-tailnet
 ```
 
 Run the Argo and Kubernetes checks with the matching cluster context. Confirm
-`prometheus-tailnet` is configured by the Tailscale operator, then test the
-Oracle egress Service from Oracle after adding the TCP/9090 tailnet grant.
-Query `up{job="proxmox-cnpg"}` through the egress Service and confirm Grafana
-uses that endpoint before disabling the Oracle data-plane components. Keep the
-Oracle Prometheus PVC and its historical data until a separate retention
-review.
+`prometheus-tailnet` is configured by the Tailscale operator and Oracle
+Grafana uses the Proxmox Prometheus endpoint. Keep the old Oracle Prometheus
+PVC only until its historical data has been reviewed for deletion.
 
 The Oracle data-plane retirement used two syncs. First, Prometheus,
 Alertmanager, kube-state-metrics, node-exporter, and default rules were disabled
@@ -222,16 +216,8 @@ kubectl -n monitoring port-forward service/monitoring-grafana 3000:80
 
 Open `http://127.0.0.1:3000`. For recovery, temporarily enable Grafana's local
 login form in the values and sync the change. Revert it after access is restored.
-To inspect the existing Oracle Prometheus during migration, use a second
-terminal:
-
-```bash
-kubectl -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
-```
-
-Open `http://127.0.0.1:9090/targets` and query
-`up{job="proxmox-cnpg"}`. To inspect Proxmox Prometheus, select the Proxmox
-context and forward its service in a separate terminal:
+To inspect Proxmox Prometheus, select the Proxmox context and forward its
+service:
 
 ```bash
 kubectl -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
