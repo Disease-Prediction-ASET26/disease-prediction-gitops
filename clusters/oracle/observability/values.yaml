@@ -1,6 +1,9 @@
 defaultRules:
   create: false
 
+crds:
+  enabled: false
+
 alertmanager:
   enabled: false
 

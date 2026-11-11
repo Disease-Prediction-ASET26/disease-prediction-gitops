@@ -11,10 +11,10 @@ and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-The Oracle data-plane workloads have been retired. The Proxmox Prometheus
-starts with an empty data volume. The old Oracle Prometheus PVC remains for
-retention review, so its disk space is not freed yet. The tailnet policy is
-external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
+The Oracle data-plane workloads have been retired. The old Oracle Prometheus
+PVC and PV have been deleted, and no Prometheus custom resources remain there.
+Oracle's chart no longer installs Prometheus Operator CRDs. The tailnet policy
+is external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
 `tag:proxmox-metrics` for Grafana to reach the Proxmox endpoint.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
@@ -34,11 +34,11 @@ Grafana and OIDC are ready. Do not rely on the wave as a readiness or
 authentication gate.
 See the [public route guide](domain-ingress.md) for route requirements.
 
-Prometheus keeps seven days of metrics, up to 8 GiB, on a 10 GiB local volume.
-Grafana uses a 1 GiB local volume. These are stored on their cluster nodes and
-are lost if the disk is lost. Traefik can read Secrets in Oracle's `monitoring`
-namespace, including Grafana's OIDC Secret. Grafana uses Traefik NativeLB
-because direct Pod IP connections failed in this cluster.
+Proxmox Prometheus keeps seven days of metrics, up to 8 GiB, on a 10 GiB local
+volume. Oracle Grafana uses a 1 GiB local volume. These are stored on their
+cluster nodes and are lost if the disk is lost. Traefik can read Secrets in
+Oracle's `monitoring` namespace, including Grafana's OIDC Secret. Grafana uses
+Traefik NativeLB because direct Pod IP connections failed in this cluster.
 
 Proxmox Prometheus scrapes the CloudNativePG exporter through the
 cluster-local Service at `postgres-metrics.postgres.svc.cluster.local:9187`
@@ -152,8 +152,7 @@ kubectl -n monitoring get service prometheus-tailnet
 
 Run the Argo and Kubernetes checks with the matching cluster context. Confirm
 `prometheus-tailnet` is configured by the Tailscale operator and Oracle
-Grafana uses the Proxmox Prometheus endpoint. Keep the old Oracle Prometheus
-PVC only until its historical data has been reviewed for deletion.
+Grafana uses the Proxmox Prometheus endpoint.
 
 The Oracle data-plane retirement used two syncs. First, Prometheus,
 Alertmanager, kube-state-metrics, node-exporter, and default rules were disabled
@@ -165,9 +164,7 @@ argocd app sync monitoring --prune
 argocd app wait monitoring --sync --health --timeout 300
 ```
 
-After the Prometheus and Alertmanager pods stopped, the old Prometheus PVC was
-checked and its local-path PV reclaim policy changed from `Delete` to `Retain`.
-Then the operator was disabled and the Oracle `node-exporter` namespace was
+The operator was then disabled and the Oracle `node-exporter` namespace was
 removed in a second Git change. Because Oracle root pruning is disabled, prune
 the namespace explicitly after reviewing the root diff:
 
@@ -189,8 +186,18 @@ kubectl delete clusterrolebinding monitoring-kube-prometheus-admission
 kubectl -n monitoring delete role,rolebinding,serviceaccount monitoring-kube-prometheus-admission
 ```
 
-The Oracle observability AppProject allows the chart's CRD definitions and the
-namespaced Grafana, External Secrets, and HTTPRoute resources that remain.
+Oracle's `monitoring` Application no longer installs the Prometheus Operator
+CRDs. After confirming there are no Prometheus custom resources, remove the
+existing CRD definitions explicitly; Argo CD automatic pruning is disabled:
+
+```bash
+kubectl --context oracle-k3s get prometheuses,alertmanagers,servicemonitors,podmonitors,prometheusrules,probes,scrapeconfigs,thanosrulers,alertmanagerconfigs,prometheusagents -A
+kubectl --context oracle-k3s get crd -o name | grep 'monitoring.coreos.com' | xargs -r kubectl --context oracle-k3s delete
+```
+
+Confirm that no `monitoring.coreos.com` CRDs remain. The Oracle observability
+AppProject permits only the namespaced Grafana, External Secrets, and
+HTTPRoute resources that remain.
 
 Check that the OIDC `ExternalSecret` is Ready and the route Application is
 healthy. Do not print the Secret value:
@@ -254,9 +261,10 @@ kubectl -n argocd delete appproject oracle-observability
 kubectl delete namespace monitoring
 ```
 
-Deleting the namespace removes its PVCs and monitoring data. Argo CD tracks
-the Prometheus Operator CRDs from the chart source, so cascading deletion
-removes them too. Confirm no other application uses those CRDs first.
+Deleting the namespace removes its PVCs and monitoring data. Before removing
+the Oracle stack, confirm no other application uses the Prometheus Operator
+CRDs, then delete any remaining CRDs explicitly; deleting the namespace does
+not remove cluster-scoped CRDs.
 
 ## References
 
