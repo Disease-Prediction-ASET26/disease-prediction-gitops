@@ -61,7 +61,9 @@ enforcement because it reads the node's `/proc`, `/sys`, and root filesystem.
 It uses the host network and does not use the host PID namespace. Keep
 host-access workloads out of other namespaces.
 
-K3s owns the Pods in `kube-system`; this policy set does not change that namespace.
+K3s owns the add-on Pods in `kube-system`. These Pod Security labels do not
+change that namespace. Proxmox applies resource defaults there through a
+separate LimitRange, described below.
 
 Check the active policy labels with:
 
@@ -78,9 +80,17 @@ documented host-access requirement.
 `clusters/oracle/k3s-host-manifests/kube-system-resource-limits.yaml` defines
 default requests of `50m` CPU and `48Mi` memory, and default limits of `200m`
 CPU and `128Mi` memory for containers in `kube-system` that do not set those
-values. K3s owns these add-ons, so the manifest is installed through the K3s
-server manifest directory rather than the Argo root application. Existing Pods
-keep their current resources until they are recreated.
+values. K3s owns these add-ons, so Oracle installs the manifest through the
+K3s server manifest directory rather than the Argo root application.
+
+Proxmox manages a separate LimitRange from
+`clusters/proxmox/kube-system-resource-limits.yaml`. It sets default requests
+of `10m` CPU and `64Mi` memory, and default limits of `250m` CPU and `256Mi`
+memory for containers that omit resources. The `proxmox-root` AppProject can
+manage only a LimitRange in `kube-system`. Existing Pods keep their current
+resources until they are recreated. After the root Application syncs, roll
+the K3s add-on deployments and ServiceLB DaemonSet to apply the defaults, then
+check the resulting pod resources.
 
 ## Traefik CRD bundle
 

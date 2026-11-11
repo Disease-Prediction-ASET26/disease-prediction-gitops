@@ -12,6 +12,8 @@ spec:
   destinations:
     - namespace: argocd
       server: https://kubernetes.default.svc
+    - namespace: kube-system
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace
@@ -20,3 +22,5 @@ spec:
       kind: Application
     - group: argoproj.io
       kind: AppProject
+    - group: ""
+      kind: LimitRange

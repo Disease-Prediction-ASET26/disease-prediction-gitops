@@ -254,6 +254,16 @@ The commands below copy cluster-admin credentials to a private local file.
 They temporarily create a user-owned copy on the VM; remove it even if the
 copy fails. Never commit either kubeconfig.
 
+The Argo CD chart sets resource requests and limits for each component in
+`clusters/proxmox/bootstrap/argocd/values.yaml`. Initial memory sizing follows
+a five-hour Prometheus sample from this node. Review usage with
+`kubectl top pods -n argocd --containers` after normal weekly use before
+changing it. The
+Proxmox root Application also manages a `kube-system` LimitRange with
+10m/64Mi default requests and 250m/256Mi default limits for new containers
+that omit resources. Existing Pods keep their current resources until
+recreated. See [Kubernetes operations](kubernetes.md#k3s-system-pod-resource-defaults).
+
 ```bash
 install -d -m 700 "$HOME/.kube"
 umask 077
