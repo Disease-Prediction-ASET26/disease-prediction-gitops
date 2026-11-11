@@ -1,14 +1,15 @@
 ﻿# Disease Prediction GitOps
 
 Kubernetes configuration for the independent single-node Oracle and local
-Proxmox K3s clusters. The infrastructure repository owns OCI resources and
-Terraform. Application source, images, and CI live in their respective
-repositories.
+Proxmox K3s clusters. Oracle hosts application workloads, public edge services,
+and Grafana. Proxmox hosts local PostgreSQL, Vault, and the Prometheus backend.
+The infrastructure repository owns OCI resources and Terraform. Application
+source, images, and CI live in their respective repositories.
 
 ## Current scope
 
 - Bootstrap and manage Oracle and Proxmox with Argo CD. Proxmox runs the local
-  PostgreSQL database and Vault secret store; it does not deploy application workloads.
+  PostgreSQL database, Vault secret store, and Prometheus monitoring backend.
 - Use Tailscale for private SSH and Kubernetes access.
 - Keep the Kubernetes APIs private. On Oracle, protect the Argo CD UI with
   Authelia SSO.
@@ -38,8 +39,8 @@ Each cluster has its own directory:
   namespaces, and the components those Applications manage. The
   `k3s-host-manifests/` directory contains K3s-owned host add-ons.
 - `clusters/proxmox/`: the local root Kustomization, Vault, External Secrets,
-  CloudNativePG, and PostgreSQL. It does not include application workloads or
-  public routes.
+  CloudNativePG, PostgreSQL, and the Prometheus monitoring backend. It does not
+  include application workloads or public routes.
 - `clusters/<cluster>/bootstrap/argocd/`: that cluster's Argo CD namespace,
   Helmfile, and values.
 - `clusters/<cluster>/automation/ansible/`: that cluster's host automation.

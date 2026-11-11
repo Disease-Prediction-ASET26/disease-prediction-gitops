@@ -18,6 +18,23 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: proxmox-prometheus
+  namespace: monitoring
+  annotations:
+    tailscale.com/tailnet-fqdn: proxmox-prometheus.tail0bed44.ts.net
+    tailscale.com/proxy-group: egress-proxies
+    tailscale.com/proxy-class: tailscale-proxies
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - name: prometheus
+      port: 9090
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: proxmox-postgres-metrics
   namespace: monitoring
   annotations:

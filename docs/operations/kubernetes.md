@@ -54,11 +54,12 @@ version, `v1.37`. The `default`, `disease-prediction`, `auth-system`,
 `edge-system`, `external-secrets`, `traefik-system`, and `argocd` namespaces
 enforce Restricted and also audit and warn at that level.
 
-`monitoring` enforces Baseline and audits and warns at Restricted. Grafana's
-init container needs to change ownership on its data volume. `node-exporter`
-is isolated in its own namespace with Privileged enforcement because it mounts
-the node's `/proc`, `/sys`, and root filesystem. Its host network and PID
-namespace are disabled. Keep host-access workloads out of other namespaces.
+`monitoring` enforces Baseline and audits and warns at Restricted. Oracle's
+Grafana init container needs to change ownership on its data volume. In both
+clusters, `node-exporter` is isolated in its own namespace with Privileged
+enforcement because it reads the node's `/proc`, `/sys`, and root filesystem.
+It uses the host network and does not use the host PID namespace. Keep
+host-access workloads out of other namespaces.
 
 K3s owns the Pods in `kube-system`; this policy set does not change that namespace.
 

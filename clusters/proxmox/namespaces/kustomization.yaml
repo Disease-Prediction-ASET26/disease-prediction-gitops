@@ -3,6 +3,8 @@ kind: Kustomization
 resources:
   - disease-prediction.yaml
   - external-secrets.yaml
+  - monitoring.yaml
+  - node-exporter.yaml
   - postgres.yaml
   - tailscale.yaml
   - vault-system.yaml

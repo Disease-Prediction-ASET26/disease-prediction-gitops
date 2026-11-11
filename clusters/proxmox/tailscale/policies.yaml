@@ -7,3 +7,13 @@ spec:
   ingress:
     - ingress-proxies
   egress: []
+---
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroupPolicy
+metadata:
+  name: tailscale-proxies
+  namespace: monitoring
+spec:
+  ingress:
+    - ingress-proxies
+  egress: []
