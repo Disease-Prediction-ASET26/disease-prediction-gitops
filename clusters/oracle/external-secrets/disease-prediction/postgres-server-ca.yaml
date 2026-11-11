@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: postgres-server-ca
+  namespace: disease-prediction
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault
+    kind: SecretStore
+  target:
+    name: postgres-server-ca
+    creationPolicy: Owner
+    template:
+      type: Opaque
+  data:
+    - secretKey: ca.crt
+      remoteRef:
+        key: proxmox-postgres-server-ca
+        property: ca_crt

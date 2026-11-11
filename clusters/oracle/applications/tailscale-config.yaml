@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: oracle-tailscale-config
+  source:
+    repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+    targetRevision: main
+    path: clusters/oracle/tailscale
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  ignoreDifferences:
+    - group: ""
+      kind: Service
+      name: proxmox-postgres
+      namespace: disease-prediction
+      jsonPointers:
+        - /spec/externalName
+    - group: ""
+      kind: Service
+      name: proxmox-postgres-metrics
+      namespace: monitoring
+      jsonPointers:
+        - /spec/externalName
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false
+    syncOptions:
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true

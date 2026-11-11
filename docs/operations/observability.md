@@ -27,6 +27,14 @@ lost if its disk is lost. Traefik can read Secrets in `monitoring`, including
 Grafana's OIDC Secret. Grafana uses Traefik NativeLB because direct Pod IP
 connections failed in this cluster.
 
+Prometheus also scrapes the CloudNativePG exporter in the Proxmox cluster over
+Tailscale. The `proxmox-cnpg` job uses the Oracle egress Service at
+`proxmox-postgres-metrics.monitoring.svc.cluster.local:9187` and a 60-second
+interval. The tailnet policy permits TCP/9187 from the Oracle proxy tag to the
+dedicated Proxmox metrics service tag. Check the target with
+`up{job="proxmox-cnpg"}`. This collects database metrics, not logs; logs
+remain on their cluster nodes until a separate log collector is configured.
+
 Logs from Prometheus, Alertmanager, Grafana, and other monitoring pods use
 Kubernetes pod logs on the node. Kubelet rotates them at 10 MiB and keeps up to
 five files. A daily host timer deletes rotated pod logs older than seven days
@@ -168,6 +176,9 @@ To inspect Prometheus, use a second terminal:
 ```bash
 kubectl -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
 ```
+
+Open `http://127.0.0.1:9090/targets` and confirm the `proxmox-cnpg` target is
+up. Query `up{job="proxmox-cnpg"}` to check its current scrape result.
 
 Grafana loads the chart's Kubernetes dashboards from ConfigMaps in `monitoring`.
 Scrapes for unavailable K3s control-plane services and CoreDNS are disabled.

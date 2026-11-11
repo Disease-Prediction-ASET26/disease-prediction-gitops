@@ -1,8 +1,10 @@
 # Proxmox PostgreSQL and Vault
 
 This guide manages the local PostgreSQL database and Vault secret store. Both
-stay in the Proxmox K3s cluster. The database and Vault use the VM's
-`local-path` storage. They are single-instance services, not highly available.
+stay in the Proxmox K3s cluster. Selected database and exporter services are
+available to the Oracle K3s cluster over Tailscale. The database and Vault use
+the VM's `local-path` storage. They are single-instance services, not highly
+available.
 
 ```mermaid
 flowchart LR
@@ -13,8 +15,16 @@ flowchart LR
     eso -->|creates and refreshes| secret[Namespaced Kubernetes Secret]
     secret --> role[CloudNativePG DatabaseRole]
     app[Local workloads] -->|postgres-rw Service| db[PostgreSQL]
+    db -->|primary TCP/5432| taildb[Tailscale Service]
+    db -->|metrics TCP/9187| tailmetrics[Tailscale Service]
     db --> dbDisk[(PostgreSQL PVC)]
   end
+  subgraph oracle[Oracle K3s]
+    oracleApp[Oracle app workload] -->|TLS via local Service| dbEgress[PostgreSQL egress Service]
+    prometheus[Prometheus] -->|scrape via local Service| metricsEgress[Exporter egress Service]
+  end
+  dbEgress -->|Tailscale TCP/5432| taildb
+  metricsEgress -->|Tailscale TCP/9187| tailmetrics
 ```
 
 ## Chart choices
@@ -282,17 +292,77 @@ kubectl -n disease-prediction get secret postgres-app-credentials -o name
 
 ## Connect to PostgreSQL
 
-The database is only a ClusterIP service. Workloads in the local cluster use
-`postgres-rw.postgres.svc.cluster.local:5432`. For a workstation session, keep
-the private port-forward open and let `psql` prompt for the password:
+Local workloads use the ClusterIP service
+`postgres-rw.postgres.svc.cluster.local:5432`. For a workstation session,
+keep the private port-forward open and let `psql` prompt for the password:
 
 ```bash
 kubectl -n postgres port-forward service/postgres-rw 5432:5432
 psql -h 127.0.0.1 -p 5432 -U disease_prediction -d disease_prediction -W
 ```
 
-There is no public route, LoadBalancer, or PgBouncer deployment. The cluster
-has one database instance and stops during node or VM downtime.
+There is no public route or PgBouncer deployment. The two LoadBalancer
+Services use the Tailscale load balancer class and are available only through
+the tailnet. The cluster has one database instance and stops during node or VM
+downtime.
+
+Oracle workloads use the mirror Service
+`proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Configure
+PostgreSQL TLS with `sslmode=verify-full` and the `ca.crt` file from the
+`postgres-server-ca` Secret. The CNPG server certificate includes both the
+Tailscale hostname and the Oracle Service DNS name, so hostname verification
+matches this connection path. Keep the database username and password in the
+`postgres-app-credentials` Secret; do not put them in application manifests.
+CloudNativePG adds these DNS names to its generated server certificate through
+`serverAltDNSNames` ([certificate configuration](https://cloudnative-pg.io/docs/1.29/cloudnative-pg.v1/)).
+CloudNativePG maintains the additional primary and metrics Services from the
+`managed.services.additional` configuration using its native Service
+management support ([service management](https://cloudnative-pg.io/docs/1.28/service_management/)).
+
+The Oracle Secret is synced from OCI Vault. Before syncing its ExternalSecrets,
+create these OCI Vault secret names with JSON payloads matching the requested
+properties:
+
+| OCI Vault secret | JSON property | Value |
+|---|---|---|
+| `proxmox-postgres-credentials` | `password` | The current `disease_prediction` password from Proxmox Vault |
+| `proxmox-postgres-server-ca` | `ca_crt` | The public CA certificate from the Proxmox `postgres-ca` Secret |
+
+For example, the credential payload has the form `{"password":"..."}` and
+the CA payload uses a `ca_crt` property containing the PEM certificate. Use
+the OCI Console or another secure secret-entry method. Keep the database
+password out of Git, shell arguments, logs, and command output. The CA is
+public, but deliver it through the same Vault workflow so Oracle ESO can
+create its Kubernetes Secret consistently. The Oracle provider reads named
+properties from JSON secret payloads ([provider documentation](https://external-secrets.io/latest/provider/oracle-vault/)).
+
+These OCI Vault entries are copies of values in the Proxmox Vault, not a live
+Vault-to-Vault sync. Update the OCI credential secret whenever you rotate the
+PostgreSQL password in Proxmox Vault, then verify the Oracle ExternalSecret is
+Ready before restarting applications.
+
+To copy the CA to a protected local file without printing it, use a private
+path and restrict its permissions:
+
+```bash
+umask 077
+install -d -m 700 /secure/path
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n postgres \
+  get secret postgres-ca -o jsonpath='{.data.ca\.crt}' |
+  base64 --decode > /secure/path/proxmox-postgres-ca.crt
+chmod 600 /secure/path/proxmox-postgres-ca.crt
+```
+
+The exported file is only an input to the secure OCI Vault secret-entry step;
+delete it after the Vault secret is confirmed. The Oracle ExternalSecrets
+create `disease-prediction/postgres-app-credentials` and
+`disease-prediction/postgres-server-ca`. The application container image and
+database client configuration are not part of this infrastructure change.
+
+The exporter endpoint is also available over the tailnet on TCP/9187. Oracle
+Prometheus scrapes it every 60 seconds with the `proxmox-cnpg` job. This is
+metrics collection, not log shipping; the exporter does not expose PostgreSQL
+logs.
 
 ## Update and back up
 
