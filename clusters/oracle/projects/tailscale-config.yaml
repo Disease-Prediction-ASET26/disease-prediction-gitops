@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: oracle-tailscale-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  description: Tailscale proxy groups and selected cross-cluster services
+  sourceRepos:
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: tailscale
+      server: https://kubernetes.default.svc
+    - namespace: disease-prediction
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: tailscale.com
+      kind: ProxyClass
+  namespaceResourceWhitelist:
+    - group: tailscale.com
+      kind: ProxyGroup
+    - group: tailscale.com
+      kind: ProxyGroupPolicy
+    - group: ""
+      kind: Service

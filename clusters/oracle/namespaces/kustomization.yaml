@@ -8,4 +8,5 @@ resources:
   - external-secrets.yaml
   - monitoring.yaml
   - node-exporter.yaml
+  - tailscale.yaml
   - traefik-system.yaml

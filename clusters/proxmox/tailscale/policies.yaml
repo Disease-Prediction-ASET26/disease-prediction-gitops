@@ -1,0 +1,9 @@
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroupPolicy
+metadata:
+  name: tailscale-proxies
+  namespace: postgres
+spec:
+  ingress:
+    - ingress-proxies
+  egress: []

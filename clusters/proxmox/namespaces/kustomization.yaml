@@ -4,4 +4,5 @@ resources:
   - disease-prediction.yaml
   - external-secrets.yaml
   - postgres.yaml
+  - tailscale.yaml
   - vault-system.yaml

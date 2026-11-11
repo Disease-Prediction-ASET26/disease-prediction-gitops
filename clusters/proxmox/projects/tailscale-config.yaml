@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: proxmox-tailscale-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  description: Tailscale proxy groups and resource settings for the Proxmox cluster
+  sourceRepos:
+    - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
+  destinations:
+    - namespace: tailscale
+      server: https://kubernetes.default.svc
+    - namespace: postgres
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: tailscale.com
+      kind: ProxyClass
+  namespaceResourceWhitelist:
+    - group: tailscale.com
+      kind: ProxyGroup
+    - group: tailscale.com
+      kind: ProxyGroupPolicy

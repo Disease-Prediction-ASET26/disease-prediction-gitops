@@ -4,5 +4,7 @@ resources:
   - external-secrets.yaml
   - postgres-operator.yaml
   - postgres.yaml
+  - tailscale-config.yaml
+  - tailscale-operator.yaml
   - vault.yaml
   - vault-stores.yaml

@@ -188,6 +188,14 @@ prometheus:
     evaluationInterval: 60s
     retention: 7d
     retentionSize: 8GiB
+    additionalScrapeConfigs:
+      - job_name: proxmox-cnpg
+        scrape_interval: 60s
+        static_configs:
+          - targets:
+              - proxmox-postgres-metrics.monitoring.svc.cluster.local:9187
+            labels:
+              cluster: proxmox
     resources:
       requests:
         cpu: 250m

@@ -198,9 +198,195 @@ completes. Keep public SSH limited to your `/32`; never use `0.0.0.0/0`.
 The removal playbook leaves the Oracle Linux SSH crypto policy and the K3s
 `oracle-k3s` certificate name in place; neither exposes a public port.
 
+## Connect selected Kubernetes services
+
+The Proxmox and Oracle K3s clusters currently use overlapping Pod and Service
+CIDRs. Keep them as they are: this setup exposes only the PostgreSQL primary
+and its metrics endpoint as Tailscale Services. It does not route either
+cluster's Pod or Service subnet, so the overlapping ranges do not need to
+change. Other cluster services stay private.
+
+The Proxmox cluster runs one Tailscale ingress ProxyGroup. The Oracle cluster
+runs one egress ProxyGroup and creates local Kubernetes Service names for the
+two remote endpoints. Tailscale encrypts traffic between the proxies. The
+database connection also uses PostgreSQL TLS with certificate verification.
+Each ProxyGroup has one replica to limit memory use; neither cluster nor the
+database becomes highly available. The operator and each proxy request 25m CPU
+and 64 MiB memory, with limits of 250m CPU and 256 MiB memory.
+
+Before merging the GitOps change, add these tag owners to the existing tailnet
+policy. Keep its current `tag:oracle-k3s` entries and access rules:
+
+`tag:oracle-k3s` identifies the Oracle VM. The new `tag:oracle-k3s-egress`
+identifies only the Kubernetes egress proxies, so the database grants do not
+also give the VM direct access.
+
+```json
+{
+  "tagOwners": {
+    "tag:k8s-operator": ["autogroup:owner"],
+    "tag:k8s-proxmox": ["tag:k8s-operator"],
+    "tag:oracle-k3s-egress": ["tag:k8s-operator"],
+    "tag:proxmox-postgres": ["tag:k8s-operator"],
+    "tag:proxmox-metrics": ["tag:k8s-operator"]
+  }
+}
+```
+
+Add these entries under `autoApprovers.services` so only the Proxmox ingress
+proxy tag can advertise the two Tailscale Services:
+
+```json
+{
+  "autoApprovers": {
+    "services": {
+      "tag:proxmox-postgres": ["tag:k8s-proxmox"],
+      "tag:proxmox-metrics": ["tag:k8s-proxmox"]
+    }
+  }
+}
+```
+
+Append these grants to the existing `grants` list. The Oracle proxy can reach
+only PostgreSQL TCP/5432 and metrics TCP/9187 on the tagged services:
+
+```json
+{
+  "grants": [
+    {
+      "src": ["tag:oracle-k3s-egress"],
+      "dst": ["tag:proxmox-postgres"],
+      "ip": ["tcp:5432"]
+    },
+    {
+      "src": ["tag:oracle-k3s-egress"],
+      "dst": ["tag:proxmox-metrics"],
+      "ip": ["tcp:9187"]
+    }
+  ]
+}
+```
+
+Check the full policy for broader grants that would also permit access. These
+rules are not stored in this repository and must be added in the Tailscale
+admin console.
+
+Create a separate OAuth client for each cluster in the Tailscale admin
+console. Give each client `Devices:Core`, `Keys:Auth Keys`, and `Services`
+Read/Write scopes, and allow it to use `tag:k8s-operator`. Before the Argo CD
+Applications sync, create the Kubernetes Secret `tailscale/operator-oauth` in
+each cluster. The Helm chart reads files named `client_id` and
+`client_secret` from this Secret. The following function prompts for the
+credentials without echoing the secret or putting it in shell history:
+
+The namespace does not exist in either cluster yet. From the GitOps repository
+root, create it from the versioned manifest first; Argo CD will manage it
+after the change is merged:
+
+```bash
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" \
+  apply -f clusters/proxmox/namespaces/tailscale.yaml
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" \
+  apply -f clusters/oracle/namespaces/tailscale.yaml
+```
+
+```bash
+umask 077
+secret_dir="$(mktemp -d /dev/shm/tailscale-operator.XXXXXX)"
+trap 'rm -rf "$secret_dir"' EXIT
+
+create_operator_secret() {
+  local kubeconfig="$1"
+  read -r -p 'Tailscale OAuth client ID: ' oauth_client_id
+  read -r -s -p 'Tailscale OAuth client secret: ' oauth_client_secret
+  printf '\n'
+  printf '%s' "$oauth_client_id" > "$secret_dir/client_id"
+  printf '%s' "$oauth_client_secret" > "$secret_dir/client_secret"
+  unset oauth_client_id oauth_client_secret
+  kubectl --kubeconfig "$kubeconfig" -n tailscale \
+    create secret generic operator-oauth \
+    --from-file=client_id="$secret_dir/client_id" \
+    --from-file=client_secret="$secret_dir/client_secret" \
+    --dry-run=client -o yaml |
+    kubectl --kubeconfig "$kubeconfig" apply -f -
+}
+
+create_operator_secret "$HOME/.kube/proxmox-k3s.yaml"
+create_operator_secret "$HOME/.kube/oracle-k3s.yaml"
+```
+
+From the GitOps repository, render both cluster manifests and the pinned
+operator chart before merging:
+
+```bash
+kubectl kustomize clusters/proxmox > /dev/null
+kubectl kustomize clusters/oracle > /dev/null
+helm template tailscale-operator tailscale-operator \
+  --repo https://pkgs.tailscale.com/helmcharts \
+  --version 1.104.4 \
+  --namespace tailscale \
+  --values clusters/proxmox/tailscale/values.yaml > /dev/null
+helm template tailscale-operator tailscale-operator \
+  --repo https://pkgs.tailscale.com/helmcharts \
+  --version 1.104.4 \
+  --namespace tailscale \
+  --values clusters/oracle/tailscale/values.yaml > /dev/null
+git diff --check
+```
+
+Do not save the generated Secret YAML in Git or print it. After the tailnet
+policy and both Secrets are ready, merge the change. Argo CD installs the
+operator and its ProxyGroups in each cluster. The operator requires privileged
+pod access, so its pods are isolated in a dedicated namespace with the
+privileged Pod Security level. Namespace policies limit the Proxmox database
+namespace to the ingress group and the Oracle application and monitoring
+namespaces to the egress group.
+
+Oracle workloads connect to
+`proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Prometheus
+scrapes the PostgreSQL exporter at
+`proxmox-postgres-metrics.monitoring.svc.cluster.local:9187`. Prometheus
+collects metrics; this connection does not ship logs. A log collector such as
+Alloy with a log store needs a separate design and bounded retention.
+
+The Oracle proxy group has a shared tailnet identity, so tailnet policy cannot
+distinguish individual pods behind it. PostgreSQL still requires its database
+credentials and a trusted TLS certificate. Before running untrusted workloads
+in the Oracle application or monitoring namespaces, add Kubernetes
+NetworkPolicies that restrict which pods can use these egress Services.
+
+After sync, inspect status without displaying Secret values:
+
+```bash
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n argocd get applications tailscale-operator tailscale-config
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n tailscale get proxygroups
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n postgres get services postgres-tailnet postgres-metrics-tailnet
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n disease-prediction get service proxmox-postgres
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n disease-prediction get externalsecrets postgres-app-credentials postgres-server-ca
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get services proxmox-postgres-metrics
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
+```
+
+In Prometheus, query `up{job="proxmox-cnpg"}`. A value of `1` means the
+remote exporter scrape succeeded. The scrape target is configured in
+`clusters/oracle/observability/values.yaml`.
+
+To remove this connectivity, first remove the Oracle egress Service mirrors
+and the Proxmox CNPG `managed.services.additional` entries in a reviewed Git
+change. Sync and verify that traffic has stopped, then remove the ProxyGroup
+policies, ProxyGroups, operator Applications, Projects, and namespace
+manifests. Removing the Tailscale Services does not delete PostgreSQL data.
+Clean up the matching grants, auto-approvers, OAuth clients, and Tailscale
+devices in the admin console. Keep the Oracle database password and CA in OCI
+Vault only while a workload still uses them.
+
 ## References
 
 - [Tailscale grants](https://tailscale.com/docs/features/access-control/grants)
+- [Tailscale Kubernetes Operator quickstart](https://tailscale.com/docs/kubernetes-operator/quickstart)
+- [Tailscale service egress](https://tailscale.com/docs/kubernetes-operator/egress)
+- [Tailscale cross-cluster services](https://tailscale.com/docs/kubernetes-operator/ingress/multi-cluster-service-mirroring)
+- [Tailscale ProxyGroup policies](https://tailscale.com/docs/kubernetes-operator/manage-and-configure/proxy-group-policy)
 - [Tailscale on Linux](https://tailscale.com/docs/install/linux)
 - [Tailscale auth keys](https://tailscale.com/docs/features/access-control/auth-keys)
 - [K3s cluster access](https://docs.k3s.io/cluster-access)
