@@ -5,9 +5,67 @@ global:
 dex:
   enabled: false
 
+redis-ha:
+  enabled: false
+
+controller:
+  env:
+    - name: GOMEMLIMIT
+      value: 650MiB
+  resources:
+    requests:
+      cpu: 50m
+      memory: 448Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+
 server:
   service:
     type: ClusterIP
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 250m
+      memory: 384Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 192Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+notifications:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 96Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 50m
+      memory: 128Mi
 
 configs:
   cm:
