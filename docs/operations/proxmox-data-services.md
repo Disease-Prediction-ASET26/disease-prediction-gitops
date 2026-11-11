@@ -1,12 +1,11 @@
 # Proxmox PostgreSQL and Vault
 
 This guide manages the local PostgreSQL database and Vault secret store. Both
-stay in the Proxmox K3s cluster. Database and exporter services are available
-to Oracle over Tailscale. A Prometheus service is staged for Oracle access once
-the external TCP/9090 tailnet grant is active. The Prometheus data plane is
-moving to Proxmox; during the overlap, Oracle Prometheus remains active while
-Grafana still uses it. The database and Vault use the VM's `local-path`
-storage. They are single-instance services, not highly available.
+stay in the Proxmox K3s cluster. Oracle workloads reach PostgreSQL over
+Tailscale. The PostgreSQL exporter stays cluster-local for Proxmox Prometheus;
+Oracle Grafana reaches Proxmox Prometheus over Tailscale. The database and
+Vault use the VM's `local-path` storage. They are single-instance services,
+not highly available.
 
 ```mermaid
 flowchart LR
@@ -18,20 +17,17 @@ flowchart LR
     secret --> role[CloudNativePG DatabaseRole]
     app[Local workloads] -->|postgres-rw Service| db[PostgreSQL]
     db -->|primary TCP/5432| taildb[Tailscale Service]
-    db -->|metrics TCP/9187| tailmetrics[Tailscale Service]
-    prometheus[Proxmox Prometheus] -->|scrape TCP/9187 via local Service| tailmetrics
+    db -->|metrics TCP/9187| metrics[ClusterIP Service]
+    prometheus[Proxmox Prometheus] -->|scrape TCP/9187| metrics
     prometheus -->|TCP/9090| promTail[Tailscale Service]
     db --> dbDisk[(PostgreSQL PVC)]
   end
   subgraph oracle[Oracle K3s]
     oracleApp[Oracle app workload] -->|TLS via local Service| dbEgress[PostgreSQL egress Service]
-    grafana[Grafana] -->|current local datasource| legacyProm[Oracle Prometheus]
-    legacyProm -->|current scrape via local Service| metricsEgress[Exporter egress Service]
-    grafana -.->|after TCP/9090 grant| promEgress[Prometheus egress Service]
+    grafana[Grafana] -->|Prometheus datasource| promEgress[Prometheus egress Service]
   end
   dbEgress -->|Tailscale TCP/5432| taildb
-  metricsEgress -->|Tailscale TCP/9187| tailmetrics
-  promEgress -.->|Tailscale TCP/9090| promTail
+  promEgress -->|Tailscale TCP/9090| promTail
 ```
 
 ## Chart choices
@@ -366,10 +362,10 @@ create `disease-prediction/postgres-app-credentials` and
 `disease-prediction/postgres-server-ca`. The application container image and
 database client configuration are not part of this infrastructure change.
 
-The exporter endpoint is also available over the tailnet on TCP/9187. Oracle
-Prometheus scrapes it every 60 seconds with the `proxmox-cnpg` job. This is
-metrics collection, not log shipping; the exporter does not expose PostgreSQL
-logs.
+The cluster-local `postgres-metrics` Service exposes the exporter on TCP/9187.
+Proxmox Prometheus scrapes it every 60 seconds with the `proxmox-cnpg` job.
+This is metrics collection, not log shipping; the exporter does not expose
+PostgreSQL logs.
 
 ## Update and back up
 

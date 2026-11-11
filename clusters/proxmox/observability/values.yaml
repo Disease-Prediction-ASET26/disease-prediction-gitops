@@ -93,7 +93,7 @@ prometheus:
         scrape_interval: 60s
         static_configs:
           - targets:
-              - postgres-metrics-tailnet.postgres.svc.cluster.local:9187
+              - postgres-metrics.postgres.svc.cluster.local:9187
             labels:
               cluster: proxmox
     resources:

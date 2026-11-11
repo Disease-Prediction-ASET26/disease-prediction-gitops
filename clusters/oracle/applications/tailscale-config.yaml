@@ -27,12 +27,6 @@ spec:
       namespace: disease-prediction
       jsonPointers:
         - /spec/externalName
-    - group: ""
-      kind: Service
-      name: proxmox-postgres-metrics
-      namespace: monitoring
-      jsonPointers:
-        - /spec/externalName
   syncPolicy:
     automated:
       selfHeal: true
