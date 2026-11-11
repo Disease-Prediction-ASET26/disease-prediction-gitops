@@ -17,8 +17,8 @@ spec:
   clusterResourceWhitelist:
     - group: tailscale.com
       kind: ProxyClass
-  namespaceResourceWhitelist:
     - group: tailscale.com
       kind: ProxyGroup
+  namespaceResourceWhitelist:
     - group: tailscale.com
       kind: ProxyGroupPolicy
