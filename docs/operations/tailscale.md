@@ -214,6 +214,8 @@ database connection also uses PostgreSQL TLS with certificate verification.
 Each ProxyGroup has one replica to limit memory use; neither cluster nor the
 database becomes highly available. The operator and each proxy request 25m CPU
 and 64 MiB memory, with limits of 250m CPU and 256 MiB memory.
+The Proxmox forwarding init container requests 10m CPU and 16 MiB memory, with
+limits of 100m CPU and 64 MiB memory.
 
 Before merging the GitOps change, add these tag owners to the existing tailnet
 policy. Keep its current `tag:oracle-k3s` entries and access rules:
