@@ -1,5 +1,8 @@
+defaultRules:
+  create: false
+
 alertmanager:
-  enabled: true
+  enabled: false
   alertmanagerSpec:
     replicas: 1
     resources:
@@ -109,8 +112,14 @@ grafana:
         cpu: 100m
         memory: 128Mi
 
+kubeApiServer:
+  enabled: false
+
 # K3s combines the control-plane processes; these metrics endpoints are unavailable.
 kubeControllerManager:
+  enabled: false
+
+kubelet:
   enabled: false
 
 kubeEtcd:
@@ -127,10 +136,14 @@ kubeScheduler:
 coreDns:
   enabled: false
 
-kubelet:
-  jobNameOverride: k3s-server
+kubeStateMetrics:
+  enabled: false
+
+nodeExporter:
+  enabled: false
 
 kube-state-metrics:
+  enabled: false
   resources:
     requests:
       cpu: 25m
@@ -140,6 +153,7 @@ kube-state-metrics:
       memory: 96Mi
 
 prometheus-node-exporter:
+  enabled: false
   namespaceOverride: node-exporter
   # Node exporter listens on the node address that Prometheus scrapes.
   hostNetwork: true
@@ -181,6 +195,7 @@ prometheusOperator:
           memory: 128Mi
 
 prometheus:
+  enabled: false
   prometheusSpec:
     replicas: 1
     shards: 1
