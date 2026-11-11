@@ -258,7 +258,8 @@ The Argo CD chart sets resource requests and limits for each component in
 `clusters/proxmox/bootstrap/argocd/values.yaml`. Initial memory sizing follows
 a five-hour Prometheus sample from this node. Review usage with
 `kubectl top pods -n argocd --containers` after normal weekly use before
-changing it. The
+changing it. The Redis secret initialization job uses 10m CPU/32Mi memory
+requests and 100m CPU/64Mi memory limits. The
 Proxmox root Application also manages a `kube-system` LimitRange with
 10m/64Mi default requests and 250m/256Mi default limits for new containers
 that omit resources. Existing Pods keep their current resources until
