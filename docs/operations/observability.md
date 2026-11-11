@@ -183,6 +183,21 @@ argocd app sync oracle-root --prune
 argocd app wait oracle-root --sync --health --timeout 300
 ```
 
+The chart's admission RBAC is created by Helm hooks and can remain after the
+operator is disabled. With the Oracle context active, confirm no admission
+Jobs or webhook configurations remain, then remove the hook resources:
+
+```bash
+kubectl -n monitoring get jobs
+kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations
+kubectl delete clusterrole monitoring-kube-prometheus-admission
+kubectl delete clusterrolebinding monitoring-kube-prometheus-admission
+kubectl -n monitoring delete role,rolebinding,serviceaccount monitoring-kube-prometheus-admission
+```
+
+The Oracle observability AppProject allows the chart's CRD definitions and the
+namespaced Grafana, External Secrets, and HTTPRoute resources that remain.
+
 Check that the OIDC `ExternalSecret` is Ready and the route Application is
 healthy. Do not print the Secret value:
 
