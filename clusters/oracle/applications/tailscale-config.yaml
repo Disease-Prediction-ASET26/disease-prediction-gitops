@@ -17,6 +17,12 @@ spec:
   ignoreDifferences:
     - group: ""
       kind: Service
+      name: proxmox-prometheus
+      namespace: monitoring
+      jsonPointers:
+        - /spec/externalName
+    - group: ""
+      kind: Service
       name: proxmox-postgres
       namespace: disease-prediction
       jsonPointers:

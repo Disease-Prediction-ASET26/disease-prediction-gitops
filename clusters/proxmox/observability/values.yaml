@@ -1,0 +1,114 @@
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+grafana:
+  enabled: false
+
+# K3s combines the control-plane processes; these metrics endpoints are unavailable.
+kubeControllerManager:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+coreDns:
+  enabled: false
+
+kubelet:
+  jobNameOverride: k3s-server
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 48Mi
+    limits:
+      cpu: 100m
+      memory: 96Mi
+
+prometheus-node-exporter:
+  namespaceOverride: node-exporter
+  hostNetwork: true
+  hostPID: false
+  resources:
+    requests:
+      cpu: 25m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 32Mi
+
+prometheusOperator:
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  admissionWebhooks:
+    patch:
+      ttlSecondsAfterFinished: 300
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    shards: 1
+    scrapeInterval: 60s
+    evaluationInterval: 60s
+    retention: 7d
+    retentionSize: 8GiB
+    additionalScrapeConfigs:
+      - job_name: proxmox-cnpg
+        scrape_interval: 60s
+        static_configs:
+          - targets:
+              - postgres-metrics-tailnet.postgres.svc.cluster.local:9187
+            labels:
+              cluster: proxmox
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1536Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi

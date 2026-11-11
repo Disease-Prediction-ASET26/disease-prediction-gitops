@@ -234,7 +234,8 @@ also give the VM direct access.
 ```
 
 Add these entries under `autoApprovers.services` so only the Proxmox ingress
-proxy tag can advertise the two Tailscale Services:
+proxy tag can advertise the PostgreSQL, metrics, and Prometheus Tailscale
+Services:
 
 ```json
 {
@@ -247,8 +248,10 @@ proxy tag can advertise the two Tailscale Services:
 }
 ```
 
-Append these grants to the existing `grants` list. The Oracle proxy can reach
-only PostgreSQL TCP/5432 and metrics TCP/9187 on the tagged services:
+Append these grants to the existing `grants` list. During the monitoring
+migration, the Oracle proxy needs TCP/9187 for the existing PostgreSQL exporter
+scrape and TCP/9090 for the new Proxmox Prometheus endpoint. It can also reach
+PostgreSQL TCP/5432 on the tagged service:
 
 ```json
 {
@@ -261,7 +264,7 @@ only PostgreSQL TCP/5432 and metrics TCP/9187 on the tagged services:
     {
       "src": ["tag:oracle-k3s-egress"],
       "dst": ["tag:proxmox-metrics"],
-      "ip": ["tcp:9187"]
+      "ip": ["tcp:9187", "tcp:9090"]
     }
   ]
 }
@@ -343,11 +346,15 @@ namespace to the ingress group and the Oracle application and monitoring
 namespaces to the egress group.
 
 Oracle workloads connect to
-`proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Prometheus
-scrapes the PostgreSQL exporter at
-`proxmox-postgres-metrics.monitoring.svc.cluster.local:9187`. Prometheus
-collects metrics; this connection does not ship logs. A log collector such as
-Alloy with a log store needs a separate design and bounded retention.
+`proxmox-postgres.disease-prediction.svc.cluster.local:5432`. During the move,
+Oracle Prometheus continues to scrape the PostgreSQL exporter at
+`proxmox-postgres-metrics.monitoring.svc.cluster.local:9187`; Proxmox Prometheus
+scrapes its local exporter Service. Grafana can use the new Prometheus through
+`proxmox-prometheus.monitoring.svc.cluster.local:9090` after the TCP/9090 grant
+is active. Once Oracle Prometheus is retired, remove the TCP/9187 grant if no
+other Oracle client uses it. These connections collect metrics, not logs. A
+log collector such as Alloy with a log store needs a separate design and
+bounded retention.
 
 The Oracle proxy group has a shared tailnet identity, so tailnet policy cannot
 distinguish individual pods behind it. PostgreSQL still requires its database
@@ -365,15 +372,17 @@ kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n disease-prediction get ser
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n disease-prediction get externalsecrets postgres-app-credentials postgres-server-ca
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get services proxmox-postgres-metrics
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n monitoring get service prometheus-tailnet
 ```
 
-In Prometheus, query `up{job="proxmox-cnpg"}`. A value of `1` means the
-remote exporter scrape succeeded. The scrape target is configured in
-`clusters/oracle/observability/values.yaml`.
+In Proxmox Prometheus, query `up{job="proxmox-cnpg"}`. A value of `1` means
+the local exporter scrape succeeded. Its target is configured in
+`clusters/proxmox/observability/values.yaml`.
 
-To remove this connectivity, first remove the Oracle egress Service mirrors
-and the Proxmox CNPG `managed.services.additional` entries in a reviewed Git
-change. Sync and verify that traffic has stopped, then remove the ProxyGroup
+To remove this connectivity, first remove the Oracle egress Service mirrors,
+the Proxmox Prometheus Tailscale Service, and the Proxmox CNPG
+`managed.services.additional` entries in a reviewed Git change. Sync and
+verify that traffic has stopped, then remove the ProxyGroup
 policies, ProxyGroups, operator Applications, Projects, and namespace
 manifests. Removing the Tailscale Services does not delete PostgreSQL data.
 Clean up the matching grants, auto-approvers, OAuth clients, and Tailscale

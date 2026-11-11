@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-tailnet
+  namespace: monitoring
+  annotations:
+    tailscale.com/hostname: proxmox-prometheus
+    tailscale.com/proxy-class: tailscale-proxies
+    tailscale.com/proxy-group: ingress-proxies
+    tailscale.com/tags: tag:proxmox-metrics
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  ports:
+    - name: http
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+  selector:
+    app.kubernetes.io/name: prometheus
+    operator.prometheus.io/name: monitoring-kube-prometheus-prometheus
