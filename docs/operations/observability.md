@@ -1,20 +1,23 @@
 # Prometheus and Grafana
 
 Each cluster has a `monitoring` Argo CD Application using kube-prometheus-stack
-92.17.0. The Oracle stack currently runs Grafana and the existing monitoring
-data plane. The Proxmox stack runs Prometheus, Alertmanager, the operator,
-kube-state-metrics, and node-exporter with Grafana disabled. Its values are in
+92.17.0. Oracle Grafana now uses the Prometheus endpoint in Proxmox through
+Oracle's Tailscale egress Service. The Oracle data plane remains active during
+the Grafana cutover. The Proxmox stack runs Prometheus, Alertmanager, the
+operator, kube-state-metrics, and node-exporter with Grafana disabled. Its
+values are in
 [`clusters/proxmox/observability/values.yaml`](../../clusters/proxmox/observability/values.yaml)
 and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-The migration is staged. Keep the Oracle data plane running until the Oracle
-egress Service can reach `proxmox-prometheus.monitoring.svc.cluster.local:9090`
-and Grafana has been switched to it. The tailnet policy is external to this
-repository; add TCP/9090 from `tag:oracle-k3s-egress` to `tag:proxmox-metrics`
-before switching. The Proxmox Prometheus starts with an empty data volume; the
-existing Oracle data remains on its PVC during this overlap.
+The migration is staged. Keep the Oracle data plane running until Grafana is
+confirmed to query Proxmox through
+`proxmox-prometheus.monitoring.svc.cluster.local:9090`. The tailnet policy is
+external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
+`tag:proxmox-metrics`. The Proxmox Prometheus starts with an empty data volume;
+the existing Oracle data remains on its PVC during this overlap and for later
+retention review.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
 Grafana's Oracle data-volume init container changes file ownership. Node
@@ -155,9 +158,10 @@ kubectl -n monitoring get service prometheus-tailnet
 Run the Argo and Kubernetes checks with the matching cluster context. Confirm
 `prometheus-tailnet` is configured by the Tailscale operator, then test the
 Oracle egress Service from Oracle after adding the TCP/9090 tailnet grant.
-Switch Grafana only after a query through the new endpoint succeeds. The
-Oracle Prometheus PVC and its historical data remain until a separate cleanup
-after the cutover and retention review.
+Query `up{job="proxmox-cnpg"}` through the egress Service and confirm Grafana
+uses that endpoint before disabling the Oracle data-plane components. Keep the
+Oracle Prometheus PVC and its historical data until a separate retention
+review.
 
 If migrating an older installation that still has the previous node-exporter
 resources in `monitoring`, review the diff and run this one-time prune to remove
