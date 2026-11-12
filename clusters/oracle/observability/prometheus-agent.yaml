@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oracle-prometheus-agent
+  namespace: monitoring
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: oracle-prometheus-agent
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/metrics
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oracle-prometheus-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: oracle-prometheus-agent
+subjects:
+  - kind: ServiceAccount
+    name: oracle-prometheus-agent
+    namespace: monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oracle-prometheus-agent
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 60s
+      scrape_timeout: 10s
+      external_labels:
+        cluster: oracle
+    remote_write:
+      - url: http://proxmox-prometheus.monitoring.svc.cluster.local:9090/api/v1/write
+        queue_config:
+          capacity: 2000
+          min_shards: 1
+          max_shards: 1
+          max_samples_per_send: 500
+    scrape_configs:
+      - job_name: oracle-kubelet
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        authorization:
+          type: Bearer
+          credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          insecure_skip_verify: true
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_node_address_InternalIP
+            regex: (.+)
+            target_label: __address__
+            replacement: ${1}:10250
+          - action: replace
+            source_labels:
+              - __meta_kubernetes_node_name
+            target_label: node
+          - action: replace
+            target_label: cluster
+            replacement: oracle
+        metric_relabel_configs:
+          - action: keep
+            source_labels:
+              - __name__
+            regex: container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_network_(receive|transmit)_(bytes|errors|packets_dropped)_total
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-prometheus-agent
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: prometheus-agent
+    app.kubernetes.io/instance: oracle-prometheus-agent
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-agent
+      app.kubernetes.io/instance: oracle-prometheus-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-agent
+        app.kubernetes.io/instance: oracle-prometheus-agent
+    spec:
+      serviceAccountName: oracle-prometheus-agent
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus-agent
+          image: quay.io/prometheus/prometheus:v3.15.1
+          imagePullPolicy: IfNotPresent
+          args:
+            - --agent
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.agent.path=/prometheus
+            - --storage.agent.retention.max-time=2h
+            - --web.listen-address=0.0.0.0:9090
+          ports:
+            - name: web
+              containerPort: 9090
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          startupProbe:
+            httpGet:
+              path: /-/ready
+              port: web
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: web
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: web
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+              readOnly: true
+            - name: agent-wal
+              mountPath: /prometheus
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: oracle-prometheus-agent
+        - name: agent-wal
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

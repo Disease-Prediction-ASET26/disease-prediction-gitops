@@ -31,6 +31,20 @@ coreDns:
 
 kubelet:
   jobNameOverride: k3s-server
+  serviceMonitor:
+    cAdvisorInterval: 60s
+    relabelings:
+      - action: replace
+        targetLabel: cluster
+        replacement: proxmox
+    cAdvisorRelabelings:
+      - action: replace
+        sourceLabels:
+          - __metrics_path__
+        targetLabel: metrics_path
+      - action: replace
+        targetLabel: cluster
+        replacement: proxmox
 
 kube-state-metrics:
   prometheus:
@@ -54,6 +68,10 @@ prometheus-node-exporter:
   prometheus:
     monitor:
       relabelings:
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node
         - action: replace
           targetLabel: cluster
           replacement: proxmox
@@ -100,6 +118,7 @@ prometheus:
     evaluationInterval: 60s
     retention: 7d
     retentionSize: 8GiB
+    enableRemoteWriteReceiver: true
     additionalScrapeConfigs:
       - job_name: oracle-kube-state-metrics
         scrape_interval: 60s
@@ -115,6 +134,7 @@ prometheus:
               - oracle-node-exporter.monitoring.svc.cluster.local:9100
             labels:
               cluster: oracle
+              node: vm
       - job_name: proxmox-cnpg
         scrape_interval: 60s
         static_configs:
