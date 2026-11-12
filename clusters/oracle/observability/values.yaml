@@ -135,16 +135,63 @@ coreDns:
   enabled: false
 
 kubeStateMetrics:
-  enabled: false
+  enabled: true
 
 nodeExporter:
-  enabled: false
+  enabled: true
 
 kube-state-metrics:
-  enabled: false
+  enabled: true
+  service:
+    annotations:
+      tailscale.com/expose: "true"
+      tailscale.com/hostname: oracle-kube-state-metrics
+      tailscale.com/proxy-group: ingress-proxies
+      tailscale.com/tags: tag:oracle-metrics
+  collectors:
+    - cronjobs
+    - daemonsets
+    - deployments
+    - jobs
+    - namespaces
+    - nodes
+    - persistentvolumeclaims
+    - persistentvolumes
+    - pods
+    - replicasets
+    - statefulsets
+  resources:
+    requests:
+      cpu: 25m
+      memory: 48Mi
+    limits:
+      cpu: 100m
+      memory: 96Mi
+  prometheus:
+    monitor:
+      enabled: false
 
 prometheus-node-exporter:
-  enabled: false
+  enabled: true
+  namespaceOverride: node-exporter
+  hostNetwork: true
+  hostPID: false
+  service:
+    annotations:
+      tailscale.com/expose: "true"
+      tailscale.com/hostname: oracle-node-exporter
+      tailscale.com/proxy-group: ingress-proxies
+      tailscale.com/tags: tag:oracle-metrics
+  resources:
+    requests:
+      cpu: 25m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 32Mi
+  prometheus:
+    monitor:
+      enabled: false
 
 prometheusOperator:
   enabled: false

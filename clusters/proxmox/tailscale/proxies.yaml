@@ -33,3 +33,15 @@ spec:
   tags:
     - tag:k8s-proxmox
   proxyClass: tailscale-proxies
+---
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroup
+metadata:
+  name: egress-proxies
+  namespace: tailscale
+spec:
+  type: egress
+  replicas: 1
+  tags:
+    - tag:proxmox-metrics-egress
+  proxyClass: tailscale-proxies

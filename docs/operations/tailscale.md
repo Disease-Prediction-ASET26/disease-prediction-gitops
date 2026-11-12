@@ -200,29 +200,37 @@ The removal playbook leaves the Oracle Linux SSH crypto policy and the K3s
 
 ## Connect selected Kubernetes services
 
-The Proxmox and Oracle K3s clusters currently use overlapping Pod and Service
-CIDRs. Keep them as they are: this setup exposes the PostgreSQL primary and
-Proxmox Prometheus as Tailscale Services. The PostgreSQL exporter is available
-only inside the Proxmox cluster. This setup does not route either cluster's
-Pod or Service subnet, so the overlapping ranges do not need to change. Other
-cluster services stay private.
+The Proxmox and Oracle K3s clusters use overlapping Pod and Service CIDRs.
+Keep them as they are. Tailscale Services expose the PostgreSQL primary and
+Proxmox Prometheus to Oracle, and expose Oracle kube-state-metrics and
+node-exporter to Proxmox Prometheus. The PostgreSQL exporter stays inside the
+Proxmox cluster. This setup does not route either cluster's Pod or Service
+subnet, so the overlapping ranges do not need to change. Other cluster
+services stay private.
 
-The Proxmox cluster runs one Tailscale ingress ProxyGroup. The Oracle cluster
-runs one egress ProxyGroup and creates local Kubernetes Service names for the
-two remote endpoints. Tailscale encrypts traffic between the proxies. The
-database connection also uses PostgreSQL TLS with certificate verification.
-Each ProxyGroup has one replica to limit memory use; neither cluster nor the
-database becomes highly available. The operator and each proxy request 25m CPU
-and 64 MiB memory, with limits of 250m CPU and 256 MiB memory.
+Each cluster runs one ingress and one egress ProxyGroup, with one replica per
+group. Proxmox ingress serves PostgreSQL and Prometheus; Oracle ingress serves
+the two metrics endpoints. The egress groups provide the reverse connections.
+Tailscale encrypts traffic between the proxies. The database connection also
+uses PostgreSQL TLS with certificate verification. Single replicas keep
+resource use low, but a proxy outage interrupts its connections. Each proxy
+requests 25m CPU and 64 MiB memory, with limits of 250m CPU and 256 MiB memory.
 The Proxmox forwarding init container requests 10m CPU and 16 MiB memory, with
 limits of 100m CPU and 64 MiB memory.
+
+The two Oracle exporters and Oracle ingress proxy add 75m CPU and 128 MiB
+memory requests. The Proxmox egress proxy adds 25m CPU and 64 MiB. Together,
+the bridge adds 100m CPU and 192 MiB memory requests, with limits totaling
+700m CPU and 640 MiB memory. It adds no persistent volume. Oracle metrics use
+Proxmox's existing seven-day, 8 GiB Prometheus retention limit.
 
 Before merging the GitOps change, add these tag owners to the existing tailnet
 policy. Keep its current `tag:oracle-k3s` entries and access rules:
 
 `tag:oracle-k3s` identifies the Oracle VM. The new `tag:oracle-k3s-egress`
 identifies only the Kubernetes egress proxies, so the database grants do not
-also give the VM direct access.
+also give the VM direct access. The metrics tags identify only the new proxy
+groups and the two Oracle exporter services.
 
 ```json
 {
@@ -230,29 +238,34 @@ also give the VM direct access.
     "tag:k8s-operator": ["autogroup:owner"],
     "tag:k8s-proxmox": ["tag:k8s-operator"],
     "tag:oracle-k3s-egress": ["tag:k8s-operator"],
+    "tag:oracle-k3s-ingress": ["tag:k8s-operator"],
+    "tag:oracle-metrics": ["tag:k8s-operator"],
     "tag:proxmox-postgres": ["tag:k8s-operator"],
-    "tag:proxmox-metrics": ["tag:k8s-operator"]
+    "tag:proxmox-metrics": ["tag:k8s-operator"],
+    "tag:proxmox-metrics-egress": ["tag:k8s-operator"]
   }
 }
 ```
 
-Add these entries under `autoApprovers.services` so only the Proxmox ingress
-proxy tag can advertise the PostgreSQL, metrics, and Prometheus Tailscale
-Services:
+Add this entry under `autoApprovers.services` so only the Oracle ingress
+proxy group can advertise the Oracle metrics services. Keep the existing
+Proxmox service entries:
 
 ```json
 {
   "autoApprovers": {
     "services": {
       "tag:proxmox-postgres": ["tag:k8s-proxmox"],
-      "tag:proxmox-metrics": ["tag:k8s-proxmox"]
+      "tag:proxmox-metrics": ["tag:k8s-proxmox"],
+      "tag:oracle-metrics": ["tag:oracle-k3s-ingress"]
     }
   }
 }
 ```
 
-Append these grants to the existing `grants` list. The Oracle proxy can reach
-PostgreSQL TCP/5432 and the Proxmox Prometheus endpoint on TCP/9090:
+Append this grant to the existing `grants` list. Proxmox's metrics egress
+proxy can reach only the Oracle exporters on TCP/8080 and TCP/9100. Keep the
+existing Oracle grants to PostgreSQL TCP/5432 and Proxmox Prometheus TCP/9090:
 
 ```json
 {
@@ -266,6 +279,11 @@ PostgreSQL TCP/5432 and the Proxmox Prometheus endpoint on TCP/9090:
       "src": ["tag:oracle-k3s-egress"],
       "dst": ["tag:proxmox-metrics"],
       "ip": ["tcp:9090"]
+    },
+    {
+      "src": ["tag:proxmox-metrics-egress"],
+      "dst": ["tag:oracle-metrics"],
+      "ip": ["tcp:8080", "tcp:9100"]
     }
   ]
 }
@@ -342,18 +360,22 @@ Do not save the generated Secret YAML in Git or print it. After the tailnet
 policy and both Secrets are ready, merge the change. Argo CD installs the
 operator and its ProxyGroups in each cluster. The operator requires privileged
 pod access, so its pods are isolated in a dedicated namespace with the
-privileged Pod Security level. Namespace policies limit the Proxmox database
-namespace to the ingress group and the Oracle application and monitoring
-namespaces to the egress group.
+privileged Pod Security level. Namespace policies allow Proxmox ingress in
+`postgres` and `monitoring`, and Proxmox egress only in `monitoring`. Oracle
+allows egress in `disease-prediction` and `monitoring`, plus ingress in
+`monitoring` and the privileged `node-exporter` namespace.
 
 Oracle workloads connect to
 `proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Oracle Grafana
 uses Proxmox Prometheus through
 `proxmox-prometheus.monitoring.svc.cluster.local:9090`. Proxmox Prometheus
 scrapes the PostgreSQL exporter over the cluster-local
-`postgres-metrics.postgres.svc.cluster.local:9187` Service. This collects
-metrics, not logs. A log collector such as Alloy with a log store needs a
-separate design and bounded retention.
+`postgres-metrics.postgres.svc.cluster.local:9187` Service and Oracle's
+exporters through the local `oracle-kube-state-metrics` and
+`oracle-node-exporter` Services. The Oracle metric Services are reachable only
+through Tailscale and the narrow tailnet grant. This collects metrics, not
+logs. A log collector such as Alloy with a log store needs a separate design
+and bounded retention.
 
 The Oracle proxy group has a shared tailnet identity, so tailnet policy cannot
 distinguish individual pods behind it. PostgreSQL still requires its database
@@ -371,22 +393,29 @@ kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n disease-prediction get ser
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n disease-prediction get externalsecrets postgres-app-credentials postgres-server-ca
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get service proxmox-prometheus
 kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n monitoring get service prometheus-tailnet
+kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n monitoring get service oracle-kube-state-metrics oracle-node-exporter
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get service monitoring-kube-state-metrics
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n node-exporter get daemonset,service monitoring-prometheus-node-exporter
 ```
 
 In Proxmox Prometheus, query `up{job="proxmox-cnpg"}`. A value of `1` means
 the local exporter scrape succeeded. Its target is configured in
 `clusters/proxmox/observability/values.yaml`.
+Check Oracle's two targets with
+`up{job=~"oracle-kube-state-metrics|oracle-node-exporter"}`; both should be
+`1`. Oracle Grafana's fleet dashboards use these samples to show both clusters.
 
-To remove this connectivity, first remove the Oracle egress Service mirrors,
-the Proxmox PostgreSQL and Prometheus Tailscale Services, and the PostgreSQL
-`managed.services.additional` entry in a reviewed Git change. Keep the
-cluster-local `postgres-metrics` Service for Prometheus scraping. Sync and
-verify that traffic has stopped, then remove the ProxyGroup
-policies, ProxyGroups, operator Applications, Projects, and namespace
-manifests. Removing the Tailscale Services does not delete PostgreSQL data.
-Clean up the matching grants, auto-approvers, OAuth clients, and Tailscale
-devices in the admin console. Keep the Oracle database password and CA in OCI
-Vault only while a workload still uses them.
+To remove this connectivity, first remove the Oracle egress mirrors and
+metrics exporters and Tailscale Services, Proxmox's Oracle scrape jobs and
+service mirrors, the Proxmox PostgreSQL and Prometheus Tailscale Services, and
+the PostgreSQL `managed.services.additional` entry in a reviewed Git change.
+Keep the cluster-local `postgres-metrics` Service for Prometheus scraping.
+Sync and verify that traffic has stopped, then remove the ProxyGroup policies,
+ProxyGroups, operator Applications, Projects, and namespace manifests.
+Removing the Tailscale Services does not delete PostgreSQL data. Clean up the
+matching grants, auto-approvers, OAuth clients, and Tailscale devices in the
+admin console. Keep the Oracle database password and CA in OCI Vault only while
+a workload still uses them.
 
 ## References
 
@@ -395,6 +424,7 @@ Vault only while a workload still uses them.
 - [Tailscale service egress](https://tailscale.com/docs/kubernetes-operator/egress)
 - [Tailscale cross-cluster services](https://tailscale.com/docs/kubernetes-operator/ingress/multi-cluster-service-mirroring)
 - [Tailscale ProxyGroup policies](https://tailscale.com/docs/kubernetes-operator/manage-and-configure/proxy-group-policy)
+- [Tailscale operator permissions and RBAC](https://tailscale.com/docs/kubernetes-operator/reference/rbac)
 - [Tailscale on Linux](https://tailscale.com/docs/install/linux)
 - [Tailscale auth keys](https://tailscale.com/docs/features/access-control/auth-keys)
 - [K3s cluster access](https://docs.k3s.io/cluster-access)
