@@ -203,10 +203,11 @@ The removal playbook leaves the Oracle Linux SSH crypto policy and the K3s
 The Proxmox and Oracle K3s clusters use overlapping Pod and Service CIDRs.
 Keep them as they are. Tailscale Services expose the PostgreSQL primary and
 Proxmox Prometheus to Oracle, and expose Oracle kube-state-metrics and
-node-exporter to Proxmox Prometheus. The PostgreSQL exporter stays inside the
-Proxmox cluster. This setup does not route either cluster's Pod or Service
-subnet, so the overlapping ranges do not need to change. Other cluster
-services stay private.
+node-exporter to Proxmox Prometheus. The Oracle Prometheus Agent sends selected
+kubelet metrics to Proxmox Prometheus through the same TCP/9090 path used by
+Grafana. The PostgreSQL exporter stays inside the Proxmox cluster. This setup
+does not route either cluster's Pod or Service subnet, so the overlapping
+ranges do not need to change. Other cluster services stay private.
 
 Each cluster runs one ingress and one egress ProxyGroup, with one replica per
 group. Proxmox ingress serves PostgreSQL and Prometheus; Oracle ingress serves
@@ -219,10 +220,12 @@ The Proxmox forwarding init container requests 10m CPU and 16 MiB memory, with
 limits of 100m CPU and 64 MiB memory.
 
 The two Oracle exporters and Oracle ingress proxy add 75m CPU and 128 MiB
-memory requests. The Proxmox egress proxy adds 25m CPU and 64 MiB. Together,
-the bridge adds 100m CPU and 192 MiB memory requests, with limits totaling
-700m CPU and 640 MiB memory. It adds no persistent volume. Oracle metrics use
-Proxmox's existing seven-day, 8 GiB Prometheus retention limit.
+memory requests. The Oracle Prometheus Agent requests 25m CPU and 64 MiB memory,
+with limits of 100m CPU and 128 MiB. The Proxmox egress proxy adds 25m CPU and
+64 MiB. Together, the bridge requests 125m CPU and 256 MiB memory, with limits
+totaling 800m CPU and 768 MiB memory. The Agent has no persistent volume; its
+128 MiB temporary WAL buffers failed remote writes for up to two hours. Oracle
+metrics use Proxmox's existing seven-day, 8 GiB Prometheus retention limit.
 
 Before merging the GitOps change, add these tag owners to the existing tailnet
 policy. Keep its current `tag:oracle-k3s` entries and access rules:
@@ -265,7 +268,9 @@ Proxmox service entries:
 
 Append this grant to the existing `grants` list. Proxmox's metrics egress
 proxy can reach only the Oracle exporters on TCP/8080 and TCP/9100. Keep the
-existing Oracle grants to PostgreSQL TCP/5432 and Proxmox Prometheus TCP/9090:
+existing Oracle grants to PostgreSQL TCP/5432 and Proxmox Prometheus TCP/9090.
+The TCP/9090 grant allows Grafana queries and the Oracle Agent's remote writes;
+keep this destination limited to the Oracle egress ProxyGroup tag:
 
 ```json
 {
