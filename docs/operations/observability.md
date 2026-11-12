@@ -46,14 +46,16 @@ flowchart LR
 ```
 
 The Grafana sidecar imports the checked-in dashboards from ConfigMaps in
-Oracle's `monitoring` namespace. **Kubernetes / Fleet Overview** shows both
-clusters at a glance. **Kubernetes / Cluster Detail** filters by cluster,
-namespace, and node for workload and capacity investigation. Both dashboards
-put current status panels first, followed by normalized time series and
-resource requests. There are no log or trace panels because this repository
-does not run a log or trace collector. Oracle reports host-level CPU and
-memory use, but does not expose per-container usage; container CPU and memory
-metrics are available for Proxmox only.
+Oracle's `monitoring` namespace. **Kubernetes / Fleet Overview** starts with
+cluster health, then groups CPU, memory, root filesystem capacity, and failure
+details. **Kubernetes / Cluster Detail** filters by cluster, namespace, and
+node, with node timelines, capacity trends, scheduling requests, PVC status,
+and workload failure tables. Node-exporter provides CPU, memory, and root
+filesystem use/free metrics for both clusters. PVC panels show claim phase and
+requested capacity; per-PVC used/free space is not available consistently for
+both clusters. Per-container CPU and memory metrics are available for Proxmox
+only and are not used for cross-cluster comparisons. There are no raw log or
+trace panels because this repository does not run a log or trace collector.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
 Grafana's Oracle data-volume init container changes file ownership.
