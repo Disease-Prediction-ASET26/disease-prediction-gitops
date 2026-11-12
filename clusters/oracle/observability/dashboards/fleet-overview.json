@@ -46,7 +46,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -114,7 +114,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -182,7 +182,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -254,7 +254,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -326,7 +326,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -394,7 +394,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -475,7 +475,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "percent",
           "thresholds": {
             "mode": "absolute",
@@ -524,7 +524,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) / sum by (cluster) (rate(node_cpu_seconds_total[5m])))",
+          "expr": "100 * (1 - sum by (cluster) (rate(node_cpu_seconds_total{cluster!=\"\", mode=\"idle\"}[5m])) / sum by (cluster) (rate(node_cpu_seconds_total{cluster!=\"\"}[5m])))",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -545,7 +545,7 @@
             "mode": "palette-classic"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "percent",
           "thresholds": {
             "mode": "absolute",
@@ -621,7 +621,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) / sum by (cluster) (rate(node_cpu_seconds_total[5m])))",
+          "expr": "100 * (1 - sum by (cluster) (rate(node_cpu_seconds_total{cluster!=\"\", mode=\"idle\"}[5m])) / sum by (cluster) (rate(node_cpu_seconds_total{cluster!=\"\"}[5m])))",
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false,
@@ -643,7 +643,7 @@
             "fixedColor": "blue"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "cores"
         },
         "overrides": []
@@ -677,7 +677,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
+          "expr": "sum by (cluster) (rate(node_cpu_seconds_total{cluster!=\"\", mode=\"idle\"}[5m]))",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -711,7 +711,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "percent",
           "thresholds": {
             "mode": "absolute",
@@ -760,7 +760,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster) (node_memory_MemAvailable_bytes) / sum by (cluster) (node_memory_MemTotal_bytes))",
+          "expr": "100 * (1 - sum by (cluster) (node_memory_MemAvailable_bytes{cluster!=\"\"}) / sum by (cluster) (node_memory_MemTotal_bytes{cluster!=\"\"}))",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -781,7 +781,7 @@
             "mode": "palette-classic"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "percent",
           "thresholds": {
             "mode": "absolute",
@@ -857,7 +857,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster) (node_memory_MemAvailable_bytes) / sum by (cluster) (node_memory_MemTotal_bytes))",
+          "expr": "100 * (1 - sum by (cluster) (node_memory_MemAvailable_bytes{cluster!=\"\"}) / sum by (cluster) (node_memory_MemTotal_bytes{cluster!=\"\"}))",
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false,
@@ -879,7 +879,7 @@
             "fixedColor": "blue"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "bytes"
         },
         "overrides": []
@@ -913,7 +913,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (node_memory_MemAvailable_bytes)",
+          "expr": "sum by (cluster) (node_memory_MemAvailable_bytes{cluster!=\"\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -947,7 +947,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "percent",
           "thresholds": {
             "mode": "absolute",
@@ -996,7 +996,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster) (node_filesystem_avail_bytes{mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}) / sum by (cluster) (node_filesystem_size_bytes{mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}))",
+          "expr": "100 * (1 - sum by (cluster) (node_filesystem_avail_bytes{cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}) / sum by (cluster) (node_filesystem_size_bytes{cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}))",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1017,7 +1017,7 @@
             "mode": "palette-classic"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "percent",
           "thresholds": {
             "mode": "absolute",
@@ -1093,7 +1093,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster) (node_filesystem_avail_bytes{mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}) / sum by (cluster) (node_filesystem_size_bytes{mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}))",
+          "expr": "100 * (1 - sum by (cluster) (node_filesystem_avail_bytes{cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}) / sum by (cluster) (node_filesystem_size_bytes{cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"}))",
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false,
@@ -1115,7 +1115,7 @@
             "fixedColor": "blue"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "bytes"
         },
         "overrides": []
@@ -1149,7 +1149,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (node_filesystem_avail_bytes{mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"})",
+          "expr": "sum by (cluster) (node_filesystem_avail_bytes{cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1183,7 +1183,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -1265,7 +1265,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -1355,7 +1355,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -1436,7 +1436,7 @@
             "mode": "thresholds"
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
@@ -1558,7 +1558,7 @@
             }
           },
           "mappings": [],
-          "noValue": "\u2014",
+          "noValue": "—",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1600,7 +1600,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (rate(node_network_receive_bytes_total{device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
+          "expr": "sum by (cluster) (rate(node_network_receive_bytes_total{cluster!=\"\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
           "range": true,
           "instant": false,
           "refId": "A",
@@ -1612,7 +1612,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (rate(node_network_transmit_bytes_total{device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
+          "expr": "sum by (cluster) (rate(node_network_transmit_bytes_total{cluster!=\"\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
           "range": true,
           "instant": false,
           "refId": "B",

@@ -93,7 +93,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (kube_node_status_condition{cluster=~\"$cluster\", condition=\"Ready\", status=\"true\"})",
+          "expr": "sum by (cluster) (kube_node_status_condition{cluster=~\"$cluster\", cluster!=\"\", condition=\"Ready\", status=\"true\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -161,7 +161,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (kube_node_status_condition{cluster=~\"$cluster\", condition=\"Ready\", status=~\"false|unknown\"})",
+          "expr": "sum by (cluster) (kube_node_status_condition{cluster=~\"$cluster\", cluster!=\"\", condition=\"Ready\", status=~\"false|unknown\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -233,7 +233,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster) (kube_pod_status_phase{cluster=~\"$cluster\", phase=~\"Pending|Failed\"})",
+          "expr": "sum by (cluster) (kube_pod_status_phase{cluster=~\"$cluster\", cluster!=\"\", phase=~\"Pending|Failed\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -313,7 +313,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by (cluster, node) (kube_node_status_condition{cluster=~\"$cluster\", condition=\"Ready\", status=\"true\", node=~\"$node\"})",
+          "expr": "max by (cluster, node) (kube_node_status_condition{cluster=~\"$cluster\", cluster!=\"\", condition=\"Ready\", status=\"true\", node=~\"$node\"})",
           "legendFormat": "{{cluster}} / {{node}}",
           "range": true,
           "instant": false,
@@ -400,7 +400,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - avg by (cluster, nodename) (rate(node_cpu_seconds_total{cluster=~\"$cluster\", mode=\"idle\"}[5m]) * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}))",
+          "expr": "100 * (1 - avg by (cluster, nodename) (rate(node_cpu_seconds_total{cluster=~\"$cluster\", cluster!=\"\", mode=\"idle\"}[5m]) * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}))",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": false,
           "instant": true,
@@ -497,7 +497,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - avg by (cluster, nodename) (rate(node_cpu_seconds_total{cluster=~\"$cluster\", mode=\"idle\"}[5m]) * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}))",
+          "expr": "100 * (1 - avg by (cluster, nodename) (rate(node_cpu_seconds_total{cluster=~\"$cluster\", cluster!=\"\", mode=\"idle\"}[5m]) * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}))",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": true,
           "instant": false,
@@ -553,7 +553,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, nodename) (rate(node_cpu_seconds_total{cluster=~\"$cluster\", mode=\"idle\"}[5m]) * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"})",
+          "expr": "sum by (cluster, nodename) (rate(node_cpu_seconds_total{cluster=~\"$cluster\", cluster!=\"\", mode=\"idle\"}[5m]) * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"})",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": false,
           "instant": true,
@@ -640,7 +640,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster, nodename) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}))",
+          "expr": "100 * (1 - sum by (cluster, nodename) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\", cluster!=\"\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_memory_MemTotal_bytes{cluster=~\"$cluster\", cluster!=\"\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}))",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": false,
           "instant": true,
@@ -737,7 +737,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster, nodename) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}))",
+          "expr": "100 * (1 - sum by (cluster, nodename) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\", cluster!=\"\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_memory_MemTotal_bytes{cluster=~\"$cluster\", cluster!=\"\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}))",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": true,
           "instant": false,
@@ -793,7 +793,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "node_memory_MemAvailable_bytes{cluster=~\"$cluster\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}",
+          "expr": "node_memory_MemAvailable_bytes{cluster=~\"$cluster\", cluster!=\"\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": false,
           "instant": true,
@@ -880,7 +880,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster, nodename) (node_filesystem_avail_bytes{cluster=~\"$cluster\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_filesystem_size_bytes{cluster=~\"$cluster\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}))",
+          "expr": "100 * (1 - sum by (cluster, nodename) (node_filesystem_avail_bytes{cluster=~\"$cluster\", cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_filesystem_size_bytes{cluster=~\"$cluster\", cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}))",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": false,
           "instant": true,
@@ -977,7 +977,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * (1 - sum by (cluster, nodename) (node_filesystem_avail_bytes{cluster=~\"$cluster\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_filesystem_size_bytes{cluster=~\"$cluster\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"}))",
+          "expr": "100 * (1 - sum by (cluster, nodename) (node_filesystem_avail_bytes{cluster=~\"$cluster\", cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}) / sum by (cluster, nodename) (node_filesystem_size_bytes{cluster=~\"$cluster\", cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"}))",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": true,
           "instant": false,
@@ -1033,7 +1033,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, nodename) (node_filesystem_avail_bytes{cluster=~\"$cluster\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", nodename=~\"$node\"})",
+          "expr": "sum by (cluster, nodename) (node_filesystem_avail_bytes{cluster=~\"$cluster\", cluster!=\"\", mountpoint=\"/\", fstype!~\"tmpfs|overlay|squashfs\"} * on (cluster, instance) group_left(nodename) node_uname_info{cluster=~\"$cluster\", cluster!=\"\", nodename=~\"$node\"})",
           "legendFormat": "{{cluster}} / {{nodename}}",
           "range": false,
           "instant": true,
@@ -1120,7 +1120,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{cluster=~\"$cluster\", namespace=~\"$namespace\", resource=\"cpu\"}) / sum by (cluster) (kube_node_status_allocatable{cluster=~\"$cluster\", resource=\"cpu\"})",
+          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", resource=\"cpu\"}) / sum by (cluster) (kube_node_status_allocatable{cluster=~\"$cluster\", cluster!=\"\", resource=\"cpu\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1194,7 +1194,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{cluster=~\"$cluster\", namespace=~\"$namespace\", resource=\"memory\"}) / sum by (cluster) (kube_node_status_allocatable{cluster=~\"$cluster\", resource=\"memory\"})",
+          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", resource=\"memory\"}) / sum by (cluster) (kube_node_status_allocatable{cluster=~\"$cluster\", cluster!=\"\", resource=\"memory\"})",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1270,7 +1270,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "kube_pod_status_phase{cluster=~\"$cluster\", namespace=~\"$namespace\", phase=~\"Pending|Failed\"} == 1",
+          "expr": "kube_pod_status_phase{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", phase=~\"Pending|Failed\"} == 1",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1356,7 +1356,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "label_replace(label_replace(clamp_min(kube_deployment_spec_replicas{cluster=~\"$cluster\", namespace=~\"$namespace\"} - kube_deployment_status_replicas_available{cluster=~\"$cluster\", namespace=~\"$namespace\"}, 0) > 0, \"kind\", \"Deployment\", \"deployment\", \".*\"), \"workload\", \"$1\", \"deployment\", \"(.+)\")\nor label_replace(label_replace(clamp_min(kube_statefulset_replicas{cluster=~\"$cluster\", namespace=~\"$namespace\"} - kube_statefulset_status_replicas_ready{cluster=~\"$cluster\", namespace=~\"$namespace\"}, 0) > 0, \"kind\", \"StatefulSet\", \"statefulset\", \".*\"), \"workload\", \"$1\", \"statefulset\", \"(.+)\")\nor label_replace(label_replace(clamp_min(kube_daemonset_status_desired_number_scheduled{cluster=~\"$cluster\", namespace=~\"$namespace\"} - kube_daemonset_status_number_ready{cluster=~\"$cluster\", namespace=~\"$namespace\"}, 0) > 0, \"kind\", \"DaemonSet\", \"daemonset\", \".*\"), \"workload\", \"$1\", \"daemonset\", \"(.+)\")",
+          "expr": "label_replace(label_replace(clamp_min(kube_deployment_spec_replicas{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"} - kube_deployment_status_replicas_available{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"}, 0) > 0, \"kind\", \"Deployment\", \"deployment\", \".*\"), \"workload\", \"$1\", \"deployment\", \"(.+)\")\nor label_replace(label_replace(clamp_min(kube_statefulset_replicas{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"} - kube_statefulset_status_replicas_ready{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"}, 0) > 0, \"kind\", \"StatefulSet\", \"statefulset\", \".*\"), \"workload\", \"$1\", \"statefulset\", \"(.+)\")\nor label_replace(label_replace(clamp_min(kube_daemonset_status_desired_number_scheduled{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"} - kube_daemonset_status_number_ready{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"}, 0) > 0, \"kind\", \"DaemonSet\", \"daemonset\", \".*\"), \"workload\", \"$1\", \"daemonset\", \"(.+)\")",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1442,7 +1442,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "kube_pod_container_status_waiting_reason{cluster=~\"$cluster\", namespace=~\"$namespace\", reason=~\"CrashLoopBackOff|ErrImagePull|ImagePullBackOff|CreateContainerConfigError|CreateContainerError|RunContainerError\"} == 1",
+          "expr": "kube_pod_container_status_waiting_reason{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", reason=~\"CrashLoopBackOff|ErrImagePull|ImagePullBackOff|CreateContainerConfigError|CreateContainerError|RunContainerError\"} == 1",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1534,7 +1534,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "round(sum by (cluster, namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\", namespace=~\"$namespace\"}[1h]))) > 0",
+          "expr": "round(sum by (cluster, namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"}[1h]))) > 0",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1624,7 +1624,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "kube_persistentvolumeclaim_status_phase{cluster=~\"$cluster\", namespace=~\"$namespace\"} == 1",
+          "expr": "kube_persistentvolumeclaim_status_phase{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"} == 1",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1699,7 +1699,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "kube_persistentvolumeclaim_resource_requests_storage_bytes{cluster=~\"$cluster\", namespace=~\"$namespace\"}",
+          "expr": "kube_persistentvolumeclaim_resource_requests_storage_bytes{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\"}",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1800,7 +1800,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "((up{cluster=~\"$cluster\"}) or (label_replace(up{cluster=\"\"}, \"cluster\", \"proxmox\", \"job\", \".*\") and on (cluster) count by (cluster) (kube_node_info{cluster=~\"$cluster\"}))) == 0",
+          "expr": "((up{cluster=~\"$cluster\", cluster!=\"\"}) or (label_replace(up{cluster=\"\"}, \"cluster\", \"proxmox\", \"job\", \".*\") and on (cluster) count by (cluster) (kube_node_info{cluster=~\"$cluster\", cluster!=\"\"}))) == 0",
           "legendFormat": "{{cluster}}",
           "range": false,
           "instant": true,
@@ -1903,7 +1903,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, namespace, pod, node) (rate(container_cpu_usage_seconds_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", container!=\"\", container!=\"POD\", image!=\"\"}[5m]))",
+          "expr": "sum by (cluster, namespace, pod, node) (rate(container_cpu_usage_seconds_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", container!=\"\", container!=\"POD\", image!=\"\"}[5m]))",
           "range": false,
           "instant": true,
           "refId": "A",
@@ -1991,7 +1991,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, namespace, pod, node) (container_memory_working_set_bytes{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", container!=\"\", container!=\"POD\", image!=\"\"})",
+          "expr": "sum by (cluster, namespace, pod, node) (container_memory_working_set_bytes{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", container!=\"\", container!=\"POD\", image!=\"\"})",
           "range": false,
           "instant": true,
           "refId": "A",
@@ -2111,7 +2111,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, node, device) (rate(node_network_receive_bytes_total{cluster=~\"$cluster\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
+          "expr": "sum by (cluster, node, device) (rate(node_network_receive_bytes_total{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
           "range": true,
           "instant": false,
           "refId": "A",
@@ -2123,7 +2123,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, node, device) (rate(node_network_transmit_bytes_total{cluster=~\"$cluster\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
+          "expr": "sum by (cluster, node, device) (rate(node_network_transmit_bytes_total{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))",
           "range": true,
           "instant": false,
           "refId": "B",
@@ -2191,7 +2191,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "label_replace(sum by (cluster, node, namespace, pod) (rate(container_network_receive_bytes_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])), \"direction\", \"RX\", \"pod\", \".+\") or label_replace(sum by (cluster, node, namespace, pod) (rate(container_network_transmit_bytes_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])), \"direction\", \"TX\", \"pod\", \".+\")",
+          "expr": "label_replace(sum by (cluster, node, namespace, pod) (rate(container_network_receive_bytes_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])), \"direction\", \"RX\", \"pod\", \".+\") or label_replace(sum by (cluster, node, namespace, pod) (rate(container_network_transmit_bytes_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])), \"direction\", \"TX\", \"pod\", \".+\")",
           "range": false,
           "instant": true,
           "refId": "A",
@@ -2295,7 +2295,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "label_replace((sum by (cluster, namespace, pod, node) (rate(container_network_receive_errors_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])) + sum by (cluster, namespace, pod, node) (rate(container_network_transmit_errors_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])) + sum by (cluster, namespace, pod, node) (rate(container_network_receive_packets_dropped_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])) + sum by (cluster, namespace, pod, node) (rate(container_network_transmit_packets_dropped_total{cluster=~\"$cluster\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m]))) > 0, \"scope\", \"Pod\", \"pod\", \".+\") or label_replace((sum by (cluster, instance, device, node) (rate(node_network_receive_errs_total{cluster=~\"$cluster\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m])) + sum by (cluster, instance, device, node) (rate(node_network_transmit_errs_total{cluster=~\"$cluster\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m])) + sum by (cluster, instance, device, node) (rate(node_network_receive_drop_total{cluster=~\"$cluster\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m])) + sum by (cluster, instance, device, node) (rate(node_network_transmit_drop_total{cluster=~\"$cluster\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))) > 0, \"scope\", \"Node NIC\", \"device\", \".+\")",
+          "expr": "label_replace((sum by (cluster, namespace, pod, node) (rate(container_network_receive_errors_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])) + sum by (cluster, namespace, pod, node) (rate(container_network_transmit_errors_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])) + sum by (cluster, namespace, pod, node) (rate(container_network_receive_packets_dropped_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m])) + sum by (cluster, namespace, pod, node) (rate(container_network_transmit_packets_dropped_total{cluster=~\"$cluster\", cluster!=\"\", namespace=~\"$namespace\", node=~\"$node\", pod!=\"\", interface=\"eth0\"}[5m]))) > 0, \"scope\", \"Pod\", \"pod\", \".+\") or label_replace((sum by (cluster, instance, device, node) (rate(node_network_receive_errs_total{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m])) + sum by (cluster, instance, device, node) (rate(node_network_transmit_errs_total{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m])) + sum by (cluster, instance, device, node) (rate(node_network_receive_drop_total{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m])) + sum by (cluster, instance, device, node) (rate(node_network_transmit_drop_total{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\", device=~\"ens.*|enp.*|eth.*|eno.*\"}[5m]))) > 0, \"scope\", \"Node NIC\", \"device\", \".+\")",
           "range": false,
           "instant": true,
           "refId": "A",
@@ -2405,7 +2405,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (cluster, node) (rate(node_netstat_Tcp_RetransSegs{cluster=~\"$cluster\", node=~\"$node\"}[5m]))",
+          "expr": "sum by (cluster, node) (rate(node_netstat_Tcp_RetransSegs{cluster=~\"$cluster\", cluster!=\"\", node=~\"$node\"}[5m]))",
           "range": true,
           "instant": false,
           "refId": "A",
