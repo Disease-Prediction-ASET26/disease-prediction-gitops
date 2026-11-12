@@ -11,11 +11,13 @@ and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-The Oracle data-plane workloads have been retired. The old Oracle Prometheus
-PVC and PV have been deleted, and no Prometheus custom resources remain there.
-Oracle's chart no longer installs Prometheus Operator CRDs. The tailnet policy
-is external to this repository; allow TCP/9090 from `tag:oracle-k3s-egress` to
-`tag:proxmox-metrics` for Grafana to reach the Proxmox endpoint.
+Oracle's Prometheus data plane has been retired. Grafana runs in Oracle and
+reads Proxmox Prometheus through the Oracle Tailscale egress Service. The old
+10 GiB Prometheus PVC and PV and the stored metrics history were deleted. The
+10 GiB was the requested volume size; actual disk usage before deletion was
+not measured. Oracle's chart does not install Prometheus Operator CRDs. The
+tailnet policy is external to this repository; allow TCP/9090 from
+`tag:oracle-k3s-egress` to `tag:proxmox-metrics` for Grafana to reach Prometheus.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
 Grafana's Oracle data-volume init container changes file ownership. Node
@@ -137,8 +139,8 @@ kubectl -n auth-system rollout status deployment/authelia --timeout=180s
 
 After reviewing and merging the Git change, check the child `monitoring`
 Application in both clusters. Automated sync is enabled and pruning is
-disabled. The Proxmox root Application creates the `node-exporter` namespace;
-Oracle no longer uses it. Select the Proxmox context before checking the stack:
+disabled. The Proxmox root Application creates the `node-exporter` namespace.
+Select the Proxmox context before checking the stack:
 
 ```bash
 kubectl get namespace node-exporter
@@ -154,50 +156,28 @@ Run the Argo and Kubernetes checks with the matching cluster context. Confirm
 `prometheus-tailnet` is configured by the Tailscale operator and Oracle
 Grafana uses the Proxmox Prometheus endpoint.
 
-The Oracle data-plane retirement used two syncs. First, Prometheus,
-Alertmanager, kube-state-metrics, node-exporter, and default rules were disabled
-while the operator remained enabled. The old resources were pruned from Oracle:
+## Oracle Prometheus retirement (complete)
+
+Oracle now runs Grafana only. Prometheus, Alertmanager, the operator,
+kube-state-metrics, and node-exporter are disabled there. The Oracle
+`monitoring` Application has `crds.enabled: false`, and its AppProject does
+not allow cluster-scoped CRDs. All ten unused `monitoring.coreos.com` CRDs
+were removed after confirming no Prometheus custom resources remained. Argo
+reports the Oracle `monitoring` Application Synced and Healthy.
+
+To verify the current state, use the Oracle context:
 
 ```bash
-argocd app diff monitoring
-argocd app sync monitoring --prune
-argocd app wait monitoring --sync --health --timeout 300
+kubectl --context oracle-k3s -n argocd get application monitoring
+kubectl --context oracle-k3s -n monitoring get pods,pvc,services
+kubectl --context oracle-k3s get crd -o name | grep 'monitoring.coreos.com' || true
 ```
 
-The operator was then disabled and the Oracle `node-exporter` namespace was
-removed in a second Git change. Because Oracle root pruning is disabled, prune
-the namespace explicitly after reviewing the root diff:
-
-```bash
-argocd app diff oracle-root
-argocd app sync oracle-root --prune
-argocd app wait oracle-root --sync --health --timeout 300
-```
-
-The chart's admission RBAC is created by Helm hooks and can remain after the
-operator is disabled. With the Oracle context active, confirm no admission
-Jobs or webhook configurations remain, then remove the hook resources:
-
-```bash
-kubectl -n monitoring get jobs
-kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations
-kubectl delete clusterrole monitoring-kube-prometheus-admission
-kubectl delete clusterrolebinding monitoring-kube-prometheus-admission
-kubectl -n monitoring delete role,rolebinding,serviceaccount monitoring-kube-prometheus-admission
-```
-
-Oracle's `monitoring` Application no longer installs the Prometheus Operator
-CRDs. After confirming there are no Prometheus custom resources, remove the
-existing CRD definitions explicitly; Argo CD automatic pruning is disabled:
-
-```bash
-kubectl --context oracle-k3s get prometheuses,alertmanagers,servicemonitors,podmonitors,prometheusrules,probes,scrapeconfigs,thanosrulers,alertmanagerconfigs,prometheusagents -A
-kubectl --context oracle-k3s get crd -o name | grep 'monitoring.coreos.com' | xargs -r kubectl --context oracle-k3s delete
-```
-
-Confirm that no `monitoring.coreos.com` CRDs remain. The Oracle observability
-AppProject permits only the namespaced Grafana, External Secrets, and
-HTTPRoute resources that remain.
+The Grafana PVC is the only monitoring PVC in Oracle. Deleting the old
+Prometheus PVC permanently removed its metrics history. The volume requested
+10 GiB, but its physical usage before deletion was not recorded. See the
+[retirement changes](https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops/pull/97)
+and the earlier [PostgreSQL exporter cleanup](https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops/pull/93).
 
 Check that the OIDC `ExternalSecret` is Ready and the route Application is
 healthy. Do not print the Secret value:
