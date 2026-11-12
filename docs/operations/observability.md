@@ -267,7 +267,10 @@ Grafana loads the chart dashboards and the version-controlled Fleet Overview
 and Cluster Detail dashboards from ConfigMaps in Oracle's `monitoring`
 namespace. Scrapes for unavailable K3s control-plane services and CoreDNS are
 disabled. Proxmox Prometheus also scrapes Oracle kube-state-metrics and
-node-exporter through the two Tailscale services. Check their status with
+node-exporter through the two Tailscale services. Oracle's chart Services stay
+cluster-local; dedicated `LoadBalancer` Services with
+`loadBalancerClass: tailscale` expose the exporters through Oracle's ingress
+ProxyGroup. Check their status with
 `up{job=~"oracle-kube-state-metrics|oracle-node-exporter"}`; both should be
 `1`. Default alerts load into Proxmox Alertmanager, but no notification
 receiver is configured.

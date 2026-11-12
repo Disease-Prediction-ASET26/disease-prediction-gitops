@@ -372,10 +372,13 @@ uses Proxmox Prometheus through
 scrapes the PostgreSQL exporter over the cluster-local
 `postgres-metrics.postgres.svc.cluster.local:9187` Service and Oracle's
 exporters through the local `oracle-kube-state-metrics` and
-`oracle-node-exporter` Services. The Oracle metric Services are reachable only
-through Tailscale and the narrow tailnet grant. This collects metrics, not
-logs. A log collector such as Alloy with a log store needs a separate design
-and bounded retention.
+`oracle-node-exporter` Services. Oracle exposes dedicated Tailscale
+LoadBalancer Services for these exporters; their chart Services stay
+cluster-local. Tailnet access is limited by the narrow metrics grant. This
+collects metrics, not logs. A log collector such as Alloy with a log store
+needs a separate design and bounded retention.
+Argo CD ignores only the operator-managed external name and finalizer on the
+two Proxmox metric mirrors.
 
 The Oracle proxy group has a shared tailnet identity, so tailnet policy cannot
 distinguish individual pods behind it. PostgreSQL still requires its database
@@ -395,7 +398,9 @@ kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get service pro
 kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n monitoring get service prometheus-tailnet
 kubectl --kubeconfig "$HOME/.kube/proxmox-k3s.yaml" -n monitoring get service oracle-kube-state-metrics oracle-node-exporter
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get service monitoring-kube-state-metrics
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n monitoring get service oracle-kube-state-metrics-tailnet
 kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n node-exporter get daemonset,service monitoring-prometheus-node-exporter
+kubectl --kubeconfig "$HOME/.kube/oracle-k3s.yaml" -n node-exporter get service oracle-node-exporter-tailnet
 ```
 
 In Proxmox Prometheus, query `up{job="proxmox-cnpg"}`. A value of `1` means
