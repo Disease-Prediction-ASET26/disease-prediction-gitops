@@ -23,6 +23,21 @@ spec:
     - repoURL: https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
       targetRevision: main
       path: clusters/proxmox/observability
+  ignoreDifferences:
+    - group: ""
+      kind: Service
+      name: oracle-kube-state-metrics
+      namespace: monitoring
+      jsonPointers:
+        - /metadata/finalizers
+        - /spec/externalName
+    - group: ""
+      kind: Service
+      name: oracle-node-exporter
+      namespace: monitoring
+      jsonPointers:
+        - /metadata/finalizers
+        - /spec/externalName
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -32,3 +47,4 @@ spec:
       prune: false
     syncOptions:
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true

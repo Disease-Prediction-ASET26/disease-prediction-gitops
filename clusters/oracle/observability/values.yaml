@@ -142,12 +142,6 @@ nodeExporter:
 
 kube-state-metrics:
   enabled: true
-  service:
-    annotations:
-      tailscale.com/expose: "true"
-      tailscale.com/hostname: oracle-kube-state-metrics
-      tailscale.com/proxy-group: ingress-proxies
-      tailscale.com/tags: tag:oracle-metrics
   collectors:
     - cronjobs
     - daemonsets
@@ -176,12 +170,6 @@ prometheus-node-exporter:
   namespaceOverride: node-exporter
   hostNetwork: true
   hostPID: false
-  service:
-    annotations:
-      tailscale.com/expose: "true"
-      tailscale.com/hostname: oracle-node-exporter
-      tailscale.com/proxy-group: ingress-proxies
-      tailscale.com/tags: tag:oracle-metrics
   resources:
     requests:
       cpu: 25m

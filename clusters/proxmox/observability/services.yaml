@@ -26,7 +26,7 @@ metadata:
   name: oracle-kube-state-metrics
   namespace: monitoring
   annotations:
-    tailscale.com/tailnet-fqdn: oracle-kube-state-metrics.tail0bed44.ts.net
+    tailscale.com/tailnet-fqdn: oracle-kube-state-metrics-tailnet.tail0bed44.ts.net
     tailscale.com/proxy-group: egress-proxies
     tailscale.com/proxy-class: tailscale-proxies
 spec:
@@ -43,7 +43,7 @@ metadata:
   name: oracle-node-exporter
   namespace: monitoring
   annotations:
-    tailscale.com/tailnet-fqdn: oracle-node-exporter.tail0bed44.ts.net
+    tailscale.com/tailnet-fqdn: oracle-node-exporter-tailnet.tail0bed44.ts.net
     tailscale.com/proxy-group: egress-proxies
     tailscale.com/proxy-class: tailscale-proxies
 spec:
