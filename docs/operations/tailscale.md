@@ -410,6 +410,22 @@ Check Oracle's two targets with
 `up{job=~"oracle-kube-state-metrics|oracle-node-exporter"}`; both should be
 `1`. Oracle Grafana's fleet dashboards use these samples to show both clusters.
 
+### Egress proxy misses a newly advertised service
+
+The pinned Tailscale proxy version `1.104.4` may not retry an egress target if
+its Tailscale Service was not advertised during the first lookup. If the Oracle
+Services report `TailscaleIngressSvcConfigured=True` but Proxmox Prometheus
+still gets `connection refused`, restart the Proxmox egress proxy to reload
+the service addresses:
+
+```bash
+kubectl --context proxmox-k3s -n tailscale delete pod egress-proxies-0
+kubectl --context proxmox-k3s -n tailscale wait --for=condition=Ready pod/egress-proxies-0 --timeout=180s
+```
+
+This briefly interrupts traffic through that ProxyGroup. The upstream issue is
+[Tailscale #21426](https://github.com/tailscale/tailscale/issues/21426).
+
 To remove this connectivity, first remove the Oracle egress mirrors and
 metrics exporters and Tailscale Services, Proxmox's Oracle scrape jobs and
 service mirrors, the Proxmox PostgreSQL and Prometheus Tailscale Services, and
