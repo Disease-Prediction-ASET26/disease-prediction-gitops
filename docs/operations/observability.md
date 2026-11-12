@@ -1,29 +1,65 @@
 # Prometheus and Grafana
 
 Each cluster has a `monitoring` Argo CD Application using kube-prometheus-stack
-92.17.0. Oracle Grafana now uses the Prometheus endpoint in Proxmox through
-Oracle's Tailscale egress Service. Oracle's Prometheus, Alertmanager,
-kube-state-metrics, node-exporter, and Prometheus Operator are disabled. The
-Proxmox stack runs Prometheus, Alertmanager, the operator, kube-state-metrics,
-and node-exporter with Grafana disabled. Its values are in
+92.17.0. Oracle runs Grafana, kube-state-metrics, and node-exporter. It has no
+Prometheus server or Prometheus Operator. Proxmox runs Prometheus,
+Alertmanager, the operator, kube-state-metrics, and node-exporter with Grafana
+disabled. Proxmox Prometheus scrapes Oracle's two metric exporters through
+Tailscale. Oracle Grafana queries that shared Prometheus endpoint through its
+existing Tailscale egress Service. The Proxmox values are in
 [`clusters/proxmox/observability/values.yaml`](../../clusters/proxmox/observability/values.yaml)
 and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-Oracle's Prometheus data plane has been retired. Grafana runs in Oracle and
-reads Proxmox Prometheus through the Oracle Tailscale egress Service. The old
-10 GiB Prometheus PVC and PV and the stored metrics history were deleted. The
-10 GiB was the requested volume size; actual disk usage before deletion was
-not measured. Oracle's chart does not install Prometheus Operator CRDs. The
-tailnet policy is external to this repository; allow TCP/9090 from
-`tag:oracle-k3s-egress` to `tag:proxmox-metrics` for Grafana to reach Prometheus.
+Oracle's Prometheus data plane has been retired. Its old 10 GiB Prometheus PVC,
+PV, and metrics history were deleted; physical disk use before deletion was
+not measured. Oracle now runs only the exporters needed for cluster health:
+kube-state-metrics reports nodes and Kubernetes objects, and node-exporter
+reports host CPU, memory, disk, and network usage. The Tailscale policy is
+external to this repository. Follow the
+[Tailscale guide](tailscale.md#connect-selected-kubernetes-services) to allow
+Oracle Grafana to query Proxmox Prometheus on TCP/9090 and Proxmox Prometheus
+to scrape Oracle's exporters on TCP/8080 and TCP/9100.
+
+```mermaid
+flowchart LR
+  subgraph Oracle[Oracle K3s]
+    KSM[kube-state-metrics]
+    NE[node-exporter]
+    OIngress[Tailscale ingress ProxyGroup]
+    OEgress[Tailscale egress ProxyGroup]
+    Grafana[Grafana]
+    OIngress -->|metrics TCP/8080| KSM
+    OIngress -->|metrics TCP/9100| NE
+    Grafana -->|query TCP/9090| OEgress
+  end
+  subgraph Proxmox[Proxmox K3s]
+    PEgress[Tailscale egress ProxyGroup]
+    Prometheus[Prometheus]
+    PIngress[Tailscale ingress ProxyGroup]
+    Prometheus -->|scrape requests| PEgress
+    PIngress -->|TCP/9090| Prometheus
+  end
+  PEgress -->|Tailscale TCP/8080, 9100| OIngress
+  OEgress -->|Tailscale TCP/9090| PIngress
+```
+
+The Grafana sidecar imports the checked-in dashboards from ConfigMaps in
+Oracle's `monitoring` namespace. **Kubernetes / Fleet Overview** shows both
+clusters at a glance. **Kubernetes / Cluster Detail** filters by cluster,
+namespace, and node for workload and capacity investigation. Both dashboards
+put current status panels first, followed by normalized time series and
+resource requests. There are no log or trace panels because this repository
+does not run a log or trace collector. Oracle reports host-level CPU and
+memory use, but does not expose per-container usage; container CPU and memory
+metrics are available for Proxmox only.
 
 Both `monitoring` namespaces enforce the Baseline Pod Security Standard.
-Grafana's Oracle data-volume init container changes file ownership. Node
-On Proxmox, node-exporter runs in the separate `node-exporter` namespace with
-Privileged enforcement for its host filesystem access. It uses host networking
-and does not use the host PID namespace.
+Grafana's Oracle data-volume init container changes file ownership.
+Node-exporter runs in a separate `node-exporter` namespace with Privileged
+enforcement for its host filesystem access. It uses host networking and does
+not use the host PID namespace.
 
 Grafana uses native Authelia OIDC at `grafana.pocket-doc.app`. The `admins`
 group gets the Grafana admin role; other signed-in users are Viewers. Local
@@ -37,10 +73,12 @@ authentication gate.
 See the [public route guide](domain-ingress.md) for route requirements.
 
 Proxmox Prometheus keeps seven days of metrics, up to 8 GiB, on a 10 GiB local
-volume. Oracle Grafana uses a 1 GiB local volume. These are stored on their
-cluster nodes and are lost if the disk is lost. Traefik can read Secrets in
-Oracle's `monitoring` namespace, including Grafana's OIDC Secret. Grafana uses
-Traefik NativeLB because direct Pod IP connections failed in this cluster.
+volume. Oracle Grafana uses a 1 GiB local volume. The Oracle exporters add no
+storage; their samples use Proxmox's existing retention limit. These data are
+stored on their cluster nodes and are lost if the disk is lost. Traefik can
+read Secrets in Oracle's `monitoring` namespace, including Grafana's OIDC
+Secret. Grafana uses Traefik NativeLB because direct Pod IP connections failed
+in this cluster.
 
 Proxmox Prometheus scrapes the CloudNativePG exporter through the
 cluster-local Service at `postgres-metrics.postgres.svc.cluster.local:9187`
@@ -70,10 +108,11 @@ and a 1.5 GiB limit while data builds up to its full seven-day retention.
 Before the move, peaks were 18 MiB for Alertmanager, 35 MiB for the operator,
 36 MiB for kube-state-metrics, and 9 MiB for node-exporter. Proxmox uses
 request/limit pairs of 32/64, 64/128, 48/96, and 16/32 MiB for those
-components. The Grafana dashboard sidecar peaked at 79 MiB, so its 64/128 MiB
-settings stay. Requests reserve scheduler capacity; limits cap use. Neither
-setting lowers a running process's current memory. Check for restarts and OOM
-events after changing limits.
+components. Oracle uses the same 48/96 MiB kube-state-metrics and 16/32 MiB
+node-exporter settings. The Oracle metrics ingress and Proxmox metrics egress
+proxy each request 64 MiB. The Grafana dashboard sidecar peaked at 79 MiB, so
+its 64/128 MiB settings stay. Requests reserve scheduler capacity; limits cap
+use. Neither setting lowers a running process's current memory.
 
 ```bash
 kubectl top pods -n monitoring --containers
@@ -111,7 +150,10 @@ the OIDC client secret pair in OCI Vault by following the
 [Authelia guide](authelia.md#prepare-the-oci-vault-secrets). ESO syncs the
 plaintext secret to `monitoring/grafana-oidc-client`. Never put it in Git. The
 Grafana chart also uses the checked-in Origin CA bundle for its private OIDC
-connection to Authelia. Render the manifests and chart, then review the diff:
+connection to Authelia. Before syncing, add the tailnet tags, service
+auto-approver, and TCP/8080 and TCP/9100 grant from the
+[Tailscale guide](tailscale.md#connect-selected-kubernetes-services). Render
+the manifests and chart, then review the diff:
 
 ```bash
 kubectl kustomize clusters/oracle > /dev/null
@@ -139,17 +181,28 @@ kubectl -n auth-system rollout status deployment/authelia --timeout=180s
 
 After reviewing and merging the Git change, check the child `monitoring`
 Application in both clusters. Automated sync is enabled and pruning is
-disabled. The Proxmox root Application creates the `node-exporter` namespace.
-Select the Proxmox context before checking the stack:
+disabled. Both root Applications create a `node-exporter` namespace. Check
+the Oracle cluster first:
 
 ```bash
-kubectl get namespace node-exporter
+kubectl --context oracle-k3s get namespace node-exporter
 argocd app wait monitoring --sync --health --timeout 300
-kubectl -n monitoring get pods,pvc,services
-kubectl -n node-exporter rollout status daemonset/monitoring-prometheus-node-exporter --timeout=180s
-kubectl -n node-exporter get daemonset,service,servicemonitor
-kubectl -n monitoring get daemonset,service,servicemonitor
-kubectl -n monitoring get service prometheus-tailnet
+kubectl --context oracle-k3s -n monitoring get pods,pvc,services
+kubectl --context oracle-k3s -n monitoring get daemonset,service,servicemonitor
+kubectl --context oracle-k3s -n node-exporter rollout status daemonset/monitoring-prometheus-node-exporter --timeout=180s
+kubectl --context oracle-k3s -n node-exporter get daemonset,service,servicemonitor
+```
+
+Then check Proxmox and its cross-cluster egress Services:
+
+```bash
+kubectl --context proxmox-k3s get namespace node-exporter
+argocd app wait monitoring --sync --health --timeout 300
+kubectl --context proxmox-k3s -n monitoring get pods,pvc,services
+kubectl --context proxmox-k3s -n node-exporter rollout status daemonset/monitoring-prometheus-node-exporter --timeout=180s
+kubectl --context proxmox-k3s -n node-exporter get daemonset,service,servicemonitor
+kubectl --context proxmox-k3s -n monitoring get daemonset,service,servicemonitor
+kubectl --context proxmox-k3s -n monitoring get service prometheus-tailnet oracle-kube-state-metrics oracle-node-exporter
 ```
 
 Run the Argo and Kubernetes checks with the matching cluster context. Confirm
@@ -158,12 +211,12 @@ Grafana uses the Proxmox Prometheus endpoint.
 
 ## Oracle Prometheus retirement (complete)
 
-Oracle now runs Grafana only. Prometheus, Alertmanager, the operator,
-kube-state-metrics, and node-exporter are disabled there. The Oracle
-`monitoring` Application has `crds.enabled: false`, and its AppProject does
-not allow cluster-scoped CRDs. All ten unused `monitoring.coreos.com` CRDs
-were removed after confirming no Prometheus custom resources remained. Argo
-reports the Oracle `monitoring` Application Synced and Healthy.
+Oracle runs Grafana and two metric exporters, but no Prometheus, Alertmanager,
+or Prometheus Operator. Its `monitoring` Application has `crds.enabled: false`,
+and no `monitoring.coreos.com` CRDs are installed there. All ten unused CRDs
+were removed after confirming no Prometheus custom resources remained. The
+Oracle AppProject allows the `ClusterRole` and `ClusterRoleBinding` objects
+needed by kube-state-metrics in addition to its namespaced resources.
 
 To verify the current state, use the Oracle context:
 
@@ -210,9 +263,13 @@ service:
 kubectl -n monitoring port-forward service/monitoring-kube-prometheus-prometheus 9090:9090
 ```
 
-Grafana loads the chart's Kubernetes dashboards from ConfigMaps in `monitoring`.
-Scrapes for unavailable K3s control-plane services and CoreDNS are disabled.
-Default alerts load into Prometheus and Alertmanager, but no notification
+Grafana loads the chart dashboards and the version-controlled Fleet Overview
+and Cluster Detail dashboards from ConfigMaps in Oracle's `monitoring`
+namespace. Scrapes for unavailable K3s control-plane services and CoreDNS are
+disabled. Proxmox Prometheus also scrapes Oracle kube-state-metrics and
+node-exporter through the two Tailscale services. Check their status with
+`up{job=~"oracle-kube-state-metrics|oracle-node-exporter"}`; both should be
+`1`. Default alerts load into Proxmox Alertmanager, but no notification
 receiver is configured.
 
 ## Update or remove
@@ -254,5 +311,6 @@ not remove cluster-scoped CRDs.
 - [Argo CD Helm charts and values](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)
 - [Argo CD multiple sources](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/)
 - [K3s local-path storage](https://docs.k3s.io/add-ons/storage)
+- [Grafana dashboard best practices](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/best-practices/)
 - [Grafana Generic OAuth](https://grafana.com/docs/grafana/latest/setup-grafana/configure-access/configure-authentication/generic-oauth/)
 - [Authelia Grafana OIDC integration](https://www.authelia.com/integration/openid-connect/clients/grafana/)

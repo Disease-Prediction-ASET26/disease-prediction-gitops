@@ -19,3 +19,37 @@ spec:
   selector:
     app.kubernetes.io/name: prometheus
     operator.prometheus.io/name: monitoring-kube-prometheus-prometheus
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-kube-state-metrics
+  namespace: monitoring
+  annotations:
+    tailscale.com/tailnet-fqdn: oracle-kube-state-metrics.tail0bed44.ts.net
+    tailscale.com/proxy-group: egress-proxies
+    tailscale.com/proxy-class: tailscale-proxies
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - name: metrics
+      port: 8080
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-node-exporter
+  namespace: monitoring
+  annotations:
+    tailscale.com/tailnet-fqdn: oracle-node-exporter.tail0bed44.ts.net
+    tailscale.com/proxy-group: egress-proxies
+    tailscale.com/proxy-class: tailscale-proxies
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - name: metrics
+      port: 9100
+      protocol: TCP

@@ -33,6 +33,12 @@ kubelet:
   jobNameOverride: k3s-server
 
 kube-state-metrics:
+  prometheus:
+    monitor:
+      relabelings:
+        - action: replace
+          targetLabel: cluster
+          replacement: proxmox
   resources:
     requests:
       cpu: 25m
@@ -45,6 +51,12 @@ prometheus-node-exporter:
   namespaceOverride: node-exporter
   hostNetwork: true
   hostPID: false
+  prometheus:
+    monitor:
+      relabelings:
+        - action: replace
+          targetLabel: cluster
+          replacement: proxmox
   resources:
     requests:
       cpu: 25m
@@ -89,6 +101,20 @@ prometheus:
     retention: 7d
     retentionSize: 8GiB
     additionalScrapeConfigs:
+      - job_name: oracle-kube-state-metrics
+        scrape_interval: 60s
+        static_configs:
+          - targets:
+              - oracle-kube-state-metrics.monitoring.svc.cluster.local:8080
+            labels:
+              cluster: oracle
+      - job_name: oracle-node-exporter
+        scrape_interval: 60s
+        static_configs:
+          - targets:
+              - oracle-node-exporter.monitoring.svc.cluster.local:9100
+            labels:
+              cluster: oracle
       - job_name: proxmox-cnpg
         scrape_interval: 60s
         static_configs:

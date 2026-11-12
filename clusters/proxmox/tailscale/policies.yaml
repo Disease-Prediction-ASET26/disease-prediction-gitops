@@ -16,4 +16,5 @@ metadata:
 spec:
   ingress:
     - ingress-proxies
-  egress: []
+  egress:
+    - egress-proxies
