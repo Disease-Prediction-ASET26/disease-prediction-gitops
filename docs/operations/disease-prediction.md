@@ -39,7 +39,7 @@ update a GitOps pull request with the new digest. Publishing a reviewed AI
 model runtime does the same. Merge the GitOps pull request to let Argo CD sync
 the update. These workflows need a GitHub App installed only on
 `disease-prediction-gitops`, with Contents and Pull requests write access. Set
-`GITOPS_APP_ID` to the app Client ID and `GITOPS_APP_PRIVATE_KEY` to the
+`GITOPS_CLIENT_ID` to the app Client ID and `GITOPS_APP_PRIVATE_KEY` to the
 complete PEM key in the backend, frontend, and AI Actions secrets before
 merging application changes that publish dev images.
 
