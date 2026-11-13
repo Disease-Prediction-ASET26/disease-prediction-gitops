@@ -5,3 +5,4 @@ metadata:
   namespace: disease-prediction
 data:
   SPRING_DATASOURCE_URL: "jdbc:postgresql://proxmox-postgres.disease-prediction.svc.cluster.local:5432/disease_prediction?sslmode=verify-full&sslrootcert=/etc/postgres-ca/ca.crt"
+  PREDICTION_SERVICE_BASE_URL: "http://ai:8000"

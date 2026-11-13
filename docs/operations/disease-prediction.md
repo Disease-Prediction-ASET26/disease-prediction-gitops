@@ -5,19 +5,20 @@ The Oracle workload manifests are prepared under
 The Argo CD Application is staged in
 [`applications/disease-prediction.yaml`](../../clusters/oracle/applications/disease-prediction.yaml)
 but is not listed in `applications/kustomization.yaml`. Add it there only when
-the required Vault secrets are synced and the backend-to-AI API boundary is
-ready. This keeps Argo CD from starting an incomplete stack.
+the required Vault secrets are synced. The backend-to-AI API boundary is wired:
+the backend calls `http://ai:8000/predict`, maps the AI response to its public
+API shape, and returns an emergency result without calling the model.
 
 Use `dev.pocket-doc.app` for the dev stack and reserve
 `health.pocket-doc.app` for production. Both names are in the existing
 `pocket-doc.app` zone. The staged dev route targets only the frontend and uses
-Authelia ForwardAuth. The backend and AI Services stay internal as `ClusterIP`
-Services. The frontend proxies `/api/` to `http://backend:8080`. The AI Service
-is `http://ai:8000`; the backend still needs its HTTP client and request/response
-mapping before it uses that Service. The Argo Application is inactive until the
-API boundary and Vault secrets are ready. Add the production route with the
-production stack after its database, secrets, and image digests are prepared.
-Follow the [domain and ingress guide](domain-ingress.md) when changing routes.
+Authelia ForwardAuth. The Authelia rule requires two-factor login. The backend
+and AI Services stay internal as `ClusterIP` Services. The frontend proxies
+`/api/` to `http://backend:8080`; the backend calls the AI Service at
+`http://ai:8000`. The Argo Application stays inactive until the runtime key and
+GHCR pull secret report Ready. Add the production route with the production
+stack after its database, secrets, and image digests are prepared. Follow the
+[domain and ingress guide](domain-ingress.md) when changing routes.
 
 ## Prepare the model image
 
@@ -32,13 +33,18 @@ GitOps. The dev candidate from `model-runtime-dev-v0.1.2` is pinned in the AI
 Deployment. Review representative predictions before accepting a model for
 production; held-out scores alone do not validate clinical usefulness.
 
-The backend and frontend deployments already use the published dev image
-digests. The AI Deployment uses the immutable runtime digest. Do not deploy a
-moving tag.
+The Deployments use immutable dev image digests. Do not deploy a moving tag.
+After a successful `develop` image publish, backend and frontend CI open or
+update a GitOps pull request with the new digest. Publishing a reviewed AI
+model runtime does the same. Merge the GitOps pull request to let Argo CD sync
+the update. These workflows need a GitHub App installed only on
+`disease-prediction-gitops`, with Contents and Pull requests write access. Set
+`GITOPS_APP_ID` and `GITOPS_APP_PRIVATE_KEY` in the backend, frontend, and AI
+Actions secrets before merging application changes that publish dev images.
 
 ## Prepare Vault secrets
 
-Before merging the ExternalSecret changes, create these OCI Vault secrets using
+Before activating the Application, ensure these OCI Vault secrets exist using
 the [Secrets guide](secrets.md). Store JSON payloads with the listed properties:
 
 | OCI Vault secret | JSON properties | Purpose |
@@ -50,8 +56,8 @@ The existing PostgreSQL credentials and server CA are already synced in the
 namespace. The backend configuration uses the PostgreSQL Service and verifies
 its TLS certificate with the synced CA.
 
-After the ExternalSecrets are synced, check their status without printing
-Secret data:
+After both dev secrets are present in OCI Vault and the ExternalSecrets are
+synced, check their status without printing Secret data:
 
 ```sh
 kubectl --context oracle-k3s -n disease-prediction \
@@ -61,20 +67,19 @@ kubectl --context oracle-k3s -n disease-prediction \
 
 ## Activate the Application
 
-1. Confirm the backend has a real HTTP prediction client and that the AI request
-   and response formats are mapped. The client should call `http://ai:8000`.
-2. Confirm the AI Deployment points to the accepted model-runtime digest.
-   Record the backend and frontend dev image digests from CI.
-3. Update the three image references in `deployments.yaml` to those digests.
-4. Add `disease-prediction.yaml` to `clusters/oracle/applications/kustomization.yaml`.
-5. Render both Kustomize paths and review the Git diff:
+1. Confirm all four ExternalSecrets are Ready. Do not print Kubernetes Secret
+   data.
+2. Confirm the three Deployment images use immutable digests. The AI digest
+   must come from a reviewed model-runtime release.
+3. Add `disease-prediction.yaml` to `clusters/oracle/applications/kustomization.yaml`.
+4. Render both Kustomize paths and review the Git diff:
 
    ```sh
    kubectl kustomize clusters/oracle
    kubectl kustomize clusters/oracle/disease-prediction
    ```
 
-6. Merge the GitOps pull request. Argo CD creates the Application and syncs its
+5. Merge the GitOps pull request. Argo CD creates the Application and syncs its
    workloads. Do not use `kubectl apply` for these managed resources.
 
 The AI Deployment has separate process and readiness probes. Readiness loads
@@ -98,14 +103,18 @@ kubectl --context oracle-k3s -n disease-prediction \
   port-forward service/frontend 8080:8080
 ```
 
-Open `http://localhost:8080`. Until the backend integration is merged, its
-assessment endpoint still returns the stub prediction.
+Open `https://dev.pocket-doc.app` in a private browser session. An unauthenticated
+request must redirect to Authelia. After login, submit a free-text description
+and a checklist-only assessment. The backend returns 422 when the AI service
+cannot identify a symptom, 503 when it cannot connect, and 502 for other
+upstream errors.
 
 ## Update or remove the dev stack
 
-For an application or model update, publish a new image, pin its digest in
-GitOps, and merge the change. The AI model version and checksum are recorded in
-the artifact manifest and image label.
+After an application or reviewed model-runtime publish, review and merge the
+GitOps digest pull request. Argo CD syncs the new immutable image digest. The
+AI model version and checksum are recorded in the artifact manifest and image
+label.
 
 To remove the stack, delete the Argo CD Application with cascading enabled:
 
