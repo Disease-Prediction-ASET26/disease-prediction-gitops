@@ -7,6 +7,15 @@ Oracle Grafana reaches Proxmox Prometheus over Tailscale. The database and
 Vault use the VM's `local-path` storage. They are single-instance services,
 not highly available.
 
+## Contents
+
+- [Chart choices](#chart-choices)
+- [Review and sync](#review-and-sync)
+- [Initialize Vault and configure access](#initialize-vault-and-configure-access)
+- [Connect to PostgreSQL](#connect-to-postgresql)
+- [Update and back up](#update-and-back-up)
+- [Stop or remove data services](#stop-or-remove-data-services)
+
 ```mermaid
 flowchart LR
   operator[Workstation] -->|private API port-forward| vault[Vault UI and API]

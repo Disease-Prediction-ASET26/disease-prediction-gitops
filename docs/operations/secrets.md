@@ -5,6 +5,15 @@ ordinary Kubernetes Secrets for workloads. K3s is configured to encrypt those
 Kubernetes Secrets at rest. Secret payloads must not be committed to Git,
 Terraform state, terminal output, or logs.
 
+## Contents
+
+- [Trust boundary](#trust-boundary)
+- [Provision OCI Vault](#provision-oci-vault)
+- [Install and check ESO](#install-and-check-eso)
+- [Verify with a temporary canary](#verify-with-a-temporary-canary)
+- [Add and rotate workload secrets](#add-and-rotate-workload-secrets)
+- [Remove ESO](#remove-eso)
+
 ```mermaid
 flowchart LR
   vault[OCI Vault] -->|Instance Principal| eso[ESO controller]

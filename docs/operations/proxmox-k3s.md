@@ -19,6 +19,14 @@ They overlap, so do not route pods or services between clusters. Check other
 networks and tailnet routes for conflicts before adding routes. Do not change
 an existing cluster's CIDRs without a migration plan.
 
+## Contents
+
+- [Bootstrap access](#bootstrap-access)
+- [Preview and apply K3s](#preview-and-apply-k3s)
+- [Verify](#verify)
+- [Optional Argo CD bootstrap](#optional-argo-cd-bootstrap)
+- [Backup, recovery, upgrade, and removal](#backup-recovery-upgrade-and-removal)
+
 ## Bootstrap access
 
 On the VM console, install Tailscale and complete browser authentication:
