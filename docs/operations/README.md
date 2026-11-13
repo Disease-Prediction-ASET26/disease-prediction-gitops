@@ -17,6 +17,7 @@ Workstation setup below applies to both clusters.
 | Edit Kubernetes manifests | [Kubernetes](kubernetes.md) |
 | Check Argo CD sync or access its UI | [Argo CD](argocd.md) |
 | Sync secrets from OCI Vault | [Secrets](secrets.md) |
+| Prepare the Disease Prediction dev workload | [Disease Prediction](disease-prediction.md) |
 | Manage local PostgreSQL, cross-cluster access, and Vault secrets | [Proxmox data services](proxmox-data-services.md) |
 | Manage login and passkey authentication | [Authelia](authelia.md) |
 | View cluster metrics and Grafana dashboards | [Observability](observability.md) |
