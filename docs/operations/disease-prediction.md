@@ -5,8 +5,8 @@ The Oracle workload manifests are prepared under
 The Argo CD Application is staged in
 [`applications/disease-prediction.yaml`](../../clusters/oracle/applications/disease-prediction.yaml)
 but is not listed in `applications/kustomization.yaml`. Add it there only when
-the model image, secrets, and backend-to-AI API boundary are ready. This keeps
-Argo CD from starting an incomplete stack.
+the required Vault secrets are synced and the backend-to-AI API boundary is
+ready. This keeps Argo CD from starting an incomplete stack.
 
 Use `dev.pocket-doc.app` for the dev stack and reserve
 `health.pocket-doc.app` for production. Both names are in the existing
@@ -15,7 +15,7 @@ Authelia ForwardAuth. The backend and AI Services stay internal as `ClusterIP`
 Services. The frontend proxies `/api/` to `http://backend:8080`. The AI Service
 is `http://ai:8000`; the backend still needs its HTTP client and request/response
 mapping before it uses that Service. The Argo Application is inactive until the
-API boundary and model image are ready. Add the production route with the
+API boundary and Vault secrets are ready. Add the production route with the
 production stack after its database, secrets, and image digests are prepared.
 Follow the [domain and ingress guide](domain-ingress.md) when changing routes.
 
@@ -25,14 +25,16 @@ Train and review the classifier outside k3s. Training does not happen in the
 deployed service. Follow the AI repository's
 [model training and release guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-ai#model-training-and-release).
 Keep the dataset and trained model out of Git. After the team accepts the
-training results, publish the model as an immutable image. The publishing
-script combines it with a digest-pinned AI base image, checks the manifest and
-runtime versions, scans the image, and prints the digest to pin in GitOps.
-Production serves the accepted artifact; it does not retrain the model.
+training results, publish the model as an immutable image. The release workflow
+trains from a pinned dataset, bundles the pinned ClinicalBERT and MiniLM files,
+checks the artifact manifest, scans the image, and prints the digest to pin in
+GitOps. The dev candidate from `model-runtime-dev-v0.1.2` is pinned in the AI
+Deployment. Review representative predictions before accepting a model for
+production; held-out scores alone do not validate clinical usefulness.
 
 The backend and frontend deployments already use the published dev image
-digests. Before activation, change the AI Deployment to the published
-model-runtime digest. Do not deploy a moving tag.
+digests. The AI Deployment uses the immutable runtime digest. Do not deploy a
+moving tag.
 
 ## Prepare Vault secrets
 
@@ -61,8 +63,8 @@ kubectl --context oracle-k3s -n disease-prediction \
 
 1. Confirm the backend has a real HTTP prediction client and that the AI request
    and response formats are mapped. The client should call `http://ai:8000`.
-2. Publish the trained AI model-runtime image and record its digest. Record the
-   backend and frontend dev image digests from CI.
+2. Confirm the AI Deployment points to the accepted model-runtime digest.
+   Record the backend and frontend dev image digests from CI.
 3. Update the three image references in `deployments.yaml` to those digests.
 4. Add `disease-prediction.yaml` to `clusters/oracle/applications/kustomization.yaml`.
 5. Render both Kustomize paths and review the Git diff:
