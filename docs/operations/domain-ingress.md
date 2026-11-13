@@ -40,6 +40,19 @@ The Tunnel forwards `*.pocket-doc.app` to Traefik. It does not create DNS
 records. ExternalDNS owns approved app records. The apex domain is not covered
 by the wildcard Tunnel rule.
 
+## Disease Prediction hostnames
+
+Use separate names for each environment:
+
+| Environment | Hostname | Status |
+|---|---|---|
+| Dev | `dev.pocket-doc.app` | Staged route in the inactive dev Application. |
+| Production | `health.pocket-doc.app` | Reserved for the production stack; no production route is staged yet. |
+
+Both names use the `pocket-doc.app` zone. Keep the backend and AI Services
+private, and send browser traffic only to the frontend. Protect both routes with
+Authelia ForwardAuth unless the app later adds its own reviewed OIDC login.
+
 ## Choose Authelia login
 
 - **ForwardAuth:** Traefik checks each request with Authelia. Use this for an
