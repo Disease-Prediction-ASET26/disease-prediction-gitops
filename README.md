@@ -1,35 +1,33 @@
 ﻿# Disease Prediction GitOps
 
-Kubernetes configuration for the independent single-node Oracle and local
-Proxmox K3s clusters. Oracle hosts application workloads, public edge services,
-and Grafana. Proxmox hosts local PostgreSQL, Vault, and the Prometheus backend.
-The infrastructure repository owns OCI resources and Terraform. Application
-source, images, and CI live in their respective repositories.
+This repository manages the independent Oracle and Proxmox K3s clusters.
+Oracle runs the public edge and Grafana. No disease-prediction workload or
+public product route is deployed yet. Proxmox runs local PostgreSQL, Vault,
+and the Prometheus server. Terraform manages OCI resources in the
+infrastructure repository; application source and images live in their own
+repositories.
 
 ## Current scope
 
-- Bootstrap and manage Oracle and Proxmox with Argo CD. Proxmox runs the local
-  PostgreSQL database, Vault secret store, and Prometheus monitoring backend.
-- Use Tailscale for private SSH and Kubernetes access.
-- Keep the Kubernetes APIs private. On Oracle, protect the Argo CD UI with
-  Authelia SSO.
-- On Oracle, use the `pocket-doc.app` Cloudflare zone, Cloudflare Tunnel, Traefik, and
-  ExternalDNS for reviewed public routes. Argo CD's route is enabled manually
-  after its OIDC setup is ready; no workload application route is published.
+- Manage each cluster with Argo CD. Bootstrap Argo CD separately with Helmfile.
+- Use Tailscale for private SSH and Kubernetes API access. Neither cluster's
+  Kubernetes API is public.
+- On Oracle, Cloudflare Tunnel and Traefik carry approved public routes. The
+  Authelia, Argo CD, and Grafana routes are platform routes; no product route
+  is published. Enable the Argo CD route after its OIDC setup is ready.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
-## Bootstrap
+## Start here
 
-See [the bootstrap guide](docs/bootstrap.md). It installs a pinned Argo CD release with Helmfile and applies the Oracle root application. The root app reads this public repository over HTTPS. Bootstrap does not depend on the domain.
-
-For the isolated Ubuntu VM, use the [local K3s guide](docs/operations/proxmox-k3s.md).
-Its Ansible install and optional Argo CD bootstrap are separate from Oracle.
-
-## Architecture and operations
-
-See the [cross-repository DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md)
-for resource ownership, administration and secrets, and public traffic. Use the
-[operations index](docs/operations/README.md) to find the runbook for a task.
+- [Oracle bootstrap guide](docs/bootstrap.md): install Argo CD and apply the
+  Oracle root Application. It does not create OCI resources or depend on DNS.
+- [Operations index](docs/operations/README.md): find a cluster runbook by task.
+- [Local Proxmox K3s guide](docs/operations/proxmox-k3s.md): install or manage
+  the isolated Ubuntu node and its optional Argo CD instance.
+- [Proxmox data services guide](docs/operations/proxmox-data-services.md):
+  manage local PostgreSQL, Vault, and cross-cluster access.
+- [DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md):
+  see cross-repository ownership, access, and traffic flows.
 
 ## Layout
 
@@ -71,8 +69,8 @@ External Secrets Operator syncs selected OCI Vault values to Kubernetes
 Secrets. See the [secrets guide](docs/operations/secrets.md) before changing
 synced credentials.
 
-GitHub Actions validates both cluster manifests and the Ansible playbooks, and runs
-the shared secret scan on pull requests and pushes to `main`.
+GitHub Actions validates both cluster manifests and Ansible playbooks. It also
+runs the shared secret scan on pull requests and pushes to `main`.
 
 Pod Security Admission enforces Restricted in workload and platform
 namespaces. Monitoring uses Baseline because Grafana's data-volume setup
@@ -80,4 +78,5 @@ adjusts ownership. Node exporter is isolated in a dedicated namespace with
 Privileged enforcement because it reads host filesystems. See [Kubernetes
 operations](docs/operations/kubernetes.md#pod-security-standards).
 
-Read [operations by tool](docs/operations/README.md) before changing or deleting live resources. For OCI and Terraform, use the [infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md).
+For OCI resources and Terraform changes, use the
+[infrastructure guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-infra/blob/main/README.md).

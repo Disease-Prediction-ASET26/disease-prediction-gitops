@@ -1,31 +1,35 @@
 # Prometheus and Grafana
 
-Each cluster has a `monitoring` Argo CD Application using kube-prometheus-stack
-92.17.0. Oracle runs Grafana, kube-state-metrics, node-exporter, and a small
-Prometheus Agent. It has no Prometheus server or Prometheus Operator. Proxmox
-runs Prometheus, Alertmanager, the operator, kube-state-metrics, and
-node-exporter with Grafana disabled. Proxmox Prometheus scrapes Oracle's two
-metric exporters through Tailscale. The Oracle Agent scrapes selected kubelet
-cAdvisor metrics and sends them to Proxmox Prometheus over the same TCP/9090
-tailnet connection used by Grafana. Oracle Grafana queries that shared
-Prometheus endpoint through its existing Tailscale egress Service. The
-Proxmox values are in
+Both clusters use a `monitoring` Argo CD Application with kube-prometheus-stack
+92.17.0. Oracle runs Grafana, two metric exporters, and a small Prometheus
+Agent. It has no Prometheus server or Prometheus Operator. Proxmox runs
+Prometheus, Alertmanager, the operator, and the exporters, with Grafana
+disabled. Proxmox Prometheus scrapes Oracle's exporters over Tailscale. The
+Oracle Agent sends selected kubelet cAdvisor metrics to Proxmox Prometheus,
+and Oracle Grafana queries that same endpoint through a Tailscale egress
+Service. See the [Tailscale guide](tailscale.md#connect-selected-kubernetes-services)
+for the required TCP/9090, TCP/8080, and TCP/9100 access. The Proxmox values are in
 [`clusters/proxmox/observability/values.yaml`](../../clusters/proxmox/observability/values.yaml)
 and its Application is in
 [`clusters/proxmox/applications/observability.yaml`](../../clusters/proxmox/applications/observability.yaml).
 Oracle's chart values remain in [`clusters/oracle/observability/values.yaml`](../../clusters/oracle/observability/values.yaml).
 
-Oracle's Prometheus server and data volume remain retired. Its old 10 GiB
-Prometheus PVC, PV, and metrics history were deleted; physical disk use before
-deletion was not measured. The Agent has no local query database or persistent
-volume and keeps its write-ahead log in a 128 MiB temporary volume. The Agent
-retains unsent samples for at most two hours, subject to the volume limit; a
-longer outage can lose samples that were not sent. The exporters report
-Kubernetes object state and host CPU, memory, disk, and network usage. The Tailscale policy is external to this
-repository. Follow the
-[Tailscale guide](tailscale.md#connect-selected-kubernetes-services) to allow
-Oracle Grafana and its metrics Agent to reach Proxmox Prometheus on TCP/9090,
-and Proxmox Prometheus to scrape Oracle's exporters on TCP/8080 and TCP/9100.
+Oracle's Agent has no local query database or persistent volume. It keeps its
+write-ahead log in a 128 MiB temporary volume and retains unsent samples for at
+most two hours, subject to that volume limit. A longer outage can lose unsent
+samples. The exporters report Kubernetes object state and host CPU, memory,
+disk, and network usage. The Tailscale access policy is managed outside this
+repository.
+
+## Contents
+
+- [Resource sizing](#resource-sizing)
+- [Prepare and sync](#prepare-and-sync)
+- [Verify Oracle monitoring](#verify-oracle-monitoring)
+- [Open Grafana and Prometheus](#open-grafana-and-prometheus)
+- [Update or remove](#update-or-remove)
+- [Remove the stack](#remove-the-stack)
+- [References](#references)
 
 ```mermaid
 flowchart LR
@@ -246,17 +250,15 @@ kubectl --context oracle-k3s delete clusterrole/oracle-prometheus-agent clusterr
 
 Deleting the Agent also removes its temporary WAL and any unsent samples.
 
-## Oracle Prometheus retirement (complete)
+## Verify Oracle monitoring
 
-Oracle runs Grafana, two metric exporters, and the Prometheus Agent, but no
-Prometheus server, Alertmanager, or Prometheus Operator. Its `monitoring`
-Application has `crds.enabled: false`, and no `monitoring.coreos.com` CRDs are
-installed there. All ten unused CRDs were removed after confirming no
-Prometheus custom resources remained. The Oracle AppProject allows the
-`ClusterRole` and `ClusterRoleBinding` objects used by kube-state-metrics and
-the Agent.
+Oracle's `monitoring` Application has `crds.enabled: false`, and no
+`monitoring.coreos.com` CRDs are installed there. All ten unused CRDs were
+removed after confirming no Prometheus custom resources remained. The Oracle
+AppProject allows the `ClusterRole` and `ClusterRoleBinding` objects used by
+kube-state-metrics and the Agent.
 
-To verify the current state, use the Oracle context:
+Use the Oracle context to check the Application, workloads, and CRDs:
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application monitoring

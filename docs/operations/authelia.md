@@ -8,6 +8,18 @@ disabled.
 Apps can use Traefik ForwardAuth or their own OIDC login. Choose the method
 and follow the route steps in the [public route guide](domain-ingress.md).
 
+## Contents
+
+- [How it is deployed](#how-it-is-deployed)
+- [Prepare the OCI Vault secrets](#prepare-the-oci-vault-secrets)
+- [Prepare the internal OIDC certificate](#prepare-the-internal-oidc-certificate)
+- [Install the Traefik CRD bundle](#install-the-traefik-crd-bundle)
+- [Preview and deploy](#preview-and-deploy)
+- [Protect an application route](#protect-an-application-route)
+- [Rotate an account password or secret](#rotate-an-account-password-or-secret)
+- [Back up the SQLite state](#back-up-the-sqlite-state)
+- [Recovery and removal](#recovery-and-removal)
+
 ## How it is deployed
 
 - One ARM64 replica runs in `auth-system`.

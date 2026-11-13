@@ -4,6 +4,15 @@ Use your workstation for SSH, kubectl, and K9s. Tailscale carries these
 connections to the Oracle VM. The Kubernetes API stays off the public internet;
 you do not need an SSH tunnel.
 
+## Contents
+
+- [One-time setup](#one-time-setup)
+- [Set up kubectl and K9s](#set-up-kubectl-and-k9s)
+- [Close public SSH](#close-public-ssh)
+- [Update or remove Tailscale](#update-or-remove-tailscale)
+- [Connect selected Kubernetes services](#connect-selected-kubernetes-services)
+- [References](#references)
+
 ## One-time setup
 
 Install Tailscale on your Linux workstation, run `sudo tailscale up`, and sign
