@@ -46,7 +46,7 @@ Use separate names for each environment:
 
 | Environment | Hostname | Status |
 |---|---|---|
-| Dev | `dev.pocket-doc.app` | Staged route in the inactive dev Application. |
+| Dev | `dev.pocket-doc.app` | Active route protected by Authelia ForwardAuth. |
 | Production | `health.pocket-doc.app` | Reserved for the production stack; no production route is staged yet. |
 
 Both names use the `pocket-doc.app` zone. Keep the backend and AI Services

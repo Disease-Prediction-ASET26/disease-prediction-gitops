@@ -1,23 +1,24 @@
 # Deploy the Disease Prediction dev stack
 
-The Oracle workload manifests are prepared under
+The Oracle workload manifests are under
 [`clusters/oracle/disease-prediction`](../../clusters/oracle/disease-prediction).
-The Argo CD Application is staged in
+The dev Argo CD Application is active through
 [`applications/disease-prediction.yaml`](../../clusters/oracle/applications/disease-prediction.yaml)
-but is not listed in `applications/kustomization.yaml`. Add it there only when
-the required Vault secrets are synced. The backend-to-AI API boundary is wired:
+and is listed in `applications/kustomization.yaml`. Argo CD syncs it from
+`main`. The backend-to-AI API boundary is wired:
 the backend calls `http://ai:8000/predict`, maps the AI response to its public
 API shape, and returns an emergency result without calling the model.
 
 Use `dev.pocket-doc.app` for the dev stack and reserve
 `health.pocket-doc.app` for production. Both names are in the existing
-`pocket-doc.app` zone. The staged dev route targets only the frontend and uses
+`pocket-doc.app` zone. The dev route targets only the frontend and uses
 Authelia ForwardAuth. The Authelia rule requires two-factor login. The backend
 and AI Services stay internal as `ClusterIP` Services. The frontend proxies
 `/api/` to `http://backend:8080`; the backend calls the AI Service at
-`http://ai:8000`. The Argo Application stays inactive until the runtime key and
-GHCR pull secret report Ready. Add the production route with the production
-stack after its database, secrets, and image digests are prepared. Follow the
+`http://ai:8000`. The required Vault secrets were synced before activation;
+keep all four ExternalSecrets Ready. Add the production route with the
+production stack after its database, secrets, and image digests are prepared.
+Follow the
 [domain and ingress guide](domain-ingress.md) when changing routes.
 
 ## Prepare the model image
@@ -66,13 +67,13 @@ kubectl --context oracle-k3s -n disease-prediction \
   disease-prediction-runtime-secrets ghcr-pull
 ```
 
-## Activate the Application
+## Activate or recreate the Application
 
 1. Confirm all four ExternalSecrets are Ready. Do not print Kubernetes Secret
    data.
 2. Confirm the three Deployment images use immutable digests. The AI digest
    must come from a reviewed model-runtime release.
-3. Add `disease-prediction.yaml` to `clusters/oracle/applications/kustomization.yaml`.
+3. Keep `disease-prediction.yaml` listed in `clusters/oracle/applications/kustomization.yaml`.
 4. Render both Kustomize paths and review the Git diff:
 
    ```sh
@@ -80,8 +81,8 @@ kubectl --context oracle-k3s -n disease-prediction \
    kubectl kustomize clusters/oracle/disease-prediction
    ```
 
-5. Merge the GitOps pull request. Argo CD creates the Application and syncs its
-   workloads. Do not use `kubectl apply` for these managed resources.
+5. Merge the GitOps pull request. Argo CD creates or updates the Application
+   and syncs its workloads. Do not use `kubectl apply` for these managed resources.
 
 The AI Deployment has separate process and readiness probes. Readiness loads
 the trained classifier, manifest, and parser models before the pod receives
