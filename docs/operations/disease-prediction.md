@@ -61,7 +61,8 @@ availability. The dev app connects to `disease_prediction_dev`; production is
 not deployed yet. Keep each password in its environment's Vault secret. The
 dev credential is synced to OCI Vault; create a separate OCI secret before
 deploying production. The backend verifies the server certificate with the
-synced CA in either environment.
+synced CA in either environment. The old `disease_prediction` database and
+role are being removed; their data is not migrated.
 
 After both dev secrets are present in OCI Vault and the ExternalSecrets are
 synced, check their status without printing Secret data:

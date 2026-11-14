@@ -268,6 +268,21 @@ them to create the login roles; Oracle uses the dev credential copied to OCI
 Vault. The Secrets are encrypted at rest by K3s, but Vault remains the source
 of truth.
 
+Dev and production use separate databases, login roles, and passwords on this
+PostgreSQL cluster: `disease_prediction_dev` and `disease_prediction_prod`.
+They share the cluster's CPU, storage, and availability. The old
+`disease_prediction` database and role are being removed after the dev
+connection was verified. Their data is not migrated. The legacy database is
+declared absent in Git. After it reports `Applied: true`, remove the legacy
+DatabaseRole and credential ExternalSecret in a follow-up Git change. The role
+has a delete reclaim policy so its finalizer removes the PostgreSQL login.
+
+Dev and production use separate databases, login roles, and passwords on this
+PostgreSQL cluster: `disease_prediction_dev` and `disease_prediction_prod`.
+They share the cluster's CPU, storage, and availability. The old
+`disease_prediction` database and role are marked for deletion after the dev
+connection was verified. Their data is not migrated.
+
 The `postgres-app-credentials-prod` ExternalSecret creates the Kubernetes
 credential for CloudNativePG. The production role and database are retained
 when their manifests are removed. For an Oracle production application, copy

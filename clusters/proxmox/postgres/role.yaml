@@ -10,6 +10,6 @@ spec:
   login: true
   superuser: false
   createdb: false
-  databaseRoleReclaimPolicy: retain
+  databaseRoleReclaimPolicy: delete
   passwordSecret:
     name: postgres-app-credentials
