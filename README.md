@@ -1,9 +1,9 @@
 ﻿# Disease Prediction GitOps
 
 This repository manages the independent Oracle and Proxmox K3s clusters.
-Oracle runs the public edge and Grafana. No disease-prediction workload or
-public product route is deployed yet. Proxmox runs local PostgreSQL, Vault,
-and the Prometheus server. Terraform manages OCI resources in the
+Oracle runs the public edge, Grafana, and the dev and production frontends and
+backends. Proxmox runs both model services, PostgreSQL, Vault, and the
+Prometheus server. Terraform manages OCI resources in the
 infrastructure repository; application source and images live in their own
 repositories.
 
@@ -12,9 +12,8 @@ repositories.
 - Manage each cluster with Argo CD. Bootstrap Argo CD separately with Helmfile.
 - Use Tailscale for private SSH and Kubernetes API access. Neither cluster's
   Kubernetes API is public.
-- On Oracle, Cloudflare Tunnel and Traefik carry approved public routes. The
-  Authelia, Argo CD, and Grafana routes are platform routes; no product route
-  is published. Enable the Argo CD route after its OIDC setup is ready.
+- On Oracle, Cloudflare Tunnel and Traefik carry approved public routes.
+  Authelia protects the dev and production product routes.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
 ## Start here
@@ -26,6 +25,8 @@ repositories.
   the isolated Ubuntu node and its optional Argo CD instance.
 - [Proxmox data services guide](docs/operations/proxmox-data-services.md):
   manage local PostgreSQL, Vault, and cross-cluster access.
+- [Disease Prediction operations](docs/operations/disease-prediction.md):
+  deploy and check the two application environments.
 - [DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md):
   see cross-repository ownership, access, and traffic flows.
 
@@ -36,9 +37,9 @@ Each cluster has its own directory:
 - `clusters/oracle/`: the Oracle root Kustomization, Applications, projects,
   namespaces, and the components those Applications manage. The
   `k3s-host-manifests/` directory contains K3s-owned host add-ons.
-- `clusters/proxmox/`: the local root Kustomization, Vault, External Secrets,
-  CloudNativePG, PostgreSQL, and the Prometheus monitoring backend. It does not
-  include application workloads or public routes.
+- `clusters/proxmox/`: the local root Kustomization, model workloads, Vault,
+  External Secrets, CloudNativePG, PostgreSQL, and the Prometheus monitoring
+  backend. It does not publish public routes.
 - `clusters/<cluster>/bootstrap/argocd/`: that cluster's Argo CD namespace,
   Helmfile, and values.
 - `clusters/<cluster>/automation/ansible/`: that cluster's host automation.
@@ -62,7 +63,7 @@ Both root Applications use automated sync and self-healing, with pruning
 disabled. Removing a manifest from Git does not automatically delete its live
 resource. Persistent data deletion remains an explicit operator action. The
 Oracle root project can manage approved Argo CD configuration and namespace
-manifests; workload apps are limited to the `disease-prediction` namespace and
+manifests; workload apps are limited to their dev and production namespaces and
 an allowlist of resource kinds.
 
 External Secrets Operator syncs selected OCI Vault values to Kubernetes

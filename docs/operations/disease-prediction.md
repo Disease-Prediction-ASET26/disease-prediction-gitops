@@ -1,140 +1,163 @@
-# Deploy the Disease Prediction dev stack
+# Operate the Disease Prediction stacks
 
-The Oracle workload manifests are under
-[`clusters/oracle/disease-prediction`](../../clusters/oracle/disease-prediction).
-The dev Argo CD Application is active through
-[`applications/disease-prediction.yaml`](../../clusters/oracle/applications/disease-prediction.yaml)
-and is listed in `applications/kustomization.yaml`. Argo CD syncs it from
-`main`. The frontend and backend run on Oracle. The model runs on Proxmox,
-managed by the `disease-prediction-ai-dev` Application. The backend calls
-`http://proxmox-ai:8000/predict` through Tailscale, maps the response to its
-public API shape, and returns an emergency result without calling the model.
+Dev and production have separate frontends, backends, model workloads, database
+roles, and database credentials. The frontend and backend run on Oracle K3s.
+The model workloads and PostgreSQL run on Proxmox K3s. The two databases share
+one PostgreSQL instance and its availability, storage, and CPU.
 
-Use `dev.pocket-doc.app` for the dev stack and reserve
-`health.pocket-doc.app` for production. Both names are in the existing
-`pocket-doc.app` zone. The dev route targets only the frontend and uses
-Authelia ForwardAuth. The Authelia rule requires two-factor login. The backend
-and model Services stay private. The frontend proxies
-`/api/` to `http://backend:8080`; the backend calls the AI Service at
-`http://proxmox-ai:8000`. The required Vault secrets were synced before
-activation; keep all four ExternalSecrets Ready. Add the production route with the
-production stack after its database, secrets, and image digests are prepared.
-Follow the
-[domain and ingress guide](domain-ingress.md) when changing routes.
+| Environment | Public hostname | Oracle namespace | Proxmox namespace | Database |
+|---|---|---|---|---|
+| Dev | `dev.pocket-doc.app` | `disease-prediction` | `disease-prediction-dev` | `disease_prediction_dev` |
+| Production | `health.pocket-doc.app` | `disease-prediction-prod` | `disease-prediction-prod` | `disease_prediction_prod` |
 
-## Prepare the model image
+Both routes use Traefik and Authelia ForwardAuth with two-factor login. Only
+the frontend has a public route. The frontend proxies `/api/` to its backend.
+The backend calls its environment's model service and PostgreSQL through
+separate Tailscale egress proxies. PostgreSQL also uses TLS with hostname and
+CA verification. See the [domain and ingress guide](domain-ingress.md) for
+route setup and the [Tailscale guide](tailscale.md) for the required tags,
+service approvals, and access grants.
 
-Train and review the classifier outside k3s. Training does not happen in the
-deployed service. Follow the AI repository's
-[model training and release guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-ai#model-training-and-release).
-Keep the dataset and trained model out of Git. After the team accepts the
-training results, publish the model as an immutable image. The release workflow
-copies the trained classifier, bundles the pinned ClinicalBERT and MiniLM files,
-checks the artifact manifest, scans both platform images, and verifies offline
-prediction. It does not train a model. Review representative predictions before
-accepting a model for production; held-out scores alone do not validate clinical
-usefulness.
+```mermaid
+flowchart LR
+  browser[Browser] -->|HTTPS| edge[Cloudflare and Traefik]
+  edge -->|ForwardAuth| auth[Authelia]
+  subgraph oracle[Oracle K3s]
+    edge -->|Authenticated request| frontend[Environment frontend]
+    frontend -->|API| backend[Environment backend]
+    backend -->|Private service| egress[Tailscale egress proxy]
+  end
+  subgraph proxmox[Proxmox K3s]
+    ingress[Tailscale ingress proxy] -->|TCP 8000| model[Environment model]
+    ingress -->|TCP 5432| database[(Shared PostgreSQL instance)]
+  end
+  egress -->|Tailscale| ingress
+```
 
-The Deployments use immutable dev image digests. Do not deploy a moving tag.
-After a successful `develop` image publish, backend and frontend CI open or
-update a GitOps pull request with the new digest. Publishing a reviewed AI
-model runtime does the same. CI merges the update after the GitOps checks pass,
-then Argo CD syncs it. These workflows need a GitHub App installed only on
-`disease-prediction-gitops`, with Contents and Pull requests write access. Set
-`GITOPS_CLIENT_ID` to the app Client ID and `GITOPS_APP_PRIVATE_KEY` to the
-complete PEM key in the backend, frontend, and AI Actions secrets before
-merging application changes that publish dev images.
+Each environment has a separate proxy identity and model service. Network
+policies restrict application traffic to its environment's proxy. A proxy or
+cluster outage interrupts its connections; the proxy groups and database have
+one replica each.
 
-## Prepare Vault secrets
+## Model releases
 
-Before activating the Application, ensure these OCI Vault secrets exist using
-the [Secrets guide](secrets.md). Store JSON payloads with the listed properties:
+Train and review classifiers outside K3s. The deployed service does not train.
+Follow the [model training and release guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-ai#model-training-and-release)
+to package a reviewed classifier and record its digest and checksum. The dev
+release uses the classifier pinned in `model-release-dev.json`. Production
+promotion is an explicit workflow run with the accepted classifier and
+production base image.
 
-| OCI Vault secret | JSON properties | Purpose |
+The release workflow builds and checks native AMD64 and ARM64 images. It
+includes the trained classifier and the pinned ClinicalBERT and MiniLM assets.
+The runtime runs offline and does not download weights or use a model cache at
+startup. A network policy denies outgoing connections from the model pods.
+Its `/ready` probe loads the model and parser assets before serving
+requests. Each Proxmox model pod requests 500m CPU and 2304 MiB memory and has
+limits of 1200m CPU and 3 GiB memory. Review model outputs with representative
+inputs before accepting a release; a successful build does not establish
+clinical usefulness.
+
+## Secrets
+
+Use the [Secrets guide](secrets.md) to create the OCI Vault secrets used by
+the Oracle backend and registry pull. Store JSON payloads with these fields:
+
+| OCI Vault secret | JSON properties | Used by |
 |---|---|---|
-| `disease-prediction-runtime-secrets` | `data_encryption_key` | Base64 AES-256 key required by the backend. |
-| `disease-prediction-ghcr-pull` | `username`, `token` | GHCR username and a read-only package token. |
+| `disease-prediction-runtime-secrets` | `data_encryption_key` | Dev backend |
+| `disease-prediction-runtime-secrets-prod` | `data_encryption_key` | Production backend |
+| `disease-prediction-ghcr-pull` | `username`, `token` | Both Oracle namespaces |
+| `proxmox-postgres-credentials` | `password` | Dev database login |
+| `proxmox-postgres-credentials-prod` | `password` | Production database login |
+| `proxmox-postgres-server-ca` | `ca_crt` | Database TLS verification |
 
-Dev and production use separate databases, login roles, and passwords on the
-same Proxmox PostgreSQL cluster: `disease_prediction_dev` and
-`disease_prediction_prod`. They share the cluster's CPU, storage, and
-availability. The dev app connects to `disease_prediction_dev`; production is
-not deployed yet. Keep each password in its environment's Vault secret. The
-dev and production credentials are synced to separate OCI Vault secrets. The
-backend verifies the server certificate with the synced CA in either
-environment. The old `disease_prediction` database and
-role were removed after the dev connection was verified. Their data was not
-migrated.
+Keep separate encryption keys and database passwords for each environment.
+The GHCR token needs read-only package access. Proxmox Vault holds the database
+credentials and the model registry pull credential. Follow the
+[Proxmox data services guide](proxmox-data-services.md) to set up or rotate
+those values and configure Vault authentication. Do not put secret values in
+Git or print Kubernetes Secrets.
 
-After the OCI secrets are present and the ExternalSecrets are synced, check
-their status without printing Secret data:
+Check synchronization without displaying values:
 
-```sh
-kubectl --context oracle-k3s -n disease-prediction \
-  get externalsecrets postgres-app-credentials postgres-server-ca \
-  disease-prediction-runtime-secrets ghcr-pull
+```bash
+kubectl --context oracle-k3s -n disease-prediction get externalsecrets
+kubectl --context oracle-k3s -n disease-prediction-prod get externalsecrets
+kubectl --context proxmox-k3s -n disease-prediction-dev get externalsecrets
+kubectl --context proxmox-k3s -n disease-prediction-prod get externalsecrets
 ```
 
-## Activate or recreate the Application
+Each ExternalSecret should report `Ready=True` before its workload starts.
 
-1. Confirm all four ExternalSecrets are Ready. Do not print Kubernetes Secret
-   data.
-2. Confirm the three Deployment images use immutable digests. The AI digest
-   must come from a reviewed model-runtime release.
-3. Keep `disease-prediction.yaml` in the Oracle applications Kustomization and
-   `disease-prediction-ai-dev.yaml` in the Proxmox applications Kustomization.
-4. Render both Kustomize paths and review the Git diff:
+## Review and deploy changes
 
-   ```sh
-   kubectl kustomize clusters/oracle
-   kubectl kustomize clusters/oracle/disease-prediction
-   kubectl kustomize clusters/proxmox
-   kubectl kustomize clusters/proxmox/disease-prediction-ai/dev
-   ```
+Application CI builds and scans immutable images for AMD64 and ARM64. A
+successful merge into `develop` updates the dev digest. A merge into `main`
+updates the production frontend or backend digest. Model production releases
+use the separate promotion step above. The GitHub App opens a GitOps pull
+request and merges it only after the GitOps validation and secret scan pass.
+If a check fails or a newer source revision replaces the build, inspect the
+workflow and the open pull request. Argo CD syncs the merged digest.
 
-5. Merge the GitOps pull request. Argo CD creates or updates the Application
-   and syncs its workloads. Do not use `kubectl apply` for these managed resources.
+The GitHub App is installed only on the GitOps repository and needs Contents
+and Pull requests write permissions. Configure `GITOPS_CLIENT_ID` and
+`GITOPS_APP_PRIVATE_KEY` as Actions secrets in each application repository.
+GitOps `main` requires the GitHub Actions `validate` and
+`secret-scan / secret-scan` checks and an up-to-date branch. These protections
+also prevent a concurrent merge from bypassing the checks.
 
-The AI Deployment has separate process and readiness probes. Readiness loads
-the trained classifier, manifest, and parser models before the pod receives
-traffic. The model-runtime image contains pinned ClinicalBERT and MiniLM files
-and runs in offline mode. It does not need Hugging Face egress or a cache PVC.
-The measured local runtime peaked at about 2.03 GiB during warm-up, so the AI
-container requests 2.25 GiB and can use up to 3 GiB on Proxmox. A NetworkPolicy
-denies model pod egress; its required assets are in the image.
+From the GitOps repository root, render and review changes before opening a
+pull request:
 
-Check deployment state and access the frontend through a local port forward:
-
-```sh
-kubectl --context oracle-k3s -n disease-prediction \
-  get deployments,pods,services,httproutes,externalsecrets
-kubectl --context proxmox-k3s -n disease-prediction-dev \
-  rollout status deployment/ai
-kubectl --context oracle-k3s -n disease-prediction \
-  port-forward service/frontend 8080:8080
+```bash
+kubectl kustomize clusters/oracle
+kubectl kustomize clusters/oracle/disease-prediction
+kubectl kustomize clusters/oracle/disease-prediction-prod
+kubectl kustomize clusters/proxmox
+kubectl kustomize clusters/proxmox/disease-prediction-ai/dev
+kubectl kustomize clusters/proxmox/disease-prediction-ai/prod
+git diff --check
+git diff
 ```
 
-Open `https://dev.pocket-doc.app` in a private browser session. An unauthenticated
-request must redirect to Authelia. After login, submit a free-text description
-and a checklist-only assessment. The backend returns 422 when the AI service
-cannot identify a symptom, 503 when it cannot connect, and 502 for other
-upstream errors.
+Merge the checked pull request to `main`. Argo CD applies the Applications and
+their resources. Do not apply managed manifests manually. After a change,
+check both clusters:
 
-## Update or remove the dev stack
-
-After an application or reviewed model-runtime publish, review and merge the
-GitOps digest pull request. Argo CD syncs the new immutable image digest. The
-AI model version and checksum are recorded in the artifact manifest and image
-label.
-
-To remove the stack, remove the Application entries from Git, merge, then delete
-both Application objects with their resource finalizers:
-
-```sh
-kubectl --context oracle-k3s -n argocd delete application disease-prediction-dev
-kubectl --context proxmox-k3s -n argocd delete application disease-prediction-ai-dev
+```bash
+kubectl --context oracle-k3s -n argocd get applications
+kubectl --context oracle-k3s -n disease-prediction get deployments,pods,services,httproutes
+kubectl --context oracle-k3s -n disease-prediction-prod get deployments,pods,services,httproutes
+kubectl --context proxmox-k3s -n disease-prediction-dev get deployments,pods,services
+kubectl --context proxmox-k3s -n disease-prediction-prod get deployments,pods,services
+kubectl --context proxmox-k3s -n postgres get cluster postgres
 ```
 
-Check that the Deployments, Services, and HTTPRoute are gone before
-removing the ExternalSecrets or their Vault values. The model and parser assets
-are part of the immutable AI runtime image.
+Check that an unauthenticated browser session is redirected to Authelia for
+both hostnames. After logging in, check a synthetic free-text and checklist
+assessment. A backend returns 422 when the model cannot identify a symptom,
+503 when it cannot connect, and 502 for other upstream errors.
+
+## Roll back or remove a stack
+
+To roll back, restore the previously working immutable image digest or manifest
+in a GitOps pull request and merge it. Argo CD applies the restored version.
+Confirm the pod rollout and the protected route afterward. Never promote a
+moving image tag as a rollback.
+
+The Applications use `prune: false`. To remove a stack, first remove its
+Application entries from the Oracle and Proxmox `applications/kustomization.yaml`
+files and merge the change. Then delete the corresponding Application objects
+with their resource finalizers so Argo CD removes their managed workloads. For
+example, for production:
+
+```bash
+kubectl --context oracle-k3s -n argocd delete application disease-prediction-prod
+kubectl --context proxmox-k3s -n argocd delete application disease-prediction-ai-prod
+```
+
+Check that the Deployments, Services, and HTTPRoute are gone before removing
+its secrets or Tailscale access. Removing an application does not delete its
+PostgreSQL database. Follow the [data services guide](proxmox-data-services.md)
+for database and Vault removal.
