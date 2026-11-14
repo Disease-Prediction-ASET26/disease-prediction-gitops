@@ -45,7 +45,6 @@ spec:
         volumeMounts:
         - mountPath: /backup
           name: backup
-          readOnly: true
         - mountPath: /scripts
           name: scripts
           readOnly: true
