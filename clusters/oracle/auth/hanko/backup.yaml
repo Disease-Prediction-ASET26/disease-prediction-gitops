@@ -50,6 +50,9 @@ spec:
   failedJobsHistoryLimit: 3
   startingDeadlineSeconds: 3600
   jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hanko-backup
     spec:
       backoffLimit: 2
       activeDeadlineSeconds: 600

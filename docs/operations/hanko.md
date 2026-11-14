@@ -24,10 +24,11 @@ The instances use separate databases, database roles, signing-key encryption
 keys, origins, and token audiences. One PostgreSQL 18 server in `auth-system`
 serves both databases on a 2 GiB `local-path` volume. PostgreSQL requires TLS;
 Hanko verifies the database certificate and hostname. This is one database
-server on one Oracle node: there is no automatic failover or off-node backup.
-**Set up and test an encrypted off-node backup and restore before enabling real
-user registration.** Retain the matching Vault encryption keys with each
-backup; losing them prevents Hanko from using its stored signing keys.
+server on one Oracle node, without automatic failover. A daily CronJob dumps
+both databases to a private OCI Object Storage bucket. OCI encrypts objects at
+rest and removes them after 30 days. Retain the matching Vault encryption keys;
+losing them prevents Hanko from using its stored signing keys. See
+[Backup and restore](#backup-and-restore).
 
 Only port 8000 is exposed through a ClusterIP Service and the Cloudflare
 Tunnel. NetworkPolicies allow Traefik and the matching app backend to reach
@@ -53,6 +54,7 @@ or put them in Git, Terraform state, shell arguments, or logs.
 | `hanko-runtime` | `pg_admin_password`, `dev_db_password`, `prod_db_password`, `dev_encryption_key`, `prod_encryption_key` |
 | `hanko-postgres-tls` | `ca_cert`, `server_cert`, `server_key` |
 | `hanko-smtp` | `host`, `port`, `username`, `password`, `from_address` |
+| `hanko-backup-upload` | `url`: the write-only preauthenticated Object Storage URL |
 
 The PostgreSQL certificate must contain
 `hanko-postgres.auth-system.svc.cluster.local` as a DNS subject alternative
@@ -82,7 +84,7 @@ reviewed change into `main`; Argo CD synchronizes the `hanko` Application and
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application hanko oci-auth-vault-store
-kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp
+kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-backup-upload
 kubectl --context oracle-k3s -n auth-system get deployments,pods,services,pvc
 kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
@@ -136,12 +138,58 @@ expire after 15 minutes. Decide the cookie, CSRF, and token storage design with
 the app team before using the service.
 
 To activate login, add the app login and API enforcement, configure production
-SMTP and Google OAuth, establish tested backups, verify the proxy and rate
-limits, and run end-to-end security tests. Change `account.allow_signup` only
+SMTP and Google OAuth, verify the proxy and rate limits, and run end-to-end
+security tests. Change `account.allow_signup` only
 after those checks. Remove Authelia ForwardAuth from each app route only after
 the app's own authentication is ready; leave infrastructure routes protected.
 
-## Change, recovery, and removal
+## Backup and restore
+
+The `hanko-backup` CronJob runs daily at 02:17 UTC. It connects to both
+databases with their respective roles and verified PostgreSQL TLS. OCI Object Storage encrypts the backups at
+rest. The private `disease-prediction-hanko-backups` bucket expires objects
+after 30 days. It shares the tenancy's 20 GB Object Storage quota with the
+Terraform state bucket; monitor usage. The temporary dump uses up to 3 GiB on
+the Oracle node and is deleted with the job pod.
+
+The upload URL is a write-only preauthenticated request for the `hanko/`
+prefix. It cannot list or read backups. It expires on 14 November 2027. Before
+expiry, create another request with the same prefix and permissions in OCI,
+replace the `url` field in the `hanko-backup-upload` Vault secret, wait for
+ESO, run the backup check, and revoke the old request. Never print the URL.
+
+To check the latest scheduled job and recent backups:
+
+```bash
+kubectl --context oracle-k3s -n auth-system get cronjob hanko-backup
+kubectl --context oracle-k3s -n auth-system get jobs -l app.kubernetes.io/name=hanko-backup
+oci os object list --bucket-name disease-prediction-hanko-backups --prefix hanko/
+```
+
+The Proxmox Prometheus rule `HankoBackupStale` alerts if there has been no
+successful scheduled backup for 36 hours. Check the existing Alertmanager
+notification setup separately; the rule alone does not configure delivery.
+
+To run a one-off backup check from the GitOps repository root:
+
+```bash
+kubectl --context oracle-k3s apply -f tests/hanko/backup-check.yaml
+kubectl --context oracle-k3s -n auth-system wait --for=condition=complete job/hanko-backup-check --timeout=180s
+kubectl --context oracle-k3s -n auth-system logs job/hanko-backup-check -c upload
+kubectl --context oracle-k3s delete -f tests/hanko/backup-check.yaml
+```
+
+For a restore, download the matching environment's dump to protected temporary
+storage from the private bucket. Restore it into a new, isolated PostgreSQL 18
+database with `pg_restore --no-owner --no-acl --exit-on-error`. Connect a test
+Hanko instance using that environment's matching `hanko-runtime` encryption key
+and version. Verify its public keys, user data, and login before considering a
+production cutover. Remove the temporary copy and test instance afterward.
+Keep an encrypted offline copy of the Vault values needed to recover the
+signing keys. A bucket backup cannot recover a deleted Vault or its keys by
+itself.
+
+## Change and removal
 
 Make configuration changes in `clusters/oracle/auth/hanko`, preview and merge
 through a pull request, then check Argo CD and both services. ConfigMap and
@@ -151,10 +199,11 @@ Deployment after updating its configuration or credentials.
 Before deleting data, verify an off-node backup can be restored with its
 matching Vault keys. Remove the Hanko Application and resources in a reviewed
 Git change. Argo CD pruning is disabled, so explicitly delete the old
-resources after the change. Retain the PVC and Vault secrets until recovery is
-no longer needed. ExternalDNS is upsert-only; remove the Hanko DNS and TXT
-ownership records manually after confirming their owner. Never delete
-Authelia resources as part of Hanko removal.
+resources after the change. Retain the PVC, bucket, and Vault secrets until
+recovery is no longer needed. ExternalDNS is upsert-only; remove the Hanko DNS
+and TXT ownership records manually after confirming their owner. Never delete
+Authelia resources as part of Hanko removal. The bucket has a Terraform
+`prevent_destroy` guard; follow the infrastructure guide before removing it.
 
 See the [public route guide](domain-ingress.md), [secret operations](secrets.md),
 [Hanko backend configuration](https://github.com/teamhanko/hanko/blob/backend/v3.1.0/backend/README.md),
