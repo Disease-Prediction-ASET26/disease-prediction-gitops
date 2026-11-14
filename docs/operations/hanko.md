@@ -13,7 +13,10 @@ when the app and the checks below are ready.
 | Production | `https://identity.pocket-doc.app` | `pocket-doc-prod` | `https://health.pocket-doc.app` |
 
 Hanko's public JSON Web Key Set (JWKS) is at `/.well-known/jwks.json`. The
-browser origin is also the WebAuthn relying party. Google login is disabled
+browser origin is also the WebAuthn relying party. Dev CORS also allows
+`http://localhost:5173` for local Vite development. Passkeys require the
+configured dev origin; localhost is not a valid origin for that relying party.
+Google login is disabled
 until its separate OAuth client and callback are configured for each
 instance. Do not put client secrets in Git.
 
