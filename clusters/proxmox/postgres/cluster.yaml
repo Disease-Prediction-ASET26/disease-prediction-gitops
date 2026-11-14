@@ -11,6 +11,7 @@ spec:
     serverAltDNSNames:
       - proxmox-postgres.tail0bed44.ts.net
       - proxmox-postgres.disease-prediction.svc.cluster.local
+      - proxmox-postgres.disease-prediction-prod.svc.cluster.local
   bootstrap:
     initdb:
       database: disease_prediction_dev
