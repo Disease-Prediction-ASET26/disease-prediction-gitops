@@ -12,3 +12,4 @@ resources:
   - hanko-smtp.yaml
   - hanko-postgres-tls.yaml
   - hanko-postgres-ca.yaml
+  - hanko-backup-upload.yaml

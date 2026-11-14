@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hanko-backup-alert
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: hanko-backup
+      rules:
+        - alert: HankoBackupStale
+          expr: |
+            (time() - kube_cronjob_status_last_successful_time{cluster="oracle", namespace="auth-system", cronjob="hanko-backup"} > 36 * 60 * 60)
+            or
+            ((time() - kube_cronjob_created{cluster="oracle", namespace="auth-system", cronjob="hanko-backup"} > 36 * 60 * 60)
+              unless kube_cronjob_status_last_successful_time{cluster="oracle", namespace="auth-system", cronjob="hanko-backup"})
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Hanko database backup is stale
+            description: No Hanko backup job has succeeded in the last 36 hours.
