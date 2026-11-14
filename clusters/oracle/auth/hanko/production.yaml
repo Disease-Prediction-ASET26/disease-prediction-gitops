@@ -14,6 +14,11 @@ data:
       pool: 5
     account:
       allow_signup: false
+    server:
+      ip:
+        extractor: x_forwarded_for
+        trusted_proxies:
+          - 10.42.0.0/16
     service:
       name: Pocket Doc
     email_delivery:
@@ -33,6 +38,7 @@ data:
       audience:
         - pocket-doc-prod
       lifespan: 15m
+      acquire_ip_address: false
       enable_auth_token_header: true
       cookie:
         secure: true
