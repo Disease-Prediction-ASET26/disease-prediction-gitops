@@ -38,10 +38,12 @@ can use a private port-forward for maintenance.
 
 The instances use the current Authelia SMTP account via a separate OCI Vault
 secret. The Hanko secret is a copy, not an automatic sync from Authelia; update
-it when the SMTP credentials change. Hanko has an in-memory rate limiter and
-uses the direct peer IP by default. Behind Traefik, many users can appear to
-share one IP. Verify the trusted proxy chain and rate limiting before opening
-registration; do not trust client-supplied forwarding headers.
+it when the SMTP credentials change. Hanko uses an in-memory rate limiter and
+accepts forwarded client IP addresses only from the cluster Pod network, which
+matches Traefik's trusted proxy range. NetworkPolicy limits access to Traefik
+and the matching backend. The Cloudflare Tunnel and Traefik path was checked
+with a forged forwarding header. Repeat that check after changes to either
+proxy or the Pod network. Hanko does not store the session IP address.
 
 ## Secrets
 
@@ -138,8 +140,8 @@ expire after 15 minutes. Decide the cookie, CSRF, and token storage design with
 the app team before using the service.
 
 To activate login, add the app login and API enforcement, configure production
-SMTP and Google OAuth, verify the proxy and rate limits, and run end-to-end
-security tests. Change `account.allow_signup` only
+SMTP and Google OAuth, check the rate limits under expected traffic, and run
+end-to-end security tests. Change `account.allow_signup` only
 after those checks. Remove Authelia ForwardAuth from each app route only after
 the app's own authentication is ready; leave infrastructure routes protected.
 
