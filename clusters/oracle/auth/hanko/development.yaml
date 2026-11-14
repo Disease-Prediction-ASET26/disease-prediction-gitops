@@ -22,6 +22,7 @@ data:
     cors:
       allow_origins:
         - https://dev.pocket-doc.app
+        - http://localhost:5173
     webauthn:
       relying_party:
         id: dev.pocket-doc.app
