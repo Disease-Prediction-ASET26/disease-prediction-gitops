@@ -13,10 +13,10 @@ spec:
       - proxmox-postgres.disease-prediction.svc.cluster.local
   bootstrap:
     initdb:
-      database: disease_prediction
-      owner: disease_prediction
+      database: disease_prediction_dev
+      owner: disease_prediction_dev
       secret:
-        name: postgres-app-credentials
+        name: postgres-app-credentials-dev
   storage:
     size: 10Gi
     storageClass: local-path

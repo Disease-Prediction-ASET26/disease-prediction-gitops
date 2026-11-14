@@ -106,6 +106,8 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: backend
+      annotations:
+        pocket-doc.app/config-version: postgres-dev-v1
     spec:
       automountServiceAccountToken: false
       enableServiceLinks: false

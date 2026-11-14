@@ -229,30 +229,52 @@ vault_in_pod write auth/kubernetes/role/proxmox-apps \
 ```
 
 ESO requests short-lived `vault`-audience tokens for these service accounts.
-The `proxmox-postgres` role can read only the PostgreSQL credential path. The
-`proxmox-apps` role can read app entries and that one database credential; it
+The `proxmox-postgres` role can read only the PostgreSQL credential paths. The
+`proxmox-apps` role can read app entries and the dev database credential; it
 is bound only to the `disease-prediction` namespace. ESO has cluster-wide
 Kubernetes permissions because it serves two namespaces; keep its
 `ExternalSecret` resources in reviewed Git changes.
 
-Write the PostgreSQL password to Vault at
-`secret/proxmox/postgres/disease-prediction` with the field `password`. The
-Vault CLI runs in the pod, so first copy a protected local password file to a
-temporary pod path, then remove that copy after writing it:
+Write the PostgreSQL passwords to Vault at
+`secret/proxmox/postgres/disease-prediction-dev` and
+`secret/proxmox/postgres/disease-prediction-prod`, each with the field
+`password`. The Vault CLI runs in the pod, so first copy a protected local
+password file to a temporary pod path, then remove that copy after writing it.
+The current dev password can be copied from the legacy Vault entry without
+printing it; the Oracle OCI secret already contains the same value. Use a new
+random password for production:
 
 ```bash
-kubectl cp /secure/path/postgres-password vault-system/vault-0:/tmp/postgres-password
-vault_in_pod kv put secret/proxmox/postgres/disease-prediction \
-  password=@/tmp/postgres-password
-kubectl -n vault-system exec vault-0 -- rm /tmp/postgres-password
+umask 077
+vault_in_pod kv get -field=password secret/proxmox/postgres/disease-prediction \
+  > /secure/path/postgres-password-dev
+openssl rand -hex 32 > /secure/path/postgres-password-prod
+kubectl cp /secure/path/postgres-password-dev \
+  vault-system/vault-0:/tmp/postgres-password-dev
+kubectl cp /secure/path/postgres-password-prod \
+  vault-system/vault-0:/tmp/postgres-password-prod
+vault_in_pod kv put secret/proxmox/postgres/disease-prediction-dev \
+  password=@/tmp/postgres-password-dev
+vault_in_pod kv put secret/proxmox/postgres/disease-prediction-prod \
+  password=@/tmp/postgres-password-prod
+kubectl -n vault-system exec vault-0 -- rm /tmp/postgres-password-dev /tmp/postgres-password-prod
+rm /secure/path/postgres-password-dev /secure/path/postgres-password-prod
 ```
 
-Do not put the password in a command argument, terminal output, or Git. The
-`postgres-app-credentials` ExternalSecrets create namespace-local Kubernetes
-Secrets from this Vault entry. CloudNativePG uses the Secret in `postgres` to
-create and rotate the `disease_prediction` role; the copy in
-`disease-prediction` is for the application to connect to the database. The
-Secrets are encrypted at rest by K3s, but Vault remains the source of truth.
+Do not put passwords in command arguments, terminal output, or Git. The
+`postgres-app-credentials-dev` and `postgres-app-credentials-prod`
+ExternalSecrets create namespace-local Kubernetes Secrets. CloudNativePG uses
+them to create the login roles; Oracle uses the dev credential copied to OCI
+Vault. The Secrets are encrypted at rest by K3s, but Vault remains the source
+of truth.
+
+The `postgres-app-credentials-prod` ExternalSecret creates the Kubernetes
+credential for CloudNativePG. The production role and database are retained
+when their manifests are removed. For an Oracle production application, copy
+the same password into a separate OCI Vault secret; do not reuse the dev
+credential. Keep the production credential out of Git, shell arguments, and
+terminal output.
+
 Remove the helper from the shell when finished. Its token is read from the
 protected file for each command and exists in the pod process only while that
 command runs:
@@ -295,8 +317,10 @@ Ready. Check status and names only:
 
 ```bash
 kubectl -n postgres get secretstore local-vault
-kubectl -n postgres get externalsecret postgres-app-credentials
-kubectl -n postgres get secret postgres-app-credentials -o name
+kubectl -n postgres get externalsecret postgres-app-credentials-dev \
+  postgres-app-credentials-prod
+kubectl -n postgres get secret postgres-app-credentials-dev \
+  postgres-app-credentials-prod -o name
 kubectl -n disease-prediction get secretstore local-vault
 kubectl -n disease-prediction get externalsecret postgres-app-credentials
 kubectl -n disease-prediction get secret postgres-app-credentials -o name
@@ -310,7 +334,8 @@ keep the private port-forward open and let `psql` prompt for the password:
 
 ```bash
 kubectl -n postgres port-forward service/postgres-rw 5432:5432
-psql -h 127.0.0.1 -p 5432 -U disease_prediction -d disease_prediction -W
+psql -h 127.0.0.1 -p 5432 -U disease_prediction_dev \
+  -d disease_prediction_dev -W
 ```
 
 There is no public route or PgBouncer deployment. The two LoadBalancer
@@ -337,7 +362,7 @@ properties:
 
 | OCI Vault secret | JSON property | Value |
 |---|---|---|
-| `proxmox-postgres-credentials` | `password` | The current `disease_prediction` password from Proxmox Vault |
+| `proxmox-postgres-credentials` | `password` | The dev password for `disease_prediction_dev`, copied from Proxmox Vault |
 | `proxmox-postgres-server-ca` | `ca_crt` | The public CA certificate from the Proxmox `postgres-ca` Secret |
 
 For example, the credential payload has the form `{"password":"..."}` and
@@ -368,8 +393,8 @@ chmod 600 /secure/path/proxmox-postgres-ca.crt
 The exported file is only an input to the secure OCI Vault secret-entry step;
 delete it after the Vault secret is confirmed. The Oracle ExternalSecrets
 create `disease-prediction/postgres-app-credentials` and
-`disease-prediction/postgres-server-ca`. The application container image and
-database client configuration are not part of this infrastructure change.
+`disease-prediction/postgres-server-ca`. The Oracle credential contains the
+`disease_prediction_dev` login and password.
 
 The cluster-local `postgres-metrics` Service exposes the exporter on TCP/9187.
 Proxmox Prometheus scrapes it every 60 seconds with the `proxmox-cnpg` job.

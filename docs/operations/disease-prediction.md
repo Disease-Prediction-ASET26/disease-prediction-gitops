@@ -54,9 +54,14 @@ the [Secrets guide](secrets.md). Store JSON payloads with the listed properties:
 | `disease-prediction-runtime-secrets` | `data_encryption_key` | Base64 AES-256 key required by the backend. |
 | `disease-prediction-ghcr-pull` | `username`, `token` | GHCR username and a read-only package token. |
 
-The existing PostgreSQL credentials and server CA are already synced in the
-namespace. The backend configuration uses the PostgreSQL Service and verifies
-its TLS certificate with the synced CA.
+Dev and production use separate databases, login roles, and passwords on the
+same Proxmox PostgreSQL cluster: `disease_prediction_dev` and
+`disease_prediction_prod`. They share the cluster's CPU, storage, and
+availability. The dev app connects to `disease_prediction_dev`; production is
+not deployed yet. Keep each password in its environment's Vault secret. The
+dev credential is synced to OCI Vault; create a separate OCI secret before
+deploying production. The backend verifies the server certificate with the
+synced CA in either environment.
 
 After both dev secrets are present in OCI Vault and the ExternalSecrets are
 synced, check their status without printing Secret data:

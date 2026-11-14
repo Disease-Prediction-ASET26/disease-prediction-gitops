@@ -5,3 +5,7 @@ path "secret/data/proxmox/apps/*" {
 path "secret/data/proxmox/postgres/disease-prediction" {
   capabilities = ["read"]
 }
+
+path "secret/data/proxmox/postgres/disease-prediction-dev" {
+  capabilities = ["read"]
+}
