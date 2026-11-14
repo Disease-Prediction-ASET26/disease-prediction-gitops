@@ -27,6 +27,24 @@ spec:
       namespace: disease-prediction
       jsonPointers:
         - /spec/externalName
+    - group: ""
+      kind: Service
+      name: proxmox-ai
+      namespace: disease-prediction
+      jsonPointers:
+        - /spec/externalName
+    - group: ""
+      kind: Service
+      name: proxmox-ai
+      namespace: disease-prediction-prod
+      jsonPointers:
+        - /spec/externalName
+    - group: ""
+      kind: Service
+      name: proxmox-postgres
+      namespace: disease-prediction-prod
+      jsonPointers:
+        - /spec/externalName
   syncPolicy:
     automated:
       selfHeal: true

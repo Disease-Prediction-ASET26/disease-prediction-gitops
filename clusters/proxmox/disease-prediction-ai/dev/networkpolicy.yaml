@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: inference-ingress
+  namespace: disease-prediction-dev
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ai
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tailscale
+          podSelector:
+            matchLabels:
+              tailscale.com/parent-resource: ingress-proxies
+      ports:
+        - protocol: TCP
+          port: 8000

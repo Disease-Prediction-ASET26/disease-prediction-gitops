@@ -4,6 +4,7 @@ resources:
   - auth-system.yaml
   - default.yaml
   - disease-prediction.yaml
+  - disease-prediction-prod.yaml
   - edge-system.yaml
   - external-secrets.yaml
   - monitoring.yaml

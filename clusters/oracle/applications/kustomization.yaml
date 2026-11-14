@@ -8,6 +8,7 @@ resources:
   - cloudflared.yaml
   - disease-prediction-quota.yaml
   - disease-prediction.yaml
+  - eso-prod-controller.yaml
   - eso-argocd-oidc-controller.yaml
   - eso-edge.yaml
   - eso-observability-oidc-controller.yaml
@@ -20,6 +21,7 @@ resources:
   - oci-auth-vault-store.yaml
   - oci-edge-vault-store.yaml
   - oci-vault-store.yaml
+  - oci-prod-vault-store.yaml
   - oracle-public-gateway.yaml
   - root.yaml
   - traefik-access.yaml

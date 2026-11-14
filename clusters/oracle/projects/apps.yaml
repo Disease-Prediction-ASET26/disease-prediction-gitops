@@ -10,6 +10,8 @@ spec:
   destinations:
     - namespace: disease-prediction
       server: https://kubernetes.default.svc
+    - namespace: disease-prediction-prod
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist: []
   namespaceResourceWhitelist:
     - group: ""

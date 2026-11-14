@@ -29,6 +29,18 @@ spec:
 apiVersion: tailscale.com/v1alpha1
 kind: ProxyGroup
 metadata:
+  name: egress-prod
+  namespace: tailscale
+spec:
+  type: egress
+  replicas: 1
+  tags:
+    - tag:oracle-prod-egress
+  proxyClass: tailscale-proxies
+---
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroup
+metadata:
   name: ingress-proxies
   namespace: tailscale
 spec:
