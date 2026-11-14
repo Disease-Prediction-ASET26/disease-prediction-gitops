@@ -25,6 +25,7 @@ spec:
     services:
       additional:
         - selectorType: rw
+          updateStrategy: patch
           serviceTemplate:
             metadata:
               name: postgres-tailnet
@@ -37,6 +38,7 @@ spec:
               type: LoadBalancer
               loadBalancerClass: tailscale
         - selectorType: rw
+          updateStrategy: patch
           serviceTemplate:
             metadata:
               name: postgres-metrics
