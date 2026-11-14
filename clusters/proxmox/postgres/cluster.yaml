@@ -7,6 +7,12 @@ spec:
   instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-system-trixie
   enableSuperuserAccess: false
+  postgresql:
+    pg_hba:
+      - hostssl disease_prediction_dev disease_prediction_dev all scram-sha-256
+      - host all disease_prediction_dev all reject
+      - hostssl disease_prediction_prod disease_prediction_prod all scram-sha-256
+      - host all disease_prediction_prod all reject
   certificates:
     serverAltDNSNames:
       - proxmox-postgres.tail0bed44.ts.net

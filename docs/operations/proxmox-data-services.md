@@ -308,6 +308,11 @@ They share the cluster's CPU, storage, and availability. The old
 `disease_prediction` database and role were removed after the dev connection
 was verified. Their data was not migrated.
 
+The cluster's `pg_hba` rules allow each application role to connect only to
+its own database over TLS. Other database roles use the cluster's default
+authentication rules. Keep these rules aligned with any role or database
+rename, and check both application connections after a change.
+
 The `postgres-app-credentials-prod` ExternalSecret creates the Kubernetes
 credential for CloudNativePG. The production role and database are retained
 when their manifests are removed. For an Oracle production application, copy
