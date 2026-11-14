@@ -16,9 +16,14 @@ Hanko's public JSON Web Key Set (JWKS) is at `/.well-known/jwks.json`. The
 browser origin is also the WebAuthn relying party. Dev CORS also allows
 `http://localhost:5173` for local Vite development. Passkeys require the
 configured dev origin; localhost is not a valid origin for that relying party.
-Google login is disabled
-until its separate OAuth client and callback are configured for each
-instance. Do not put client secrets in Git.
+Google is configured with a separate OAuth client for each instance. The Google
+callback is `https://identity-dev.pocket-doc.app/thirdparty/callback` for dev
+and `https://identity.pocket-doc.app/thirdparty/callback` for production. The
+success and error redirects currently point to the matching app origin; dev
+also allows `http://localhost:5173` as a success redirect. When the app team
+chooses its login page, update the redirect URLs to match. Automatic linking to
+an existing account is disabled. Google login still needs an end-to-end test.
+Do not put client secrets in Git.
 
 The instances use separate databases, database roles, signing-key encryption
 keys, origins, and token audiences. One PostgreSQL 18 server in `auth-system`
@@ -141,9 +146,14 @@ expire after 15 minutes. Decide the cookie, CSRF, and token storage design with
 the app team before using the service.
 
 To activate login, add the app login and API enforcement, configure production
-SMTP and Google OAuth, check the rate limits under expected traffic, and run
-end-to-end security tests. Change `account.allow_signup` only
+SMTP, complete Google's production requirements, check rate limits under
+expected traffic, and run end-to-end security tests. Change `account.allow_signup` only
 after those checks. Keep infrastructure routes protected by Authelia.
+
+Google client credentials are loaded from environment variables at startup.
+After rotating a client in OCI Vault, wait for its ExternalSecret to become
+ready and restart the matching Hanko Deployment. Check the rollout and test
+Google login. Keep the old Google client valid until the new one is working.
 
 ## Backup and restore
 

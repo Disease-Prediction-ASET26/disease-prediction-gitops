@@ -14,6 +14,17 @@ data:
       pool: 5
     account:
       allow_signup: false
+    third_party:
+      redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
+      error_redirect_url: https://dev.pocket-doc.app
+      default_redirect_url: https://dev.pocket-doc.app
+      allowed_redirect_urls:
+        - https://dev.pocket-doc.app
+        - http://localhost:5173
+      providers:
+        google:
+          enabled: true
+          allow_linking: false
     server:
       ip:
         extractor: x_forwarded_for
@@ -87,6 +98,12 @@ spec:
             - name: SECRETS_KEYS
               valueFrom:
                 secretKeyRef: {name: hanko-dev, key: encryption-key}
+            - name: THIRD_PARTY_PROVIDERS_GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef: {name: hanko-google-dev, key: client-id}
+            - name: THIRD_PARTY_PROVIDERS_GOOGLE_SECRET
+              valueFrom:
+                secretKeyRef: {name: hanko-google-dev, key: client-secret}
             - name: EMAIL_DELIVERY_SMTP_HOST
               valueFrom:
                 secretKeyRef: {name: hanko-smtp, key: host}
