@@ -4,7 +4,7 @@ metadata:
   name: proxmox-postgres
   namespace: argocd
 spec:
-  description: PostgreSQL cluster and database roles for the Proxmox k3s cluster
+  description: PostgreSQL cluster, databases, and roles for the Proxmox k3s cluster
   sourceRepos:
     - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
   destinations:
@@ -16,3 +16,5 @@ spec:
       kind: Cluster
     - group: postgresql.cnpg.io
       kind: DatabaseRole
+    - group: postgresql.cnpg.io
+      kind: Database
