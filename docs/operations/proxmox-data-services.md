@@ -274,8 +274,23 @@ They share the cluster's CPU, storage, and availability. The old
 `disease_prediction` database and role are being removed after the dev
 connection was verified. Their data is not migrated. The legacy database is
 declared absent in Git. After it reports `Applied: true`, remove the legacy
-DatabaseRole and credential ExternalSecret in a follow-up Git change. The role
-has a delete reclaim policy so its finalizer removes the PostgreSQL login.
+DatabaseRole and credential ExternalSecret in a follow-up Git change. This
+repo keeps Argo CD pruning disabled, so after that change syncs, remove the
+orphaned resources and verify that they are gone:
+
+```bash
+kubectl --context proxmox-k3s -n postgres delete databaserole disease-prediction
+kubectl --context proxmox-k3s -n postgres delete externalsecret postgres-app-credentials
+kubectl --context proxmox-k3s -n postgres get databases,databaseroles,externalsecrets
+```
+
+The role has a delete reclaim policy, so its finalizer removes the PostgreSQL
+login. The ExternalSecret owns the old Kubernetes credential Secret. After
+checking that no manifest refers to the old Vault path, remove its Vault entry:
+
+```bash
+vault_in_pod kv metadata delete secret/proxmox/postgres/disease-prediction
+```
 
 Dev and production use separate databases, login roles, and passwords on this
 PostgreSQL cluster: `disease_prediction_dev` and `disease_prediction_prod`.
