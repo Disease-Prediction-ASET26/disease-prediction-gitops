@@ -1,0 +1,150 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hanko-postgres-init
+  namespace: auth-system
+data:
+  pg_hba.conf: |
+    local all all trust
+    hostssl all all all scram-sha-256
+    host all all all reject
+  10-databases.sh: |
+    #!/bin/sh
+    set -eu
+    psql --username "$POSTGRES_USER" --dbname postgres --set ON_ERROR_STOP=1 <<'SQL'
+    \getenv dev_password HANKO_DEV_PASSWORD
+    \getenv prod_password HANKO_PROD_PASSWORD
+    SELECT format('CREATE ROLE hanko_dev LOGIN PASSWORD %L', :'dev_password') \gexec
+    SELECT format('CREATE ROLE hanko_prod LOGIN PASSWORD %L', :'prod_password') \gexec
+    CREATE DATABASE hanko_dev OWNER hanko_dev;
+    CREATE DATABASE hanko_prod OWNER hanko_prod;
+    REVOKE CONNECT ON DATABASE hanko_dev FROM PUBLIC;
+    REVOKE CONNECT ON DATABASE hanko_prod FROM PUBLIC;
+    GRANT CONNECT ON DATABASE hanko_dev TO hanko_dev;
+    GRANT CONNECT ON DATABASE hanko_prod TO hanko_prod;
+    SQL
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hanko-postgres-data
+  namespace: auth-system
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hanko-postgres
+  namespace: auth-system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hanko-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hanko-postgres
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: prepare-tls
+          image: postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+          command: [sh, -c, 'cp /cert-source/server.key /cert/server.key && cp /cert-source/server.crt /cert/server.crt && chmod 600 /cert/server.key']
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 32Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: tls-source, mountPath: /cert-source, readOnly: true}
+            - {name: tls, mountPath: /cert}
+      containers:
+        - name: postgres
+          image: postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+          args: ["-c", "ssl=on", "-c", "ssl_cert_file=/run/postgres-tls/server.crt", "-c", "ssl_key_file=/run/postgres-tls/server.key", "-c", "hba_file=/etc/hanko/pg_hba.conf"]
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: hanko-postgres, key: admin-password}
+            - name: HANKO_DEV_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: hanko-postgres, key: dev-password}
+            - name: HANKO_PROD_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: hanko-postgres, key: prod-password}
+          ports:
+            - {name: postgres, containerPort: 5432, protocol: TCP}
+          readinessProbe:
+            exec:
+              command: [sh, -c, 'pg_isready -U "$POSTGRES_USER" -d postgres']
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: [sh, -c, 'pg_isready -U "$POSTGRES_USER" -d postgres']
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            - {name: run, mountPath: /var/run/postgresql}
+            - {name: init, mountPath: /etc/hanko, readOnly: true}
+            - {name: tls, mountPath: /run/postgres-tls, readOnly: true}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: hanko-postgres-data}
+        - name: init
+          configMap: {name: hanko-postgres-init, defaultMode: 0444}
+        - name: tmp
+          emptyDir: {sizeLimit: 32Mi}
+        - name: run
+          emptyDir: {sizeLimit: 8Mi}
+        - name: tls-source
+          secret:
+            secretName: hanko-postgres-tls
+            defaultMode: 0440
+        - name: tls
+          emptyDir: {medium: Memory, sizeLimit: 1Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hanko-postgres
+  namespace: auth-system
+spec:
+  selector: {app.kubernetes.io/name: hanko-postgres}
+  ports:
+    - {name: postgres, port: 5432, targetPort: postgres}

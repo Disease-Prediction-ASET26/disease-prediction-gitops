@@ -33,6 +33,16 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
+              kubernetes.io/metadata.name: auth-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hanko-prod
+      ports:
+        - protocol: TCP
+          port: 8000
+    - to:
+        - namespaceSelector:
+            matchLabels:
               kubernetes.io/metadata.name: tailscale
           podSelector:
             matchLabels:

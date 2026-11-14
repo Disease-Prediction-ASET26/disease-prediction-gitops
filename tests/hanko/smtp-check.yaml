@@ -1,0 +1,56 @@
+# Temporary check: verifies SMTP STARTTLS and authentication without sending mail.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hanko-smtp-check
+  namespace: auth-system
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: check
+      image: python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+      command: [python, -c]
+      args:
+        - |
+          import os, smtplib, ssl, sys
+          try:
+              with smtplib.SMTP(os.environ['SMTP_HOST'], int(os.environ['SMTP_PORT']), timeout=20) as smtp:
+                  smtp.ehlo()
+                  smtp.starttls(context=ssl.create_default_context())
+                  smtp.ehlo()
+                  smtp.login(os.environ['SMTP_USERNAME'], os.environ['SMTP_PASSWORD'])
+              print('SMTP TLS and authentication passed; no email sent')
+          except Exception as exc:
+              print('SMTP check failed:', type(exc).__name__, 'status:', getattr(exc, 'smtp_code', 'unavailable'))
+              sys.exit(1)
+      env:
+        - name: SMTP_HOST
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: host}}
+        - name: SMTP_PORT
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: port}}
+        - name: SMTP_USERNAME
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: username}}
+        - name: SMTP_PASSWORD
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: password}}
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+  volumes:
+    - name: tmp
+      emptyDir: {medium: Memory, sizeLimit: 1Mi}

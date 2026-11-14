@@ -5,6 +5,7 @@ resources:
   - argocd-route.yaml
   - authelia-forwardauth.yaml
   - authelia.yaml
+  - hanko.yaml
   - cloudflared.yaml
   - disease-prediction-quota.yaml
   - disease-prediction-prod.yaml

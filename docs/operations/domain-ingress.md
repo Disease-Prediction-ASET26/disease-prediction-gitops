@@ -54,6 +54,12 @@ Both names use the `pocket-doc.app` zone. Keep the backend and AI Services
 private, and send browser traffic only to the frontend. Protect both routes with
 Authelia ForwardAuth unless the app later adds its own reviewed OIDC login.
 
+## Choose authentication
+
+Hanko is prepared for app login with separate dev and production endpoints.
+Its registration is disabled until the app integration is ready. See the
+[Hanko guide](hanko.md). Keep ForwardAuth on the app routes until then.
+
 ## Choose Authelia login
 
 - **ForwardAuth:** Traefik checks each request with Authelia. Use this for an
