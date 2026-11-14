@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai
+  namespace: disease-prediction-prod
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ai
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-tailnet
+  namespace: disease-prediction-prod
+  annotations:
+    tailscale.com/hostname: proxmox-ai-prod
+    tailscale.com/proxy-class: tailscale-proxies
+    tailscale.com/proxy-group: ingress-proxies
+    tailscale.com/tags: tag:proxmox-ai-prod
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  allocateLoadBalancerNodePorts: false
+  selector:
+    app.kubernetes.io/name: ai
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP

@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ghcr-pull.yaml
+  - postgres-credentials.yaml
+  - postgres-server-ca.yaml
+  - runtime-credentials.yaml
+  - vault-store.yaml

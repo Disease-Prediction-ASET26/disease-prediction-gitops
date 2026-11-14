@@ -21,24 +21,8 @@ jobs:
           persist-credentials: false
       - name: Render cluster manifests
         run: |
-          kustomize build clusters/oracle > /dev/null
-          kustomize build clusters/proxmox > /dev/null
-          for app_path in \
-            clusters/oracle/auth/authelia \
-            clusters/oracle/edge/cloudflared \
-            clusters/oracle/ingress/authelia-forwardauth \
-            clusters/oracle/ingress/argocd \
-            clusters/oracle/ingress/gateway \
-            clusters/oracle/ingress/traefik-access \
-            clusters/oracle/external-secrets/argocd \
-            clusters/oracle/external-secrets/auth-system \
-            clusters/oracle/external-secrets/disease-prediction \
-            clusters/oracle/external-secrets/edge-system \
-            clusters/oracle/external-secrets/monitoring \
-            clusters/oracle/observability \
-            clusters/oracle/observability/route \
-            clusters/oracle/policies/disease-prediction-quota; do
-            kustomize build "$app_path" > /dev/null
+          git ls-files 'clusters/**/kustomization.yaml' | while IFS= read -r manifest; do
+            kustomize build "$(dirname "$manifest")" > /dev/null
           done
       - name: Install pinned Ansible Core
         run: |

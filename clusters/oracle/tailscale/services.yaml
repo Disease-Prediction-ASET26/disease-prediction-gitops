@@ -18,6 +18,57 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  name: proxmox-ai
+  namespace: disease-prediction
+  annotations:
+    tailscale.com/tailnet-fqdn: proxmox-ai-dev.tail0bed44.ts.net
+    tailscale.com/proxy-group: egress-proxies
+    tailscale.com/proxy-class: tailscale-proxies
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - name: http
+      port: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox-ai
+  namespace: disease-prediction-prod
+  annotations:
+    tailscale.com/tailnet-fqdn: proxmox-ai-prod.tail0bed44.ts.net
+    tailscale.com/proxy-group: egress-prod
+    tailscale.com/proxy-class: tailscale-proxies
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - name: http
+      port: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox-postgres
+  namespace: disease-prediction-prod
+  annotations:
+    tailscale.com/tailnet-fqdn: proxmox-postgres.tail0bed44.ts.net
+    tailscale.com/proxy-group: egress-prod
+    tailscale.com/proxy-class: tailscale-proxies
+spec:
+  type: ExternalName
+  externalName: placeholder
+  ports:
+    - name: postgres
+      port: 5432
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: proxmox-prometheus
   namespace: monitoring
   annotations:

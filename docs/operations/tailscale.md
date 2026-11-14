@@ -211,16 +211,19 @@ The removal playbook leaves the Oracle Linux SSH crypto policy and the K3s
 
 The Proxmox and Oracle K3s clusters use overlapping Pod and Service CIDRs.
 Keep them as they are. Tailscale Services expose the PostgreSQL primary and
-Proxmox Prometheus to Oracle, and expose Oracle kube-state-metrics and
-node-exporter to Proxmox Prometheus. The Oracle Prometheus Agent sends selected
+Proxmox Prometheus to Oracle. The staged dev and production model services
+will use the same private path. Tailscale also exposes Oracle kube-state-metrics
+and node-exporter to Proxmox Prometheus. The Oracle Prometheus Agent sends selected
 kubelet metrics to Proxmox Prometheus through the same TCP/9090 path used by
 Grafana. The PostgreSQL exporter stays inside the Proxmox cluster. This setup
 does not route either cluster's Pod or Service subnet, so the overlapping
 ranges do not need to change. Other cluster services stay private.
 
-Each cluster runs one ingress and one egress ProxyGroup, with one replica per
-group. Proxmox ingress serves PostgreSQL and Prometheus; Oracle ingress serves
-the two metrics endpoints. The egress groups provide the reverse connections.
+Proxmox runs one ingress and one egress ProxyGroup. Oracle runs one ingress
+and two egress groups, with separate identities for production and dev. Each
+group has one replica. Proxmox ingress serves PostgreSQL and Prometheus, and
+will serve the model services when activated. Oracle ingress serves the two
+metrics endpoints.
 Tailscale encrypts traffic between the proxies. The database connection also
 uses PostgreSQL TLS with certificate verification. Single replicas keep
 resource use low, but a proxy outage interrupts its connections. Each proxy
@@ -228,7 +231,8 @@ requests 25m CPU and 64 MiB memory, with limits of 250m CPU and 256 MiB memory.
 The Proxmox forwarding init container requests 10m CPU and 16 MiB memory, with
 limits of 100m CPU and 64 MiB memory.
 
-The two Oracle exporters and Oracle ingress proxy add 75m CPU and 128 MiB
+The production egress proxy adds 25m CPU and 64 MiB memory requests. The two
+Oracle exporters and Oracle ingress proxy add 75m CPU and 128 MiB
 memory requests. The Oracle Prometheus Agent requests 25m CPU and 64 MiB memory,
 with limits of 100m CPU and 128 MiB. The Proxmox egress proxy adds 25m CPU and
 64 MiB. Together, the bridge requests 125m CPU and 256 MiB memory, with limits
@@ -250,9 +254,12 @@ groups and the two Oracle exporter services.
     "tag:k8s-operator": ["autogroup:owner"],
     "tag:k8s-proxmox": ["tag:k8s-operator"],
     "tag:oracle-k3s-egress": ["tag:k8s-operator"],
+    "tag:oracle-prod-egress": ["tag:k8s-operator"],
     "tag:oracle-k3s-ingress": ["tag:k8s-operator"],
     "tag:oracle-metrics": ["tag:k8s-operator"],
     "tag:proxmox-postgres": ["tag:k8s-operator"],
+    "tag:proxmox-ai-dev": ["tag:k8s-operator"],
+    "tag:proxmox-ai-prod": ["tag:k8s-operator"],
     "tag:proxmox-metrics": ["tag:k8s-operator"],
     "tag:proxmox-metrics-egress": ["tag:k8s-operator"]
   }
@@ -268,6 +275,8 @@ Proxmox service entries:
   "autoApprovers": {
     "services": {
       "tag:proxmox-postgres": ["tag:k8s-proxmox"],
+      "tag:proxmox-ai-dev": ["tag:k8s-proxmox"],
+      "tag:proxmox-ai-prod": ["tag:k8s-proxmox"],
       "tag:proxmox-metrics": ["tag:k8s-proxmox"],
       "tag:oracle-metrics": ["tag:oracle-k3s-ingress"]
     }
@@ -288,6 +297,21 @@ keep this destination limited to the Oracle egress ProxyGroup tag:
       "src": ["tag:oracle-k3s-egress"],
       "dst": ["tag:proxmox-postgres"],
       "ip": ["tcp:5432"]
+    },
+    {
+      "src": ["tag:oracle-prod-egress"],
+      "dst": ["tag:proxmox-postgres"],
+      "ip": ["tcp:5432"]
+    },
+    {
+      "src": ["tag:oracle-k3s-egress"],
+      "dst": ["tag:proxmox-ai-dev"],
+      "ip": ["tcp:8000"]
+    },
+    {
+      "src": ["tag:oracle-prod-egress"],
+      "dst": ["tag:proxmox-ai-prod"],
+      "ip": ["tcp:8000"]
     },
     {
       "src": ["tag:oracle-k3s-egress"],

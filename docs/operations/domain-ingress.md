@@ -32,7 +32,8 @@ for an app.
 - The app's Argo CD AppProject must allow the namespace and route resources.
 - Traefik can read Secrets in each watched namespace. Keep unrelated sensitive
   workloads out of those namespaces. The current watch scope is
-  `traefik-system`, `disease-prediction`, `auth-system`, and `monitoring`.
+  `traefik-system`, `disease-prediction`, `disease-prediction-prod`,
+  `auth-system`, and `monitoring`.
 - ExternalDNS only manages the `pocket-doc.app` zone. It creates proxied CNAME
   and TXT ownership records. Its `upsert-only` policy does not delete records.
 
@@ -47,7 +48,7 @@ Use separate names for each environment:
 | Environment | Hostname | Status |
 |---|---|---|
 | Dev | `dev.pocket-doc.app` | Active route protected by Authelia ForwardAuth. |
-| Production | `health.pocket-doc.app` | Reserved for the production stack; no production route is staged yet. |
+| Production | `health.pocket-doc.app` | Reserved; the staged route uses Authelia ForwardAuth when activated. |
 
 Both names use the `pocket-doc.app` zone. Keep the backend and AI Services
 private, and send browser traffic only to the frontend. Protect both routes with

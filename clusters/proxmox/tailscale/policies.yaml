@@ -18,3 +18,23 @@ spec:
     - ingress-proxies
   egress:
     - egress-proxies
+---
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroupPolicy
+metadata:
+  name: tailscale-ingress
+  namespace: disease-prediction-dev
+spec:
+  ingress:
+    - ingress-proxies
+  egress: []
+---
+apiVersion: tailscale.com/v1alpha1
+kind: ProxyGroupPolicy
+metadata:
+  name: tailscale-ingress
+  namespace: disease-prediction-prod
+spec:
+  ingress:
+    - ingress-proxies
+  egress: []

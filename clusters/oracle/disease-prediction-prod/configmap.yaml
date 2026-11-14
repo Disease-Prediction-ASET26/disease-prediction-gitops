@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: disease-prediction-config
+  namespace: disease-prediction-prod
+data:
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://proxmox-postgres.disease-prediction-prod.svc.cluster.local:5432/disease_prediction_prod?sslmode=verify-full&sslrootcert=/etc/postgres-ca/ca.crt"
+  PREDICTION_SERVICE_BASE_URL: "http://proxmox-ai:8000"

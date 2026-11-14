@@ -32,12 +32,14 @@ spec:
             enabled: true
             namespaces:
               - disease-prediction
+              - disease-prediction-prod
           kubernetesGateway:
             enabled: true
             experimentalChannel: false
             namespaces:
               - traefik-system
               - disease-prediction
+              - disease-prediction-prod
               - auth-system
               - monitoring
 

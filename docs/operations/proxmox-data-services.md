@@ -214,9 +214,12 @@ kubectl cp clusters/proxmox/vault/policies/proxmox-postgres-read.hcl \
   vault-system/vault-0:/tmp/proxmox-postgres-read.hcl
 kubectl cp clusters/proxmox/vault/policies/proxmox-apps-read.hcl \
   vault-system/vault-0:/tmp/proxmox-apps-read.hcl
+kubectl cp clusters/proxmox/vault/policies/proxmox-ai-read.hcl \
+  vault-system/vault-0:/tmp/proxmox-ai-read.hcl
 vault_in_pod policy write proxmox-postgres-read /tmp/proxmox-postgres-read.hcl
 vault_in_pod policy write proxmox-apps-read /tmp/proxmox-apps-read.hcl
-kubectl -n vault-system exec vault-0 -- rm /tmp/proxmox-postgres-read.hcl /tmp/proxmox-apps-read.hcl
+vault_in_pod policy write proxmox-ai-read /tmp/proxmox-ai-read.hcl
+kubectl -n vault-system exec vault-0 -- rm /tmp/proxmox-postgres-read.hcl /tmp/proxmox-apps-read.hcl /tmp/proxmox-ai-read.hcl
 
 vault_in_pod write auth/kubernetes/role/proxmox-postgres \
   bound_service_account_names=vault-secret-reader \
@@ -226,14 +229,44 @@ vault_in_pod write auth/kubernetes/role/proxmox-apps \
   bound_service_account_names=vault-secret-reader \
   bound_service_account_namespaces=disease-prediction \
   audience=vault policies=proxmox-apps-read ttl=1h
+vault_in_pod write auth/kubernetes/role/proxmox-ai \
+  bound_service_account_names=vault-secret-reader \
+  bound_service_account_namespaces=disease-prediction-dev,disease-prediction-prod \
+  audience=vault policies=proxmox-ai-read ttl=1h
 ```
 
 ESO requests short-lived `vault`-audience tokens for these service accounts.
 The `proxmox-postgres` role can read only the PostgreSQL credential paths. The
 `proxmox-apps` role can read app entries and the dev database credential; it
 is bound only to the `disease-prediction` namespace. ESO has cluster-wide
-Kubernetes permissions because it serves two namespaces; keep its
-`ExternalSecret` resources in reviewed Git changes.
+Kubernetes permissions because it serves several namespaces; keep its
+`ExternalSecret` resources in reviewed Git changes. The `proxmox-ai` role
+reads only the registry credential and is bound to the two model namespaces.
+
+The model runtimes use the same read-only GHCR credential as Oracle. Store its
+Docker configuration in `secret/proxmox/apps/ghcr-pull`, in the
+`dockerconfigjson` property. Both model namespaces sync it as `ghcr-pull`.
+To copy or rotate it from the existing Oracle Secret, run the following on a
+Linux workstation with both kubeconfig contexts and the `vault_in_pod` helper.
+Use a private shell without command tracing:
+
+```bash
+(
+set -euo pipefail
+umask 077
+ghcr_tmp=$(mktemp /dev/shm/proxmox-ghcr.XXXXXXXX)
+trap 'rm -f "$ghcr_tmp"; kubectl --context proxmox-k3s -n vault-system exec vault-0 -- rm -f /tmp/proxmox-ghcr-pull' EXIT
+kubectl --context oracle-k3s -n disease-prediction get secret ghcr-pull \
+  -o go-template='{{index .data ".dockerconfigjson"}}' | base64 -d > "$ghcr_tmp"
+test -s "$ghcr_tmp"
+kubectl --context proxmox-k3s -n vault-system exec -i vault-0 -- \
+  sh -c 'umask 077; cat > /tmp/proxmox-ghcr-pull' < "$ghcr_tmp"
+vault_in_pod kv put secret/proxmox/apps/ghcr-pull \
+  dockerconfigjson=@/tmp/proxmox-ghcr-pull
+)
+```
+
+Check the command results before continuing. Do not print the credential.
 
 Store separate passwords at
 `secret/proxmox/postgres/disease-prediction-dev` and
@@ -241,8 +274,9 @@ Store separate passwords at
 field. For a new setup or password rotation, generate each password locally,
 then copy it into Vault without printing it. The Oracle OCI secret
 `proxmox-postgres-credentials` must contain the same dev password. Update that
-OCI secret securely before rotating the dev password. Production will use its
-own OCI secret when its application is prepared.
+OCI secret securely before rotating the dev password. The production OCI secret
+`proxmox-postgres-credentials-prod` holds the separate production password in
+its `password` property.
 
 ```bash
 umask 077
@@ -354,8 +388,8 @@ Oracle workloads use the mirror Service
 `proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Configure
 PostgreSQL TLS with `sslmode=verify-full` and the `ca.crt` file from the
 `postgres-server-ca` Secret. The CNPG server certificate includes both the
-Tailscale hostname and the Oracle Service DNS name, so hostname verification
-matches this connection path. Keep the database username and password in the
+Tailscale hostname and the Oracle dev and production Service DNS names, so
+hostname verification matches this connection path. Keep the database username and password in the
 `postgres-app-credentials` Secret; do not put them in application manifests.
 CloudNativePG adds these DNS names to its generated server certificate through
 `serverAltDNSNames` ([certificate configuration](https://cloudnative-pg.io/docs/1.29/cloudnative-pg.v1/)).

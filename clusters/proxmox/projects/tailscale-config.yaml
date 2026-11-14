@@ -16,6 +16,10 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: monitoring
       server: https://kubernetes.default.svc
+    - namespace: disease-prediction-dev
+      server: https://kubernetes.default.svc
+    - namespace: disease-prediction-prod
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: tailscale.com
       kind: ProxyClass
