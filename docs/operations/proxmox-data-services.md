@@ -308,8 +308,8 @@ They share the cluster's CPU, storage, and availability. The old
 `disease_prediction` database and role were removed after the dev connection
 was verified. Their data was not migrated.
 
-The cluster's `pg_hba` rules allow each application role to connect only to
-its own database over TLS. Other database roles use the cluster's default
+The cluster's `pg_hba` rules allow network connections for each application
+role only to its own database over TLS. Other roles use the cluster's default
 authentication rules. Keep these rules aligned with any role or database
 rename, and check both application connections after a change.
 
@@ -384,10 +384,22 @@ psql -h 127.0.0.1 -p 5432 -U disease_prediction_dev \
   -d disease_prediction_dev -W
 ```
 
-There is no public route or PgBouncer deployment. The two LoadBalancer
-Services use the Tailscale load balancer class and are available only through
-the tailnet. The cluster has one database instance and stops during node or VM
-downtime.
+There is no public route or PgBouncer deployment. The PostgreSQL LoadBalancer
+Service uses the Tailscale load balancer class without allocating a node port.
+The cluster has one database instance and stops during node or VM downtime.
+
+When changing an existing Service to disable node port allocation, first wait
+for `allocateLoadBalancerNodePorts: false` to appear on `postgres-tailnet`.
+Kubernetes keeps any previously allocated node port until it is removed. From
+the Proxmox context, remove that existing port and check the Service:
+
+```bash
+kubectl --context proxmox-k3s -n postgres patch service postgres-tailnet \
+  --type=json -p='[{"op":"remove","path":"/spec/ports/0/nodePort"}]'
+kubectl --context proxmox-k3s -n postgres get service postgres-tailnet
+```
+
+Check both application database connections through Tailscale afterward.
 
 Oracle workloads use the mirror Service
 `proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Configure
