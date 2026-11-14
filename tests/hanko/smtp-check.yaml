@@ -23,13 +23,15 @@ spec:
         - |
           set -eu
           auth=$(printf '\0%s\0%s' "$SMTP_USERNAME" "$SMTP_PASSWORD" | base64 | tr -d '\n')
-          if printf 'EHLO localhost\r\nAUTH PLAIN %s\r\nQUIT\r\n' "$auth" | \
-              timeout 20 openssl s_client -quiet -starttls smtp -verify_return_error \
-                -connect "$SMTP_HOST:$SMTP_PORT" -servername "$SMTP_HOST" \
-                >/tmp/replies 2>/tmp/tls-errors && grep -q '^235' /tmp/replies; then
+          printf 'EHLO localhost\r\nAUTH PLAIN %s\r\nQUIT\r\n' "$auth" | \
+            timeout 20 openssl s_client -quiet -starttls smtp -verify_return_error \
+              -connect "$SMTP_HOST:$SMTP_PORT" -servername "$SMTP_HOST" \
+              >/tmp/replies 2>/tmp/tls-errors || true
+          if grep -q '^235' /tmp/replies && ! grep -qiE 'verify error|certificate verify failed' /tmp/tls-errors; then
             echo 'SMTP TLS and authentication passed; no email sent'
           else
-            echo 'SMTP TLS or authentication failed; no server response is logged'
+            echo 'SMTP TLS or authentication failed; numeric response codes follow'
+            awk '/^[0-9][0-9][0-9][ -]/ {print substr($0, 1, 3)}' /tmp/replies | sort -u
             exit 1
           fi
       env:
