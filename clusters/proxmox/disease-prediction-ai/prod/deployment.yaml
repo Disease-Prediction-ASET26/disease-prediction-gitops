@@ -29,7 +29,6 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ai
-          # Pin a validated multi-platform runtime before activating this Application.
           image: ghcr.io/disease-prediction-aset26/disease-prediction-ai-runtime@sha256:60c3df4a2ac8698c7c1aa9c543622af03de7786b677e19f90e25afc462f7ce3b
           imagePullPolicy: IfNotPresent
           ports:
