@@ -235,14 +235,14 @@ is bound only to the `disease-prediction` namespace. ESO has cluster-wide
 Kubernetes permissions because it serves two namespaces; keep its
 `ExternalSecret` resources in reviewed Git changes.
 
-Write the PostgreSQL passwords to Vault at
+Store separate passwords at
 `secret/proxmox/postgres/disease-prediction-dev` and
-`secret/proxmox/postgres/disease-prediction-prod`, each with the field
-`password`. The Vault CLI runs in the pod, so first copy a protected local
-password file to a temporary pod path, then remove that copy after writing it.
-The current dev password can be copied from the legacy Vault entry without
-printing it; the Oracle OCI secret already contains the same value. Use a new
-random password for production:
+`secret/proxmox/postgres/disease-prediction-prod`, each in the `password`
+field. For a new setup or password rotation, generate each password locally,
+then copy it into Vault without printing it. The Oracle OCI secret
+`proxmox-postgres-credentials` must contain the same dev password. Update that
+OCI secret securely before rotating the dev password. Production will use its
+own OCI secret when its application is prepared.
 
 ```bash
 umask 077
@@ -271,39 +271,16 @@ of truth.
 Dev and production use separate databases, login roles, and passwords on this
 PostgreSQL cluster: `disease_prediction_dev` and `disease_prediction_prod`.
 They share the cluster's CPU, storage, and availability. The old
-`disease_prediction` database and role are being removed after the dev
-connection was verified. Their data is not migrated. The legacy database is
-declared absent in Git. After it reports `Applied: true`, remove the legacy
-DatabaseRole and credential ExternalSecret in a follow-up Git change. This
-repo keeps Argo CD pruning disabled, so after that change syncs, remove the
-orphaned resources and verify that they are gone:
-
-```bash
-kubectl --context proxmox-k3s -n postgres delete databaserole disease-prediction
-kubectl --context proxmox-k3s -n postgres delete externalsecret postgres-app-credentials
-kubectl --context proxmox-k3s -n postgres get databases,databaseroles,externalsecrets
-```
-
-The role has a delete reclaim policy, so its finalizer removes the PostgreSQL
-login. The ExternalSecret owns the old Kubernetes credential Secret. After
-checking that no manifest refers to the old Vault path, remove its Vault entry:
-
-```bash
-vault_in_pod kv metadata delete secret/proxmox/postgres/disease-prediction
-```
-
-Dev and production use separate databases, login roles, and passwords on this
-PostgreSQL cluster: `disease_prediction_dev` and `disease_prediction_prod`.
-They share the cluster's CPU, storage, and availability. The old
-`disease_prediction` database and role are marked for deletion after the dev
-connection was verified. Their data is not migrated.
+`disease_prediction` database and role were removed after the dev connection
+was verified. Their data was not migrated.
 
 The `postgres-app-credentials-prod` ExternalSecret creates the Kubernetes
 credential for CloudNativePG. The production role and database are retained
 when their manifests are removed. For an Oracle production application, copy
 the same password into a separate OCI Vault secret; do not reuse the dev
 credential. Keep the production credential out of Git, shell arguments, and
-terminal output.
+terminal output. Use the OCI secret name `proxmox-postgres-credentials-prod`
+when preparing the production app.
 
 Remove the helper from the shell when finished. Its token is read from the
 protected file for each command and exists in the pod process only while that
@@ -393,6 +370,7 @@ properties:
 | OCI Vault secret | JSON property | Value |
 |---|---|---|
 | `proxmox-postgres-credentials` | `password` | The dev password for `disease_prediction_dev`, copied from Proxmox Vault |
+| `proxmox-postgres-credentials-prod` | `password` | The separate production password for `disease_prediction_prod` |
 | `proxmox-postgres-server-ca` | `ca_crt` | The public CA certificate from the Proxmox `postgres-ca` Secret |
 
 For example, the credential payload has the form `{"password":"..."}` and
