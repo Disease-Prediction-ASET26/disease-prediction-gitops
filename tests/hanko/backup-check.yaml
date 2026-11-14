@@ -5,12 +5,6 @@ metadata:
     cronjob.kubernetes.io/instantiate: manual
   name: hanko-backup-check
   namespace: auth-system
-  ownerReferences:
-  - apiVersion: batch/v1
-    controller: true
-    kind: CronJob
-    name: hanko-backup
-    uid: 7d853b55-000d-4057-9499-d19636904122
 spec:
   activeDeadlineSeconds: 600
   backoffLimit: 2
