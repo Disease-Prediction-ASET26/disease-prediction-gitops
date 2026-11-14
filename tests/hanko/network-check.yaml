@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hanko-network-check
+  namespace: disease-prediction
+  labels:
+    app.kubernetes.io/name: backend
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: check
+      image: python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+      command: [python, -c]
+      args:
+        - |
+          import urllib.request
+          own='http://hanko-dev.auth-system.svc.cluster.local:8000/health/ready'
+          other='http://hanko-prod.auth-system.svc.cluster.local:8000/health/ready'
+          with urllib.request.urlopen(own, timeout=5) as response:
+              assert response.status == 200
+          print('matching identity service reachable')
+          try:
+              urllib.request.urlopen(other, timeout=5)
+          except Exception:
+              print('other environment identity service blocked')
+          else:
+              raise SystemExit('other environment identity service was reachable')
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hanko-network-check
+  namespace: disease-prediction-prod
+  labels:
+    app.kubernetes.io/name: backend
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: check
+      image: python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+      command: [python, -c]
+      args:
+        - |
+          import urllib.request
+          own='http://hanko-prod.auth-system.svc.cluster.local:8000/health/ready'
+          other='http://hanko-dev.auth-system.svc.cluster.local:8000/health/ready'
+          with urllib.request.urlopen(own, timeout=5) as response:
+              assert response.status == 200
+          print('matching identity service reachable')
+          try:
+              urllib.request.urlopen(other, timeout=5)
+          except Exception:
+              print('other environment identity service blocked')
+          else:
+              raise SystemExit('other environment identity service was reachable')
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]

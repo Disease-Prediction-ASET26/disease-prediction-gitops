@@ -88,6 +88,16 @@ kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
 ```
 
+To check SMTP authentication from the cluster without sending mail, run the
+temporary check from the repository root, then remove it:
+
+```bash
+kubectl --context oracle-k3s apply -f tests/hanko/smtp-check.yaml
+kubectl --context oracle-k3s -n auth-system wait --for=jsonpath='{.status.phase}'=Succeeded pod/hanko-smtp-check --timeout=90s
+kubectl --context oracle-k3s -n auth-system logs pod/hanko-smtp-check
+kubectl --context oracle-k3s delete -f tests/hanko/smtp-check.yaml
+```
+
 The ExternalSecrets and deployments must be ready. Check that both HTTPRoutes
 have `Accepted=True` and `ResolvedRefs=True`, then check their health and keys:
 
