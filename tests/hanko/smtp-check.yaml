@@ -1,0 +1,56 @@
+# Temporary check: verifies SMTP STARTTLS and authentication without sending mail.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hanko-smtp-check
+  namespace: auth-system
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: check
+      image: alpine/openssl:3.5.4@sha256:42c7389ef077aed0eb4e96d0abbd094083d701bbaff1313073b061c0c9cd8278
+      command: [sh, -c]
+      args:
+        - |
+          set -eu
+          auth=$(printf '\0%s\0%s' "$SMTP_USERNAME" "$SMTP_PASSWORD" | base64 | tr -d '\n')
+          if printf 'EHLO localhost\r\nAUTH PLAIN %s\r\nQUIT\r\n' "$auth" | \
+              timeout 20 openssl s_client -quiet -starttls smtp -verify_return_error \
+                -connect "$SMTP_HOST:$SMTP_PORT" -servername "$SMTP_HOST" \
+                >/tmp/replies 2>/tmp/tls-errors && grep -q '^235' /tmp/replies; then
+            echo 'SMTP TLS and authentication passed; no email sent'
+          else
+            echo 'SMTP TLS or authentication failed; no server response is logged'
+            exit 1
+          fi
+      env:
+        - name: SMTP_HOST
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: host}}
+        - name: SMTP_PORT
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: port}}
+        - name: SMTP_USERNAME
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: username}}
+        - name: SMTP_PASSWORD
+          valueFrom: {secretKeyRef: {name: hanko-smtp, key: password}}
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+  volumes:
+    - name: tmp
+      emptyDir: {medium: Memory, sizeLimit: 1Mi}
