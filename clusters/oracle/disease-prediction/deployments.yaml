@@ -107,7 +107,7 @@ spec:
       labels:
         app.kubernetes.io/name: backend
       annotations:
-        pocket-doc.app/config-version: postgres-dev-v1
+        pocket-doc.app/config-version: proxmox-dev-v2
     spec:
       automountServiceAccountToken: false
       enableServiceLinks: false
