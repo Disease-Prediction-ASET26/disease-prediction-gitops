@@ -45,18 +45,20 @@ Train and review classifiers outside K3s. The deployed service does not train.
 Follow the [model training and release guide](https://github.com/Disease-Prediction-ASET26/disease-prediction-ai#model-training-and-release)
 to package a reviewed classifier and record its digest and checksum. The dev
 release uses the classifier pinned in `model-release-dev.json`. Production
-promotion is an explicit workflow run with the accepted classifier and
-production base image.
+uses the separately approved classifier pinned in `model-release-prod.json`.
+To promote a new classifier, update the production release file and merge it
+through `develop` to `main`.
 
 The release workflow builds and checks native AMD64 and ARM64 images. It
 includes the trained classifier and the pinned ClinicalBERT and MiniLM assets.
 The runtime runs offline and does not download weights or use a model cache at
 startup. A network policy denies outgoing connections from the model pods.
-Its `/ready` probe loads the model and parser assets before serving
-requests. Each Proxmox model pod requests 500m CPU and 2304 MiB memory and has
-limits of 1200m CPU and 3 GiB memory. Review model outputs with representative
-inputs before accepting a release; a successful build does not establish
-clinical usefulness.
+Its startup and readiness probes use `/ready` to load the model and parser
+assets before serving requests. The liveness probe checks `/health` after
+startup completes. Each Proxmox model pod requests 500m CPU and 2304 MiB
+memory and has limits of 1200m CPU and 3 GiB memory. Review model outputs with
+representative inputs before accepting a release; a successful build does not
+establish clinical usefulness.
 
 ## Secrets
 
@@ -94,8 +96,8 @@ Each ExternalSecret should report `Ready=True` before its workload starts.
 
 Application CI builds and scans immutable images for AMD64 and ARM64. A
 successful merge into `develop` updates the dev digest. A merge into `main`
-updates the production frontend or backend digest. Model production releases
-use the separate promotion step above. The GitHub App opens a GitOps pull
+updates the production digest, using the classifier approved in the production
+release file for the model service. The GitHub App opens a GitOps pull
 request and merges it only after the GitOps validation and secret scan pass.
 If a check fails or a newer source revision replaces the build, inspect the
 workflow and the open pull request. Argo CD syncs the merged digest.

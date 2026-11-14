@@ -29,7 +29,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ai
-          image: ghcr.io/disease-prediction-aset26/disease-prediction-ai-runtime@sha256:60c3df4a2ac8698c7c1aa9c543622af03de7786b677e19f90e25afc462f7ce3b
+          image: ghcr.io/disease-prediction-aset26/disease-prediction-ai-runtime@sha256:0b34c3465bb05918358f3842064e12d4144bc3b46f1ca01593deffb431040c91
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -46,17 +46,17 @@ spec:
               value: "2"
           startupProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: http
             periodSeconds: 5
-            timeoutSeconds: 3
+            timeoutSeconds: 30
             failureThreshold: 24
           livenessProbe:
             httpGet:
               path: /health
               port: http
             periodSeconds: 20
-            timeoutSeconds: 3
+            timeoutSeconds: 10
             failureThreshold: 3
           readinessProbe:
             httpGet:
