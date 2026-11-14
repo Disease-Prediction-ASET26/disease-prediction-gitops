@@ -72,7 +72,7 @@ spec:
       initContainers:
         - name: migrate
           image: ghcr.io/teamhanko/hanko:v3.1.0@sha256:80ea5d67937cb3674bdde157365c57ff04420d5337f1277232d47e858613b19c
-          command: [hanko, --config, /config/config.yaml, migrate, up]
+          command: [/hanko, --config, /config/config.yaml, migrate, up]
           env: &hankoEnv
             - name: DATABASE_URL
               valueFrom:
@@ -109,7 +109,7 @@ spec:
       containers:
         - name: hanko
           image: ghcr.io/teamhanko/hanko:v3.1.0@sha256:80ea5d67937cb3674bdde157365c57ff04420d5337f1277232d47e858613b19c
-          command: [hanko, --config, /config/config.yaml, serve, all]
+          command: [/hanko, --config, /config/config.yaml, serve, all]
           env: *hankoEnv
           ports:
             - {name: public, containerPort: 8000, protocol: TCP}
