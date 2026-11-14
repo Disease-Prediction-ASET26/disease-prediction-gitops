@@ -5,3 +5,5 @@ resources:
   - development.yaml
   - production.yaml
   - networkpolicy.yaml
+  - backup.yaml
+  - backup-ingress.yaml
