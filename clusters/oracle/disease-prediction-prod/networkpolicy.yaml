@@ -31,13 +31,6 @@ spec:
         - protocol: TCP
           port: 8080
     - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: ai
-      ports:
-        - protocol: TCP
-          port: 8000
-    - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: tailscale

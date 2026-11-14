@@ -210,9 +210,8 @@ The removal playbook leaves the Oracle Linux SSH crypto policy and the K3s
 ## Connect selected Kubernetes services
 
 The Proxmox and Oracle K3s clusters use overlapping Pod and Service CIDRs.
-Keep them as they are. Tailscale Services expose the PostgreSQL primary and
-Proxmox Prometheus to Oracle. The staged dev and production model services
-will use the same private path. Tailscale also exposes Oracle kube-state-metrics
+Keep them as they are. Tailscale Services expose the PostgreSQL primary,
+both model services, and Proxmox Prometheus to Oracle. Tailscale also exposes Oracle kube-state-metrics
 and node-exporter to Proxmox Prometheus. The Oracle Prometheus Agent sends selected
 kubelet metrics to Proxmox Prometheus through the same TCP/9090 path used by
 Grafana. The PostgreSQL exporter stays inside the Proxmox cluster. This setup
@@ -221,9 +220,8 @@ ranges do not need to change. Other cluster services stay private.
 
 Proxmox runs one ingress and one egress ProxyGroup. Oracle runs one ingress
 and two egress groups, with separate identities for production and dev. Each
-group has one replica. Proxmox ingress serves PostgreSQL and Prometheus, and
-will serve the model services when activated. Oracle ingress serves the two
-metrics endpoints.
+group has one replica. Proxmox ingress serves PostgreSQL, Prometheus, and the
+model services. Oracle ingress serves the two metrics endpoints.
 Tailscale encrypts traffic between the proxies. The database connection also
 uses PostgreSQL TLS with certificate verification. Single replicas keep
 resource use low, but a proxy outage interrupts its connections. Each proxy
@@ -399,9 +397,10 @@ policy and both Secrets are ready, merge the change. Argo CD installs the
 operator and its ProxyGroups in each cluster. The operator requires privileged
 pod access, so its pods are isolated in a dedicated namespace with the
 privileged Pod Security level. Namespace policies allow Proxmox ingress in
-`postgres` and `monitoring`, and Proxmox egress only in `monitoring`. Oracle
-allows egress in `disease-prediction` and `monitoring`, plus ingress in
-`monitoring` and the privileged `node-exporter` namespace.
+`postgres`, `monitoring`, and both model namespaces, and Proxmox egress only
+in `monitoring`. Oracle allows egress in both application namespaces and
+`monitoring`, plus ingress in `monitoring` and the privileged `node-exporter`
+namespace.
 
 Oracle workloads connect to
 `proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Oracle Grafana
@@ -418,11 +417,13 @@ needs a separate design and bounded retention.
 Argo CD ignores only the operator-managed external name and finalizer on the
 two Proxmox metric mirrors.
 
-The Oracle proxy group has a shared tailnet identity, so tailnet policy cannot
-distinguish individual pods behind it. PostgreSQL still requires its database
+Each Oracle egress proxy group has a shared tailnet identity, so tailnet policy
+cannot distinguish individual pods behind it. Application NetworkPolicies
+limit the frontend and backend to their environment's proxy, DNS, and local
+backend traffic. PostgreSQL also requires its environment's database
 credentials and a trusted TLS certificate. Before running untrusted workloads
-in the Oracle application or monitoring namespaces, add Kubernetes
-NetworkPolicies that restrict which pods can use these egress Services.
+in the application or monitoring namespaces, add NetworkPolicies that restrict
+their access to egress Services.
 
 After sync, inspect status without displaying Secret values:
 
@@ -451,18 +452,28 @@ Check Oracle's two targets with
 ### Egress proxy misses a newly advertised service
 
 The pinned Tailscale proxy version `1.104.4` may not retry an egress target if
-its Tailscale Service was not advertised during the first lookup. If the Oracle
-Services report `TailscaleIngressSvcConfigured=True` but Proxmox Prometheus
-still gets `connection refused`, restart the Proxmox egress proxy to reload
-the service addresses:
+its Tailscale Service was not advertised during the first lookup. Check that
+the target Service reports `TailscaleIngressSvcConfigured=True`. If the egress
+connection is still refused, change an extra ConfigMap key to trigger a proxy
+resync without restarting the pod. For the Oracle dev proxy, run:
 
 ```bash
-kubectl --context proxmox-k3s -n tailscale delete pod egress-proxies-0
-kubectl --context proxmox-k3s -n tailscale wait --for=condition=Ready pod/egress-proxies-0 --timeout=180s
+kubectl --context oracle-k3s -n tailscale patch configmap egress-proxies-egress-config \
+  --type=merge -p '{"data":{"resync-request":"target-ready"}}'
+kubectl --context oracle-k3s -n tailscale logs egress-proxies-0 --since=2m
 ```
 
-This briefly interrupts traffic through that ProxyGroup. The upstream issue is
-[Tailscale #21426](https://github.com/tailscale/tailscale/issues/21426).
+Wait for the proxy log to show the target's rules were added, then retry the
+connection. Remove the temporary key afterward:
+
+```bash
+kubectl --context oracle-k3s -n tailscale patch configmap egress-proxies-egress-config \
+  --type=merge -p '{"data":{"resync-request":null}}'
+```
+
+For production, use `egress-prod-egress-config` and `egress-prod-0`. For
+Proxmox metrics egress, use the Proxmox context and `egress-proxies`. See
+[Tailscale issue 21426](https://github.com/tailscale/tailscale/issues/21426).
 
 To remove this connectivity, first remove the Oracle egress mirrors and
 metrics exporters and Tailscale Services, Proxmox's Oracle scrape jobs and

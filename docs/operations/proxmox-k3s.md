@@ -2,15 +2,16 @@
 
 This guide manages the existing isolated Ubuntu VM. It does not change Proxmox,
 pfSense, or guest networking. The node is an independent single-server K3s
-cluster with SQLite. It does not join Oracle or deploy applications.
+cluster with SQLite. It does not join the Oracle cluster.
 
 The VM uses `192.168.30.10/24` and gateway `192.168.30.1`. K3s uses the
 inventory's pinned release, Secret encryption, and the default Flannel,
 CoreDNS, Traefik, ServiceLB, local-path provisioner, and metrics-server.
-The local Argo CD root manages Vault, External Secrets Operator, and one
-PostgreSQL instance. It does not join Oracle or deploy application workloads.
+The local Argo CD root manages the dev and production model workloads, Vault,
+External Secrets Operator, and one PostgreSQL instance.
 See the [Proxmox data services runbook](proxmox-data-services.md) for database,
-Vault, and secret operations. Local-path volumes use the VM disk. Check CPU,
+Vault, and secret operations, and the [application guide](disease-prediction.md)
+for the model workloads. Local-path volumes use the VM disk. Check CPU,
 RAM, disk, DNS and outbound HTTPS against the
 [K3s requirements](https://docs.k3s.io/installation/requirements).
 
@@ -253,9 +254,9 @@ and [K3s issue 13625](https://github.com/k3s-io/k3s/issues/13625).
 ## Optional Argo CD bootstrap
 
 After the node is healthy and this change is merged to `main`, install Argo CD
-only if the VM has capacity. Its local root tracks `clusters/proxmox`, not
-Oracle. No application workloads or public routes are included. The local
-admin account is disabled; use `argocd --core` with Kubernetes credentials.
+only if the VM has capacity. Its local root tracks `clusters/proxmox`. The
+model services use private Tailscale routes. The local admin account is
+disabled; use `argocd --core` with Kubernetes credentials.
 
 For direct API access, first add `tcp:6443` to the narrow Tailscale grant.
 The commands below copy cluster-admin credentials to a private local file.

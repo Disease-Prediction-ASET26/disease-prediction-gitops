@@ -48,7 +48,7 @@ Use separate names for each environment:
 | Environment | Hostname | Status |
 |---|---|---|
 | Dev | `dev.pocket-doc.app` | Active route protected by Authelia ForwardAuth. |
-| Production | `health.pocket-doc.app` | Reserved; the staged route uses Authelia ForwardAuth when activated. |
+| Production | `health.pocket-doc.app` | Active route protected by Authelia ForwardAuth. |
 
 Both names use the `pocket-doc.app` zone. Keep the backend and AI Services
 private, and send browser traffic only to the frontend. Protect both routes with

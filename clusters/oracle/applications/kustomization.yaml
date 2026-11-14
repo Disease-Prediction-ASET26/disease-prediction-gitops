@@ -7,6 +7,7 @@ resources:
   - authelia.yaml
   - cloudflared.yaml
   - disease-prediction-quota.yaml
+  - disease-prediction-prod.yaml
   - disease-prediction.yaml
   - eso-prod-controller.yaml
   - eso-argocd-oidc-controller.yaml
