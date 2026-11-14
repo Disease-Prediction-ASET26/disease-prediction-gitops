@@ -20,7 +20,7 @@ Workstation setup below applies to both clusters.
 | Operate the Disease Prediction dev and production workloads | [Disease Prediction](disease-prediction.md) |
 | Manage local PostgreSQL, cross-cluster access, and Vault secrets | [Proxmox data services](proxmox-data-services.md) |
 | Manage infrastructure login and passkeys | [Authelia](authelia.md) |
-| Manage application authentication | [Hanko](hanko.md) |
+| Integrate or operate app authentication | [Hanko](hanko.md) |
 | View cluster metrics and Grafana dashboards | [Observability](observability.md) |
 | Check or change host log retention | [Log retention](log-retention.md) |
 | Recover the single-node cluster | [Recovery](recovery.md) |

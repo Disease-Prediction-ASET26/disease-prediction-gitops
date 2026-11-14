@@ -1,29 +1,160 @@
 # Hanko application authentication
 
-Hanko is prepared for the Disease Prediction app. Authelia continues to protect
-infrastructure services. The app routes and their proxied APIs are public and
-the app does not yet use Hanko. Both Hanko instances have public registration
-disabled; enable it only when the app and the checks below are ready.
+Hanko is prepared for the Disease Prediction app. Use this guide to integrate
+app login and operate the service.
 
-## Endpoints and isolation
+## Handoff for the app team
 
-| Environment | Public API and token issuer | Token audience | Browser origin |
-|---|---|---|---|
-| Dev | `https://identity-dev.pocket-doc.app` | `pocket-doc-dev` | `https://dev.pocket-doc.app` |
-| Production | `https://identity.pocket-doc.app` | `pocket-doc-prod` | `https://health.pocket-doc.app` |
+The app does not use Hanko yet. Both app routes and their proxied APIs are
+public. Registration is disabled in both Hanko instances. Google is configured,
+but a complete Google sign-in has not been tested.
 
-Hanko's public JSON Web Key Set (JWKS) is at `/.well-known/jwks.json`. The
-browser origin is also the WebAuthn relying party. Dev CORS also allows
-`http://localhost:5173` for local Vite development. Passkeys require the
-configured dev origin; localhost is not a valid origin for that relying party.
-Google is configured with a separate OAuth client for each instance. The Google
-callback is `https://identity-dev.pocket-doc.app/thirdparty/callback` for dev
-and `https://identity.pocket-doc.app/thirdparty/callback` for production. The
-success and error redirects currently point to the matching app origin; dev
-also allows `http://localhost:5173` as a success redirect. When the app team
-chooses its login page, update the redirect URLs to match. Automatic linking to
-an existing account is disabled. Google login still needs an end-to-end test.
-Do not put client secrets in Git.
+### How login will work
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant App as React frontend
+  participant Hanko as Hanko
+  participant Google
+  participant API as Spring Boot API
+
+  User->>App: Select sign in
+  App->>Hanko: Start login
+  Hanko-->>App: Return Google login URL
+  App->>Google: Redirect browser to Google
+  Google-->>App: Redirect browser to Hanko callback
+  App->>Hanko: Complete callback
+  Hanko-->>App: Complete login and issue session
+  App->>API: Request with session credential
+  API->>Hanko: Validate session or get signing keys
+  API-->>App: Allow or deny request
+```
+
+The session credential path is not implemented. The frontend and API teams
+must choose and implement it together.
+
+### Values for each environment
+
+| Value | Dev | Production |
+|---|---|---|
+| App origin | `https://dev.pocket-doc.app` | `https://health.pocket-doc.app` |
+| Hanko public API and token issuer | `https://identity-dev.pocket-doc.app` | `https://identity.pocket-doc.app` |
+| JSON Web Key Set (JWKS) | `https://identity-dev.pocket-doc.app/.well-known/jwks.json` | `https://identity.pocket-doc.app/.well-known/jwks.json` |
+| Token audience | `pocket-doc-dev` | `pocket-doc-prod` |
+| Hanko API inside Oracle K3s | `http://hanko-dev.auth-system.svc.cluster.local:8000` | `http://hanko-prod.auth-system.svc.cluster.local:8000` |
+| Google callback | `https://identity-dev.pocket-doc.app/thirdparty/callback` | `https://identity.pocket-doc.app/thirdparty/callback` |
+
+Use the values from the same column together. The public URLs and audience are
+not secrets. The Google client secret stays in OCI Vault and Hanko; the app
+does not need it. Cluster URLs are for the matching backend pod only. They use
+HTTP inside the cluster and rely on the cluster network boundary.
+
+### Frontend: React and Vite
+
+1. In the frontend repository, install Hanko Elements and use the matching
+   public Hanko API URL. Follow the [Hanko React guide](https://docs.hanko.io/quickstarts/frontend/react)
+   for component registration, session events, and logout. The project already
+   uses React Router.
+2. Add a login page with the Hanko authentication component. Handle successful
+   login, errors, expired sessions, and logout. Google is a Hanko provider; the
+   frontend must not receive the Google client secret.
+3. Agree with the backend team on how API requests carry a session. Implement
+   and test the chosen approach before treating any frontend route as protected.
+4. Pass the Hanko API URL into the Vite build for each environment. The current
+   frontend build does not yet define a Hanko environment variable; add one to
+   the frontend build and deployment workflow.
+
+Run this command in the frontend repository when starting the integration:
+
+```bash
+npm install @teamhanko/hanko-elements
+```
+
+For example, the team can introduce `VITE_HANKO_API_URL` and set it to
+`https://identity-dev.pocket-doc.app` for dev. Vite embeds `VITE_` values in
+the browser bundle at build time. Update the image build arguments and CI for
+both environments; do not put secrets in these values.
+
+Dev Hanko allows `https://dev.pocket-doc.app` and `http://localhost:5173` as
+browser origins. Passkeys require `https://dev.pocket-doc.app`; localhost is not
+configured as a WebAuthn origin. Production only allows
+`https://health.pocket-doc.app`. Ask DevOps to update the allowed origins and
+Google success/error redirects when the team chooses a different login URL.
+Current Google redirects point to the app origins; dev also allows localhost as
+a success redirect.
+
+### Session handoff: agree before implementation
+
+Hanko issues a session JSON Web Token (JWT) that expires after 15 minutes. Its
+cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, and host-only: the browser will not send an
+identity-host cookie to the app hostname or its `/api/` proxy. Hanko is also
+configured to return `X-Auth-Token` after authentication. This does not by
+itself connect the session to the API.
+
+The teams must choose and review how a session reaches the backend, including
+Google redirect completion, page reload, expiry, logout, token storage, and
+cross-site request forgery (CSRF) protection where cookies are used. For a
+bearer-token design, send the token in `Authorization: Bearer <token>` and
+verify the complete token lifecycle; do not put tokens in URLs or logs. Check
+browser cookie restrictions for local development. No session transport has
+been implemented or verified in the app.
+
+### Backend: Java and Spring Boot
+
+1. Protect the API on the server. Frontend route checks alone do not protect
+   `/api/assessments` or user data. Update the OpenAPI contract in
+   `src/main/resources/openapi/` when the API's authentication requirements or
+   responses change.
+2. If using JWT validation, configure the matching JWKS, issuer, and audience
+   from the table above. Check the signature, allowed signing algorithm,
+   expiry, issuer, and audience. Hanko does not expose OpenID Connect discovery;
+   provide the JWKS URL explicitly. The backend does not have Spring Security
+   or this validation configured today.
+3. Use the verified `sub` claim as the Hanko user identifier. Map it to the
+   app's own patient records and check access for each request. Do not trust a
+   `patientId` supplied by the browser as proof of ownership.
+4. Decide whether logout and revocation must take effect immediately. Offline
+   JWT validation alone can accept a revoked token until it expires. For an
+   immediate check, send `POST /sessions/validate` to the matching Hanko API
+   with JSON `{"session_token": "<token>"}`. Check `is_valid` and deny access
+   when validation fails or is unavailable. Never log session tokens.
+
+For a bearer-token design, Spring Boot's resource server can validate JWTs.
+The following is a **dev example to add during implementation**; it does not
+configure endpoint rules, transport, or session revocation:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://identity-dev.pocket-doc.app
+          jwk-set-uri: https://identity-dev.pocket-doc.app/.well-known/jwks.json
+          audiences:
+            - pocket-doc-dev
+```
+
+Add the required Spring Security resource-server dependencies and security
+rules. Use the production values for production. See [Spring Boot resource
+server configuration](https://docs.spring.io/spring-boot/reference/security/oauth2.html)
+and [Spring Security JWT validation](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html).
+
+### Before enabling registration
+
+1. Implement and review the frontend session flow and backend authorization.
+2. Configure production email delivery and complete Google's production
+   requirements. Test Google sign-in with an authorized account. Signup and
+   automatic account linking are disabled, so use a suitable existing linked
+   test account or an isolated test instance with signup enabled.
+3. Test login, logout, expired and revoked sessions, invalid issuer and
+   audience, cross-environment tokens, and access to another user's data.
+   Check rate limits under expected traffic.
+4. After those checks, DevOps can enable `account.allow_signup` for the intended
+   environment through GitOps. Keep Argo CD and Grafana protected by Authelia.
+
+## Service operation
 
 The instances use separate databases, database roles, signing-key encryption
 keys, origins, and token audiences. One PostgreSQL 18 server in `auth-system`
@@ -129,32 +260,6 @@ curl --fail https://identity.pocket-doc.app/health/ready
 curl --fail https://identity.pocket-doc.app/.well-known/jwks.json
 ```
 
-## Integration handoff
-
-The frontend team can use Hanko Elements against the matching public API. Use
-only the allowed browser origin for that environment. The backend must verify
-the JWT signature against that environment's JWKS and check issuer, audience,
-expiry, and authorization for the requested user data. Hanko is not an OpenID
-Connect discovery provider; configure its JWKS URL explicitly. The backend can
-reach its matching `hanko-dev` or `hanko-prod` ClusterIP on port 8000; this
-internal connection is HTTP and relies on the cluster network boundary.
-
-A revoked but unexpired JWT can pass offline signature verification. For
-immediate revocation, also call Hanko's session validation endpoint and inspect
-`is_valid`, or implement another reviewed revocation method. Current tokens
-expire after 15 minutes. Decide the cookie, CSRF, and token storage design with
-the app team before using the service.
-
-To activate login, add the app login and API enforcement, configure production
-SMTP, complete Google's production requirements, check rate limits under
-expected traffic, and run end-to-end security tests. Change `account.allow_signup` only
-after those checks. Keep infrastructure routes protected by Authelia.
-
-Google client credentials are loaded from environment variables at startup.
-After rotating a client in OCI Vault, wait for its ExternalSecret to become
-ready and restart the matching Hanko Deployment. Check the rollout and test
-Google login. Keep the old Google client valid until the new one is working.
-
 ## Backup and restore
 
 The `hanko-backup` CronJob runs daily at 02:17 UTC. It connects to both
@@ -206,8 +311,9 @@ itself.
 
 Make configuration changes in `clusters/oracle/auth/hanko`, preview and merge
 through a pull request, then check Argo CD and both services. ConfigMap and
-Secret changes do not automatically restart pods; roll out the affected
-Deployment after updating its configuration or credentials.
+Secret changes do not automatically restart pods. After the ExternalSecret is
+ready, restart the affected Hanko Deployment and check the rollout. When
+rotating a Google client, keep the old client valid until the new one works.
 
 Before deleting data, verify an off-node backup can be restored with its
 matching Vault keys. Remove the Hanko Application and resources in a reviewed
