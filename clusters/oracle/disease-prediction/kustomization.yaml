@@ -5,3 +5,4 @@ resources:
   - deployments.yaml
   - services.yaml
   - httproute.yaml
+  - networkpolicy.yaml
