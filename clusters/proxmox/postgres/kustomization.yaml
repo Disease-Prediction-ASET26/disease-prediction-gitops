@@ -3,3 +3,7 @@ kind: Kustomization
 resources:
   - cluster.yaml
   - role.yaml
+  - dev-role.yaml
+  - dev-database.yaml
+  - production-role.yaml
+  - production-database.yaml

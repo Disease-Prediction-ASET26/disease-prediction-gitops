@@ -4,3 +4,5 @@ resources:
   - service-account.yaml
   - secret-store.yaml
   - postgres-credentials.yaml
+  - dev-credentials.yaml
+  - production-credentials.yaml

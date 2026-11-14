@@ -1,0 +1,12 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: disease-prediction-production
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  name: disease_prediction_prod
+  owner: disease_prediction_prod
+  ensure: present
+  databaseReclaimPolicy: retain
