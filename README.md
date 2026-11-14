@@ -13,7 +13,8 @@ repositories.
 - Use Tailscale for private SSH and Kubernetes API access. Neither cluster's
   Kubernetes API is public.
 - On Oracle, Cloudflare Tunnel and Traefik carry approved public routes.
-  Authelia protects the dev and production product routes.
+  Authelia protects Argo CD and Grafana. The app routes are public; the app
+  does not yet use Hanko.
 - Never commit credentials, kubeconfigs, or unencrypted Kubernetes Secrets.
 
 ## Start here
@@ -27,6 +28,8 @@ repositories.
   manage local PostgreSQL, Vault, and cross-cluster access.
 - [Disease Prediction operations](docs/operations/disease-prediction.md):
   deploy and check the two application environments.
+- [Hanko authentication](docs/operations/hanko.md): integrate app login and
+  operate the identity service.
 - [DevOps overview](https://github.com/Disease-Prediction-ASET26/disease-prediction-docs/blob/main/devops/README.md):
   see cross-repository ownership, access, and traffic flows.
 
