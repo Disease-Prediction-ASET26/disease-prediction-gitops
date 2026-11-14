@@ -98,6 +98,17 @@ kubectl --context oracle-k3s -n auth-system logs pod/hanko-smtp-check
 kubectl --context oracle-k3s delete -f tests/hanko/smtp-check.yaml
 ```
 
+To check that each app namespace reaches only its own Hanko service, run:
+
+```bash
+kubectl --context oracle-k3s apply -f tests/hanko/network-check.yaml
+kubectl --context oracle-k3s -n disease-prediction wait --for=jsonpath='{.status.phase}'=Succeeded pod/hanko-network-check --timeout=90s
+kubectl --context oracle-k3s -n disease-prediction-prod wait --for=jsonpath='{.status.phase}'=Succeeded pod/hanko-network-check --timeout=90s
+kubectl --context oracle-k3s -n disease-prediction logs pod/hanko-network-check
+kubectl --context oracle-k3s -n disease-prediction-prod logs pod/hanko-network-check
+kubectl --context oracle-k3s delete -f tests/hanko/network-check.yaml
+```
+
 The ExternalSecrets and deployments must be ready. Check that both HTTPRoutes
 have `Accepted=True` and `ResolvedRefs=True`, then check their health and keys:
 
