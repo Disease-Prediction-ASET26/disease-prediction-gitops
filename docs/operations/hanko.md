@@ -26,7 +26,7 @@ serves both databases on a 2 GiB `local-path` volume. PostgreSQL requires TLS;
 Hanko verifies the database certificate and hostname. This is one database
 server on one Oracle node, without automatic failover. A daily CronJob dumps
 both databases to a private OCI Object Storage bucket. OCI encrypts objects at
-rest and removes them after 30 days. Retain the matching Vault encryption keys;
+rest and removes them after seven days. Retain the matching Vault encryption keys;
 losing them prevents Hanko from using its stored signing keys. See
 [Backup and restore](#backup-and-restore).
 
@@ -150,7 +150,7 @@ the app's own authentication is ready; leave infrastructure routes protected.
 The `hanko-backup` CronJob runs daily at 02:17 UTC. It connects to both
 databases with their respective roles and verified PostgreSQL TLS. OCI Object Storage encrypts the backups at
 rest. The private `disease-prediction-hanko-backups` bucket expires objects
-after 30 days. It shares the tenancy's 20 GB Object Storage quota with the
+after seven days. It shares the tenancy's 20 GB Object Storage quota with the
 Terraform state bucket; monitor usage. The temporary dump uses up to 3 GiB on
 the Oracle node. The upload process removes the dump files, and finished job
 pods are deleted after one hour.
