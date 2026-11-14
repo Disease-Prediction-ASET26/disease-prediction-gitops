@@ -1,0 +1,14 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: "0 9 * * MON%2"
+      timezone: Europe/Bucharest
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: "0 9 * * MON%2"
+      timezone: Europe/Bucharest
