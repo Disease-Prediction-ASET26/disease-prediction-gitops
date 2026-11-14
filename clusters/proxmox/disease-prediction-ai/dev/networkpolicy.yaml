@@ -7,7 +7,7 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: ai
-  policyTypes: [Ingress]
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - namespaceSelector:
@@ -19,3 +19,4 @@ spec:
       ports:
         - protocol: TCP
           port: 8000
+  egress: []
