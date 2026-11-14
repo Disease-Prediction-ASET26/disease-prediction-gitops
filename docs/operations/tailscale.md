@@ -211,10 +211,11 @@ The removal playbook leaves the Oracle Linux SSH crypto policy and the K3s
 
 The Proxmox and Oracle K3s clusters use overlapping Pod and Service CIDRs.
 Keep them as they are. Tailscale Services expose the PostgreSQL primary,
-both model services, and Proxmox Prometheus to Oracle. Tailscale also exposes Oracle kube-state-metrics
-and node-exporter to Proxmox Prometheus. The Oracle Prometheus Agent sends selected
-kubelet metrics to Proxmox Prometheus through the same TCP/9090 path used by
-Grafana. The PostgreSQL exporter stays inside the Proxmox cluster. This setup
+both model services, and Proxmox Prometheus to Oracle. Tailscale also exposes
+Oracle kube-state-metrics and node-exporter to Proxmox Prometheus. The Oracle
+Prometheus Agent sends selected kubelet metrics to Proxmox Prometheus through
+the same TCP/9090 path used by Grafana. The PostgreSQL exporter stays inside the
+Proxmox cluster. This setup
 does not route either cluster's Pod or Service subnet, so the overlapping
 ranges do not need to change. Other cluster services stay private.
 
@@ -229,14 +230,23 @@ requests 25m CPU and 64 MiB memory, with limits of 250m CPU and 256 MiB memory.
 The Proxmox forwarding init container requests 10m CPU and 16 MiB memory, with
 limits of 100m CPU and 64 MiB memory.
 
-The production egress proxy adds 25m CPU and 64 MiB memory requests. The two
-Oracle exporters and Oracle ingress proxy add 75m CPU and 128 MiB
-memory requests. The Oracle Prometheus Agent requests 25m CPU and 64 MiB memory,
-with limits of 100m CPU and 128 MiB. The Proxmox egress proxy adds 25m CPU and
-64 MiB. Together, the bridge requests 125m CPU and 256 MiB memory, with limits
-totaling 800m CPU and 768 MiB memory. The Agent has no persistent volume; its
-128 MiB temporary WAL buffers failed remote writes for up to two hours. Oracle
-metrics use Proxmox's existing seven-day, 8 GiB Prometheus retention limit.
+The Oracle Prometheus Agent requests 25m CPU and 64 MiB memory, with limits of
+100m CPU and 128 MiB. The Agent has no persistent volume; its 128 MiB temporary
+WAL buffers failed remote writes for up to two hours. Oracle metrics use
+Proxmox's existing seven-day, 8 GiB Prometheus retention limit.
+
+To check whether the dev proxy uses a direct connection or a relay, run:
+
+```bash
+PROXMOX_PROXY_IP="$(kubectl --context proxmox-k3s -n tailscale get proxygroup ingress-proxies \
+  -o jsonpath='{.status.devices[0].tailnetIPs[0]}')"
+kubectl --context oracle-k3s -n tailscale exec egress-proxies-0 -c tailscale -- \
+  tailscale ping --c 3 --timeout 4s "$PROXMOX_PROXY_IP"
+```
+
+Use `egress-prod-0` to check production. A DERP relay remains encrypted but can
+add latency; the command reports when a direct connection was not established.
+See [Tailscale connection types](https://tailscale.com/docs/reference/connection-types).
 
 Before merging the GitOps change, add these tag owners to the existing tailnet
 policy. Keep its current `tag:oracle-k3s` entries and access rules:
