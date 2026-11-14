@@ -13,6 +13,7 @@ data:
     import sys
     import urllib.parse
 
+    exit_code = 0
     try:
         base = urllib.parse.urlsplit(os.environ['UPLOAD_URL'])
         if base.scheme != 'https' or not base.hostname or base.query or base.fragment:
@@ -35,7 +36,17 @@ data:
             print(name + ' backup uploaded', flush=True)
     except Exception as exc:
         print('Backup upload failed:', type(exc).__name__, flush=True)
-        sys.exit(1)
+        exit_code = 1
+    finally:
+        for name in ('dev', 'prod'):
+            try:
+                (pathlib.Path('/backup') / (name + '.dump')).unlink(missing_ok=True)
+            except OSError:
+                print('Could not remove temporary backup', flush=True)
+                exit_code = 1
+    if exit_code == 0:
+        print('Temporary backups removed', flush=True)
+    sys.exit(exit_code)
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -56,6 +67,7 @@ spec:
     spec:
       backoffLimit: 2
       activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 3600
       template:
         metadata:
           labels:
@@ -126,7 +138,7 @@ spec:
                 readOnlyRootFilesystem: true
                 capabilities: {drop: [ALL]}
               volumeMounts:
-                - {name: backup, mountPath: /backup, readOnly: true}
+                - {name: backup, mountPath: /backup}
                 - {name: scripts, mountPath: /scripts, readOnly: true}
           volumes:
             - name: backup

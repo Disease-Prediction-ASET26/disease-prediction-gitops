@@ -152,7 +152,8 @@ databases with their respective roles and verified PostgreSQL TLS. OCI Object St
 rest. The private `disease-prediction-hanko-backups` bucket expires objects
 after 30 days. It shares the tenancy's 20 GB Object Storage quota with the
 Terraform state bucket; monitor usage. The temporary dump uses up to 3 GiB on
-the Oracle node and is deleted with the job pod.
+the Oracle node. The upload process removes the dump files, and finished job
+pods are deleted after one hour.
 
 The upload URL is a write-only preauthenticated request for the `hanko/`
 prefix. It cannot list or read backups. It expires on 14 November 2027. Before
