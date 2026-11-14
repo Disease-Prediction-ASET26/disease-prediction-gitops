@@ -46,17 +46,17 @@ spec:
               value: "2"
           startupProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: http
             periodSeconds: 5
-            timeoutSeconds: 3
+            timeoutSeconds: 30
             failureThreshold: 24
           livenessProbe:
             httpGet:
               path: /health
               port: http
             periodSeconds: 20
-            timeoutSeconds: 3
+            timeoutSeconds: 10
             failureThreshold: 3
           readinessProbe:
             httpGet:

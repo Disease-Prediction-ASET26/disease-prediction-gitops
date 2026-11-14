@@ -53,11 +53,12 @@ The release workflow builds and checks native AMD64 and ARM64 images. It
 includes the trained classifier and the pinned ClinicalBERT and MiniLM assets.
 The runtime runs offline and does not download weights or use a model cache at
 startup. A network policy denies outgoing connections from the model pods.
-Its `/ready` probe loads the model and parser assets before serving
-requests. Each Proxmox model pod requests 500m CPU and 2304 MiB memory and has
-limits of 1200m CPU and 3 GiB memory. Review model outputs with representative
-inputs before accepting a release; a successful build does not establish
-clinical usefulness.
+Its startup and readiness probes use `/ready` to load the model and parser
+assets before serving requests. The liveness probe checks `/health` after
+startup completes. Each Proxmox model pod requests 500m CPU and 2304 MiB
+memory and has limits of 1200m CPU and 3 GiB memory. Review model outputs with
+representative inputs before accepting a release; a successful build does not
+establish clinical usefulness.
 
 ## Secrets
 
