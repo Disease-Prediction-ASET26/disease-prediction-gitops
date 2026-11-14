@@ -6,3 +6,9 @@ resources:
   - authelia-core-secrets.yaml
   - authelia-origin-tls.yaml
   - authelia-smtp.yaml
+  - hanko-postgres.yaml
+  - hanko-dev.yaml
+  - hanko-prod.yaml
+  - hanko-smtp.yaml
+  - hanko-postgres-tls.yaml
+  - hanko-postgres-ca.yaml

@@ -1,0 +1,26 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: hanko-postgres
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: hanko-postgres
+    creationPolicy: Owner
+  data:
+    - secretKey: admin-password
+      remoteRef:
+        key: hanko-runtime
+        property: pg_admin_password
+    - secretKey: dev-password
+      remoteRef:
+        key: hanko-runtime
+        property: dev_db_password
+    - secretKey: prod-password
+      remoteRef:
+        key: hanko-runtime
+        property: prod_db_password

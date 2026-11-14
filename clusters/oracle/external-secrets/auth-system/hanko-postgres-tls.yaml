@@ -1,0 +1,22 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: hanko-postgres-tls
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: hanko-postgres-tls
+    creationPolicy: Owner
+  data:
+    - secretKey: server.key
+      remoteRef:
+        key: hanko-postgres-tls
+        property: server_key
+    - secretKey: server.crt
+      remoteRef:
+        key: hanko-postgres-tls
+        property: server_cert

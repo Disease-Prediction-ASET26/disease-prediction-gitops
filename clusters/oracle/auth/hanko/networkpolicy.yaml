@@ -1,0 +1,65 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hanko-postgres-ingress
+  namespace: auth-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hanko-postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [hanko-dev, hanko-prod]
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hanko-dev-ingress
+  namespace: auth-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hanko-dev
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: traefik-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: disease-prediction}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: backend}
+      ports:
+        - {protocol: TCP, port: 8000}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hanko-prod-ingress
+  namespace: auth-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: hanko-prod
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: traefik-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: disease-prediction-prod}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: backend}
+      ports:
+        - {protocol: TCP, port: 8000}

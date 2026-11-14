@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hanko-dev-config
+  namespace: auth-system
+data:
+  config.yaml: |
+    database:
+      host: hanko-postgres.auth-system.svc.cluster.local
+      port: "5432"
+      database: hanko_dev
+      user: hanko_dev
+      dialect: postgres
+      pool: 5
+    account:
+      allow_signup: false
+    service:
+      name: Pocket Doc
+    email_delivery:
+      enabled: true
+      from_name: Pocket Doc
+    cors:
+      allow_origins:
+        - https://dev.pocket-doc.app
+    webauthn:
+      relying_party:
+        id: dev.pocket-doc.app
+        display_name: Pocket Doc
+        origins:
+          - https://dev.pocket-doc.app
+    session:
+      issuer: https://identity-dev.pocket-doc.app
+      audience:
+        - pocket-doc-dev
+      lifespan: 15m
+      enable_auth_token_header: true
+      cookie:
+        secure: true
+        http_only: true
+        same_site: lax
+    rate_limiter:
+      enabled: true
+      store: in_memory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hanko-dev
+  namespace: auth-system
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: hanko-dev
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hanko-dev
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: migrate
+          image: ghcr.io/teamhanko/hanko:v3.1.0@sha256:80ea5d67937cb3674bdde157365c57ff04420d5337f1277232d47e858613b19c
+          command: [hanko, --config, /config/config.yaml, migrate, up]
+          env: &hankoEnv
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef: {name: hanko-dev, key: database-url}
+            - name: SECRETS_KEYS
+              valueFrom:
+                secretKeyRef: {name: hanko-dev, key: encryption-key}
+            - name: EMAIL_DELIVERY_SMTP_HOST
+              valueFrom:
+                secretKeyRef: {name: hanko-smtp, key: host}
+            - name: EMAIL_DELIVERY_SMTP_PORT
+              valueFrom:
+                secretKeyRef: {name: hanko-smtp, key: port}
+            - name: EMAIL_DELIVERY_SMTP_USER
+              valueFrom:
+                secretKeyRef: {name: hanko-smtp, key: username}
+            - name: EMAIL_DELIVERY_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: hanko-smtp, key: password}
+            - name: EMAIL_DELIVERY_FROM_ADDRESS
+              valueFrom:
+                secretKeyRef: {name: hanko-smtp, key: from-address}
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: postgres-ca, mountPath: /run/postgres-ca, readOnly: true}
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext: &secure
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      containers:
+        - name: hanko
+          image: ghcr.io/teamhanko/hanko:v3.1.0@sha256:80ea5d67937cb3674bdde157365c57ff04420d5337f1277232d47e858613b19c
+          command: [hanko, --config, /config/config.yaml, serve, all]
+          env: *hankoEnv
+          ports:
+            - {name: public, containerPort: 8000, protocol: TCP}
+          startupProbe:
+            httpGet: {path: /health/ready, port: public}
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: {path: /health/ready, port: public}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health/alive, port: public}
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext: *secure
+          volumeMounts:
+            - {name: config, mountPath: /config, readOnly: true}
+            - {name: postgres-ca, mountPath: /run/postgres-ca, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: hanko-dev-config}
+        - name: postgres-ca
+          secret:
+            secretName: hanko-postgres-ca
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hanko-dev
+  namespace: auth-system
+spec:
+  selector: {app.kubernetes.io/name: hanko-dev}
+  ports:
+    - {name: public, port: 8000, targetPort: public}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hanko-dev
+  namespace: auth-system
+  labels:
+    external-dns-public: "true"
+  annotations:
+    external-dns.kubernetes.io/cloudflare-proxied: "true"
+spec:
+  parentRefs:
+    - name: oracle-public
+      namespace: traefik-system
+      sectionName: web
+  hostnames:
+    - identity-dev.pocket-doc.app
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      backendRefs:
+        - {name: hanko-dev, port: 8000}

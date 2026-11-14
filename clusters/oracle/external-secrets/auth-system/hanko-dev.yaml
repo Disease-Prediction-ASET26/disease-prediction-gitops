@@ -1,0 +1,26 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: hanko-dev
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: hanko-dev
+    creationPolicy: Owner
+    template:
+      data:
+        database-url: "postgres://hanko_dev:{{ .database_password }}@hanko-postgres.auth-system.svc.cluster.local:5432/hanko_dev?sslmode=verify-full&sslrootcert=/run/postgres-ca/ca.crt"
+        encryption-key: "{{ .encryption_key }}"
+  data:
+    - secretKey: database_password
+      remoteRef:
+        key: hanko-runtime
+        property: dev_db_password
+    - secretKey: encryption_key
+      remoteRef:
+        key: hanko-runtime
+        property: dev_encryption_key

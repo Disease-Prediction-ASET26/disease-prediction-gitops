@@ -19,7 +19,8 @@ Workstation setup below applies to both clusters.
 | Sync secrets from OCI Vault | [Secrets](secrets.md) |
 | Operate the Disease Prediction dev and production workloads | [Disease Prediction](disease-prediction.md) |
 | Manage local PostgreSQL, cross-cluster access, and Vault secrets | [Proxmox data services](proxmox-data-services.md) |
-| Manage login and passkey authentication | [Authelia](authelia.md) |
+| Manage infrastructure login and passkeys | [Authelia](authelia.md) |
+| Manage application authentication | [Hanko](hanko.md) |
 | View cluster metrics and Grafana dashboards | [Observability](observability.md) |
 | Check or change host log retention | [Log retention](log-retention.md) |
 | Recover the single-node cluster | [Recovery](recovery.md) |
