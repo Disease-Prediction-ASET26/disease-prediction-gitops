@@ -1,0 +1,135 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    cronjob.kubernetes.io/instantiate: manual
+  name: hanko-backup-check
+  namespace: auth-system
+  ownerReferences:
+  - apiVersion: batch/v1
+    controller: true
+    kind: CronJob
+    name: hanko-backup
+    uid: 7d853b55-000d-4057-9499-d19636904122
+spec:
+  activeDeadlineSeconds: 600
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: hanko-backup
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - python
+        - /scripts/upload.py
+        env:
+        - name: UPLOAD_URL
+          valueFrom:
+            secretKeyRef:
+              key: url
+              name: hanko-backup-upload
+        image: python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+        imagePullPolicy: IfNotPresent
+        name: upload
+        resources:
+          limits:
+            cpu: 250m
+            memory: 128Mi
+          requests:
+            cpu: 25m
+            memory: 32Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /backup
+          name: backup
+          readOnly: true
+        - mountPath: /scripts
+          name: scripts
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: false
+      initContainers:
+      - args:
+        - |
+          set -eu
+          umask 077
+          export PGPASSWORD="$DEV_PASSWORD"
+          pg_dump -h hanko-postgres.auth-system.svc.cluster.local -U hanko_dev -d hanko_dev -Fc --no-owner --no-acl -f /backup/dev.dump
+          export PGPASSWORD="$PROD_PASSWORD"
+          pg_dump -h hanko-postgres.auth-system.svc.cluster.local -U hanko_prod -d hanko_prod -Fc --no-owner --no-acl -f /backup/prod.dump
+        command:
+        - sh
+        - -c
+        env:
+        - name: PGSSLMODE
+          value: verify-full
+        - name: PGSSLROOTCERT
+          value: /run/postgres-ca/ca.crt
+        - name: DEV_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: dev-password
+              name: hanko-postgres
+        - name: PROD_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: prod-password
+              name: hanko-postgres
+        image: postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+        imagePullPolicy: IfNotPresent
+        name: dump
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /backup
+          name: backup
+        - mountPath: /run/postgres-ca
+          name: postgres-ca
+          readOnly: true
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 70
+        runAsGroup: 70
+        runAsNonRoot: true
+        runAsUser: 70
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir:
+          sizeLimit: 3Gi
+        name: backup
+      - name: postgres-ca
+        secret:
+          defaultMode: 420
+          secretName: hanko-postgres-ca
+      - configMap:
+          defaultMode: 420
+          name: hanko-backup-script
+        name: scripts
+status: {}
