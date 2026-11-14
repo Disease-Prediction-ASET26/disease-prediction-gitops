@@ -10,6 +10,8 @@ metadata:
 spec:
   parentRefs:
     - name: oracle-public
+      kind: Gateway
+      group: gateway.networking.k8s.io
       namespace: traefik-system
       sectionName: web
   hostnames:
@@ -27,4 +29,7 @@ spec:
             name: authelia-forwardauth
       backendRefs:
         - name: frontend
+          group: ""
+          kind: Service
           port: 8080
+          weight: 1
