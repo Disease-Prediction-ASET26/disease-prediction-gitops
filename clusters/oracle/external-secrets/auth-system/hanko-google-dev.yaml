@@ -1,0 +1,22 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: hanko-google-dev
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: hanko-google-dev
+    creationPolicy: Owner
+  data:
+    - secretKey: client-id
+      remoteRef:
+        key: hanko-google-dev
+        property: web.client_id
+    - secretKey: client-secret
+      remoteRef:
+        key: hanko-google-dev
+        property: web.client_secret
