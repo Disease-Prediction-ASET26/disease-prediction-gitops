@@ -388,6 +388,19 @@ There is no public route or PgBouncer deployment. The PostgreSQL LoadBalancer
 Service uses the Tailscale load balancer class without allocating a node port.
 The cluster has one database instance and stops during node or VM downtime.
 
+When changing an existing Service to disable node port allocation, first wait
+for `allocateLoadBalancerNodePorts: false` to appear on `postgres-tailnet`.
+Kubernetes keeps any previously allocated node port until it is removed. From
+the Proxmox context, remove that existing port and check the Service:
+
+```bash
+kubectl --context proxmox-k3s -n postgres patch service postgres-tailnet \
+  --type=json -p='[{"op":"remove","path":"/spec/ports/0/nodePort"}]'
+kubectl --context proxmox-k3s -n postgres get service postgres-tailnet
+```
+
+Check both application database connections through Tailscale afterward.
+
 Oracle workloads use the mirror Service
 `proxmox-postgres.disease-prediction.svc.cluster.local:5432`. Configure
 PostgreSQL TLS with `sslmode=verify-full` and the `ca.crt` file from the
