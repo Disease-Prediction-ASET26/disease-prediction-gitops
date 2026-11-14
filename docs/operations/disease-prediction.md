@@ -10,8 +10,9 @@ one PostgreSQL instance and its availability, storage, and CPU.
 | Dev | `dev.pocket-doc.app` | `disease-prediction` | `disease-prediction-dev` | `disease_prediction_dev` |
 | Production | `health.pocket-doc.app` | `disease-prediction-prod` | `disease-prediction-prod` | `disease_prediction_prod` |
 
-Both routes use Traefik and Authelia ForwardAuth with two-factor login. Only
-the frontend has a public route. The frontend proxies `/api/` to its backend.
+Both frontend routes are public and do not require login. The frontend proxies
+`/api/` to its backend, so the API is also reachable without login. Hanko is
+prepared but the app does not yet use it; see the [Hanko guide](hanko.md).
 The backend calls its environment's model service and PostgreSQL through
 separate Tailscale egress proxies. PostgreSQL also uses TLS with hostname and
 CA verification. See the [domain and ingress guide](domain-ingress.md) for
@@ -21,9 +22,8 @@ service approvals, and access grants.
 ```mermaid
 flowchart LR
   browser[Browser] -->|HTTPS| edge[Cloudflare and Traefik]
-  edge -->|ForwardAuth| auth[Authelia]
   subgraph oracle[Oracle K3s]
-    edge -->|Authenticated request| frontend[Environment frontend]
+    edge -->|Public request| frontend[Environment frontend]
     frontend -->|API| backend[Environment backend]
     backend -->|Private service| egress[Tailscale egress proxy]
   end
@@ -136,16 +136,16 @@ kubectl --context proxmox-k3s -n disease-prediction-prod get deployments,pods,se
 kubectl --context proxmox-k3s -n postgres get cluster postgres
 ```
 
-Check that an unauthenticated browser session is redirected to Authelia for
-both hostnames. After logging in, check a synthetic free-text and checklist
-assessment. A backend returns 422 when the model cannot identify a symptom,
-503 when it cannot connect, and 502 for other upstream errors.
+Check that both hostnames load without an Authelia login. Check a synthetic
+free-text and checklist assessment. A backend returns 422 when the model
+cannot identify a symptom, 503 when it cannot connect, and 502 for other
+upstream errors.
 
 ## Roll back or remove a stack
 
 To roll back, restore the previously working immutable image digest or manifest
 in a GitOps pull request and merge it. Argo CD applies the restored version.
-Confirm the pod rollout and the protected route afterward. Never promote a
+Confirm the pod rollout and the route afterward. Never promote a
 moving image tag as a rollback.
 
 The Applications use `prune: false`. To remove a stack, first remove its

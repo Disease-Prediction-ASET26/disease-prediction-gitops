@@ -1,9 +1,9 @@
 # Hanko application authentication
 
 Hanko is prepared for the Disease Prediction app. Authelia continues to protect
-infrastructure services and the current app routes. The app does not yet use
-Hanko. Both Hanko instances have public registration disabled; enable it only
-when the app and the checks below are ready.
+infrastructure services. The app routes and their proxied APIs are public and
+the app does not yet use Hanko. Both Hanko instances have public registration
+disabled; enable it only when the app and the checks below are ready.
 
 ## Endpoints and isolation
 
@@ -142,8 +142,7 @@ the app team before using the service.
 To activate login, add the app login and API enforcement, configure production
 SMTP and Google OAuth, check the rate limits under expected traffic, and run
 end-to-end security tests. Change `account.allow_signup` only
-after those checks. Remove Authelia ForwardAuth from each app route only after
-the app's own authentication is ready; leave infrastructure routes protected.
+after those checks. Keep infrastructure routes protected by Authelia.
 
 ## Backup and restore
 

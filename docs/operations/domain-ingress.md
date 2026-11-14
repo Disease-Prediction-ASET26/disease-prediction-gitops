@@ -47,18 +47,19 @@ Use separate names for each environment:
 
 | Environment | Hostname | Status |
 |---|---|---|
-| Dev | `dev.pocket-doc.app` | Active route protected by Authelia ForwardAuth. |
-| Production | `health.pocket-doc.app` | Active route protected by Authelia ForwardAuth. |
+| Dev | `dev.pocket-doc.app` | Public route without login. |
+| Production | `health.pocket-doc.app` | Public route without login. |
 
 Both names use the `pocket-doc.app` zone. Keep the backend and AI Services
-private, and send browser traffic only to the frontend. Protect both routes with
-Authelia ForwardAuth unless the app later adds its own reviewed OIDC login.
+private, and send browser traffic only to the frontend. The frontend proxies
+`/api/` to the backend, so its API is also reachable without login.
 
 ## Choose authentication
 
 Hanko is prepared for app login with separate dev and production endpoints.
-Its registration is disabled until the app integration is ready. See the
-[Hanko guide](hanko.md). Keep ForwardAuth on the app routes until then.
+Its registration is disabled until the app integration is ready. The app does
+not yet use Hanko and its routes have no login. See the [Hanko guide](hanko.md)
+for integration and backend authorization requirements.
 
 ## Choose Authelia login
 
