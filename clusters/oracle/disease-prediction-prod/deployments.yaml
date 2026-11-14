@@ -140,7 +140,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: ghcr.io/disease-prediction-aset26/disease-prediction-fe@sha256:e47dcd4ab556caebeacdfa4779e0662884103e4b57ee94c4da3d9dbc09ea966e
+          image: ghcr.io/disease-prediction-aset26/disease-prediction-fe@sha256:16977901555cfa1503dbdd72f3e683e6e34a982c6ba2090d4896c3da5b47fcf5
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
