@@ -22,7 +22,7 @@ spec:
       command: [python, -c]
       args:
         - |
-          import socket, urllib.request
+          import socket, urllib.parse, urllib.request
           own='http://hanko-dev.auth-system.svc.cluster.local:8000/health/ready'
           other='http://hanko-prod.auth-system.svc.cluster.local:8000/health/ready'
           with urllib.request.urlopen(own, timeout=5) as response:
@@ -70,7 +70,7 @@ spec:
       command: [python, -c]
       args:
         - |
-          import socket, urllib.request
+          import socket, urllib.parse, urllib.request
           own='http://hanko-prod.auth-system.svc.cluster.local:8000/health/ready'
           other='http://hanko-dev.auth-system.svc.cluster.local:8000/health/ready'
           with urllib.request.urlopen(own, timeout=5) as response:
