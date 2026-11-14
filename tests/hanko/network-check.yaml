@@ -22,15 +22,18 @@ spec:
       command: [python, -c]
       args:
         - |
-          import urllib.request
+          import socket, urllib.parse, urllib.request
           own='http://hanko-dev.auth-system.svc.cluster.local:8000/health/ready'
           other='http://hanko-prod.auth-system.svc.cluster.local:8000/health/ready'
           with urllib.request.urlopen(own, timeout=5) as response:
               assert response.status == 200
           print('matching identity service reachable')
+          host = urllib.parse.urlparse(other).hostname
+          address = socket.gethostbyname(host)
           try:
-              urllib.request.urlopen(other, timeout=5)
-          except Exception:
+              with socket.create_connection((address, 8000), timeout=5):
+                  pass
+          except (TimeoutError, ConnectionRefusedError):
               print('other environment identity service blocked')
           else:
               raise SystemExit('other environment identity service was reachable')
@@ -67,15 +70,18 @@ spec:
       command: [python, -c]
       args:
         - |
-          import urllib.request
+          import socket, urllib.parse, urllib.request
           own='http://hanko-prod.auth-system.svc.cluster.local:8000/health/ready'
           other='http://hanko-dev.auth-system.svc.cluster.local:8000/health/ready'
           with urllib.request.urlopen(own, timeout=5) as response:
               assert response.status == 200
           print('matching identity service reachable')
+          host = urllib.parse.urlparse(other).hostname
+          address = socket.gethostbyname(host)
           try:
-              urllib.request.urlopen(other, timeout=5)
-          except Exception:
+              with socket.create_connection((address, 8000), timeout=5):
+                  pass
+          except (TimeoutError, ConnectionRefusedError):
               print('other environment identity service blocked')
           else:
               raise SystemExit('other environment identity service was reachable')

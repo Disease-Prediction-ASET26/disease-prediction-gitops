@@ -159,6 +159,8 @@ metadata:
 spec:
   parentRefs:
     - name: oracle-public
+      group: gateway.networking.k8s.io
+      kind: Gateway
       namespace: traefik-system
       sectionName: web
   hostnames:
@@ -167,4 +169,8 @@ spec:
     - matches:
         - path: {type: PathPrefix, value: /}
       backendRefs:
-        - {name: hanko-prod, port: 8000}
+        - name: hanko-prod
+          group: ""
+          kind: Service
+          port: 8000
+          weight: 1
