@@ -9,6 +9,8 @@ resources:
   - hanko-postgres.yaml
   - hanko-dev.yaml
   - hanko-prod.yaml
+  - hanko-google-dev.yaml
+  - hanko-google-prod.yaml
   - hanko-smtp.yaml
   - hanko-postgres-tls.yaml
   - hanko-postgres-ca.yaml

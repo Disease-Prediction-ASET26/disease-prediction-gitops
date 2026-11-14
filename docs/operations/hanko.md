@@ -56,6 +56,7 @@ or put them in Git, Terraform state, shell arguments, or logs.
 | `hanko-runtime` | `pg_admin_password`, `dev_db_password`, `prod_db_password`, `dev_encryption_key`, `prod_encryption_key` |
 | `hanko-postgres-tls` | `ca_cert`, `server_cert`, `server_key` |
 | `hanko-smtp` | `host`, `port`, `username`, `password`, `from_address` |
+| `hanko-google-dev`, `hanko-google-prod` | Google client JSON: `web.client_id`, `web.client_secret` |
 | `hanko-backup-upload` | `url`: the write-only preauthenticated Object Storage URL |
 
 The PostgreSQL certificate must contain
@@ -86,7 +87,7 @@ reviewed change into `main`; Argo CD synchronizes the `hanko` Application and
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application hanko oci-auth-vault-store
-kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-backup-upload
+kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-backup-upload
 kubectl --context oracle-k3s -n auth-system get deployments,pods,services,pvc
 kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
