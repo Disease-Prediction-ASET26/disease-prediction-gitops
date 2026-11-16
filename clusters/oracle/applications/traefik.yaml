@@ -34,6 +34,7 @@ spec:
               - disease-prediction
               - disease-prediction-prod
               - auth-system
+              - monitoring
           kubernetesGateway:
             enabled: true
             experimentalChannel: false

@@ -27,6 +27,7 @@ resources:
   - oracle-public-gateway.yaml
   - root.yaml
   - traefik-access.yaml
+  - traefik-error-pages.yaml
   - tailscale-config.yaml
   - tailscale-operator.yaml
   - traefik.yaml

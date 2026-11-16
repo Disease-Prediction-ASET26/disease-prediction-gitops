@@ -136,6 +136,8 @@ spec:
           path: {type: PathPrefix, value: /}
       filters:
         - type: ExtensionRef
+          extensionRef: {group: traefik.io, kind: Middleware, name: traefik-error-pages}
+        - type: ExtensionRef
           extensionRef: {group: traefik.io, kind: Middleware, name: hanko-prod-flow-client-limit}
         - type: ExtensionRef
           extensionRef: {group: traefik.io, kind: Middleware, name: hanko-prod-flow-total-limit}
@@ -147,6 +149,9 @@ spec:
           weight: 1
     - matches:
         - path: {type: PathPrefix, value: /}
+      filters:
+        - type: ExtensionRef
+          extensionRef: {group: traefik.io, kind: Middleware, name: traefik-error-pages}
       backendRefs:
         - name: hanko-prod
           group: ""
