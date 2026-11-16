@@ -7,6 +7,10 @@ database:
   pool: 5
 account:
   allow_signup: false
+privacy:
+  # Keep account existence out of the public login response. Hanko sends an
+  # informational email only to the address submitted for an unknown login.
+  show_account_existence_hints: false
 third_party:
   redirect_url: https://identity.pocket-doc.app/thirdparty/callback
   error_redirect_url: https://health.pocket-doc.app

@@ -133,11 +133,7 @@ spec:
   rules:
     - matches:
         - method: POST
-          path: {type: Exact, value: /registration}
-        - method: POST
-          path: {type: Exact, value: /login}
-        - method: POST
-          path: {type: Exact, value: /profile}
+          path: {type: PathPrefix, value: /}
       filters:
         - type: ExtensionRef
           extensionRef: {group: traefik.io, kind: Middleware, name: hanko-dev-flow-cors}
