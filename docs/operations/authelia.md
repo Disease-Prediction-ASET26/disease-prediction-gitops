@@ -39,7 +39,7 @@ and follow the route steps in the [public route guide](domain-ingress.md).
 
 ## Prepare the OCI Vault secrets
 
-Create these eleven secrets in the cluster's OCI Vault before applying the root
+Create these twelve secrets in the cluster's OCI Vault before applying the root
 configuration on a new cluster. For an existing Authelia deployment, add the
 two Grafana OIDC secrets before merging the Grafana SSO change. To enable Argo
 CD's internal OIDC path, also create the two TLS secrets described below. Argo
@@ -53,7 +53,8 @@ Terraform, shell arguments, chat, or logs.
 | `authelia-session-secret` | Random string used to sign sessions |
 | `authelia-storage-encryption-key` | Random key used to encrypt SQLite data |
 | `authelia-reset-password-jwt-secret` | Random signing secret; required by Authelia even though password reset is disabled |
-| `authelia-smtp` | JSON object described below |
+| `authelia-smtp-oci` | OCI Email Delivery credentials and sender, as described below |
+| `authelia-smtp` | Previous SMTP configuration retained for rollback |
 | `authelia-oidc-hmac-secret` | Random 64+ character string used by the OIDC provider |
 | `authelia-oidc-signing-key` | PEM-encoded RSA private key used to sign OIDC tokens |
 | `authelia-argocd-client-secret-hash` | PBKDF2-SHA512 digest of the Argo CD OIDC client secret |
@@ -151,7 +152,7 @@ certificate is used only by Argo CD's in-cluster back-channel. Browser access
 continues to use Cloudflare's edge certificate.
 
 The current deployment uses Authelia's SMTP notifier and requires an SMTP
-server it can reach during startup. The `authelia-smtp` Vault secret must be a
+server it can reach during startup. The `authelia-smtp-oci` Vault secret must be a
 JSON object with the fields below. If you do not have an SMTP provider, do not
 enter placeholder values; change the checked-in notifier and secret wiring in a
 reviewed Git change before deploying Authelia. Authelia requires exactly one
@@ -176,7 +177,15 @@ payload as a secret.
 See the [SMTP configuration reference](https://www.authelia.com/configuration/notifications/smtp/)
 for provider-specific address formats.
 
-ESO creates `authelia-users`, `authelia-core-secrets`, and `authelia-smtp` in
+The OCI sender is `no-reply@ops-mail.pocket-doc.app`. Before switching to it,
+confirm OCI reports its DKIM key active and send a controlled test email. Check
+SPF, DKIM and DMARC in the received message. The startup check alone does not
+prove delivery. After the switch, verify Authelia's rollout and notification
+flow. For rollback, restore every Deployment reference to the retained
+`authelia-smtp` Kubernetes Secret in a reviewed Git change and check the rollout.
+Keep the old Vault secret and ExternalSecret until rollback is no longer needed.
+
+ESO creates `authelia-users`, `authelia-core-secrets`, and `authelia-smtp-oci` in
 `auth-system`. The Deployment requires these Kubernetes Secrets and the OIDC
 values before it can start. Grafana's separate ESO controller syncs its client
 secret to `monitoring`. Password changes and password resets are disabled
