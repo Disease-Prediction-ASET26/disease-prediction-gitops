@@ -223,12 +223,15 @@ Complete these checks before enabling signup in production:
 4. After those checks, DevOps can enable `account.allow_signup` for the intended
    environment through GitOps. Keep Argo CD and Grafana protected by Authelia.
 
-The production frontend CSP remains report-only. Before enforcing it, test all
-production browser flows and provide a nonce generator that fails closed if
-secure randomness is unavailable. In the frontend's Nginx 1.31.8 image,
-`$request_id` is generated with a SipHash key seeded using OpenSSL. Its
-[implementation](https://github.com/nginx/nginx/blob/release-1.31.8/src/http/ngx_http_variables.c)
-falls back to a non-cryptographic seed if the OpenSSL call fails.
+The development frontend enforces a Content Security Policy (CSP). On 16
+November 2026, a tester completed Google signup, email sign-in with the same
+address, passkey creation, passkey sign-in and logout with that policy enabled.
+Repeat the checks after changes to Hanko, Cloudflare or the frontend policy.
+
+The production frontend CSP remains report-only. Before enforcing it, promote
+the frontend release that uses a cryptographically random, fail-closed nonce
+and test the production browser flows. The earlier `$request_id` implementation
+can use a non-cryptographic seed if OpenSSL random generation fails.
 
 ## Service operation
 
