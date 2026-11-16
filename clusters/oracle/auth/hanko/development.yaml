@@ -132,6 +132,24 @@ spec:
     - identity-dev.pocket-doc.app
   rules:
     - matches:
+        - method: POST
+          path: {type: Exact, value: /registration}
+        - method: POST
+          path: {type: Exact, value: /login}
+        - method: POST
+          path: {type: Exact, value: /profile}
+      filters:
+        - type: ExtensionRef
+          extensionRef: {group: traefik.io, kind: Middleware, name: hanko-dev-flow-client-limit}
+        - type: ExtensionRef
+          extensionRef: {group: traefik.io, kind: Middleware, name: hanko-dev-flow-total-limit}
+      backendRefs:
+        - name: hanko-dev
+          group: ""
+          kind: Service
+          port: 8000
+          weight: 1
+    - matches:
         - path: {type: PathPrefix, value: /}
       backendRefs:
         - name: hanko-dev
