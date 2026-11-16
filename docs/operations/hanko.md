@@ -159,11 +159,12 @@ together; changing one image does not automatically select the other values.
 
 ### Google and email sign-in
 
-Both environments disable automatic Google account linking. For a Google-created
-account, users should select **Sign in** and use the same email address to request
-an email passcode. Selecting **Create account** with an address already in use
-sends an account-exists notice. Verify these paths in a browser with an authorized
-Google test user. Hanko treats Gmail plus addresses as distinct addresses.
+Both environments disable automatic Google account linking. A development browser
+test on 16 November 2026 confirmed that a user can create an account with Google,
+then sign in with an email passcode using the same address and open the same app
+profile. Selecting **Create account** with an address already in use is expected
+to send an account-exists notice; this path has not been tested in the browser.
+Hanko treats Gmail plus addresses as distinct addresses.
 
 An email-created account cannot be linked to Google while `allow_linking` is
 false. Hanko v3.1 applies this setting to both automatic linking and the profile
