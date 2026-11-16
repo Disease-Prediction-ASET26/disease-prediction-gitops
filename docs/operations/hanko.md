@@ -11,12 +11,10 @@ the token and session before providing patient data. The production app uses
 older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
-Dev registration is paused while existing accounts are quarantined and verified
-email signup is prepared. Previously it permitted unverified addresses. Existing
-accounts may have credentials added by someone other than the email owner.
-Do not treat a later email verification as proof that those credentials are
-safe. Registration flows started before the pause can remain valid for up to
-24 hours unless invalidated. A user completed dev Google sign-in with a
+Dev registration requires email verification. Accounts created before
+verification was enabled remain quarantined. They may have credentials added by
+someone other than the email owner; do not treat later email verification as
+proof those credentials are safe. A user completed dev Google sign-in with a
 temporary Hanko Elements page on 16 November 2026. The app flow still needs an
 end-to-end browser test.
 
@@ -159,11 +157,10 @@ together; changing one image does not automatically select the other values.
 
 ### Before enabling registration in production
 
-Dev signup is paused. Complete these checks before enabling signup in
-production:
+Complete these checks before enabling signup in production:
 
 1. Review the frontend session flow and backend authorization and deploy the intended production images.
-2. Configure production email delivery and complete Google's production
+2. Confirm production email delivery and complete Google's production
    requirements. Test Google sign-in with an authorized account. Production
    signup and automatic account linking are disabled, so use dev or a suitable
    existing linked test account.
@@ -191,10 +188,17 @@ that port. The unauthenticated admin API on port 8001 has no Service or public
 route. Do not expose it. An operator with Kubernetes `pods/portforward` access
 can use a private port-forward for maintenance.
 
-The instances use the current Authelia SMTP account via a separate OCI Vault
-secret. The Hanko secret is a copy, not an automatic sync from Authelia; update
-it when the SMTP credentials change. Hanko uses an in-memory rate limiter and
-accepts forwarded client IP addresses only from the cluster Pod network, which
+Development uses `hanko-smtp-dev` and sends from
+`no-reply@mail-dev.pocket-doc.app`. Production uses `hanko-smtp-prod` and sends
+from `no-reply@mail.pocket-doc.app`. Both use OCI Email Delivery. Keep the
+previous `hanko-smtp` Vault secret for rollback. To roll back production,
+restore its Deployment SMTP references to `hanko-smtp` in a reviewed Git
+change and verify the rollout. Confirm that mailbox headers show DKIM and DMARC
+passing for each sender before opening registration. See the infrastructure
+email delivery guide for DNS, quotas and credential rotation.
+
+Hanko uses an in-memory rate limiter and accepts forwarded client IP addresses
+only from the cluster Pod network, which
 matches Traefik's trusted proxy range. NetworkPolicy limits access to Traefik
 and the matching backend. The Cloudflare Tunnel and Traefik path was checked
 with a forged forwarding header. Repeat that check after changes to either
@@ -250,7 +254,7 @@ or put them in Git, Terraform state, shell arguments, or logs.
 |---|---|
 | `hanko-runtime` | `pg_admin_password`, `dev_db_password`, `prod_db_password`, `dev_encryption_key`, `prod_encryption_key` |
 | `hanko-postgres-tls` | `ca_cert`, `server_cert`, `server_key` |
-| `hanko-smtp` | `host`, `port`, `username`, `password`, `from_address` |
+| `hanko-smtp`, `hanko-smtp-dev`, `hanko-smtp-prod` | `host`, `port`, `username`, `password`, `from_address` |
 | `hanko-google-dev`, `hanko-google-prod` | Google client JSON: `web.client_id`, `web.client_secret` |
 | `hanko-backup-upload` | `url`: the write-only preauthenticated Object Storage URL |
 
@@ -282,21 +286,27 @@ reviewed change into `main`; Argo CD synchronizes the `hanko` Application and
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application hanko oci-auth-vault-store
-kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-backup-upload
+kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-smtp-dev hanko-smtp-prod hanko-backup-upload
 kubectl --context oracle-k3s -n auth-system get deployments,pods,services,pvc
 kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
 ```
 
-To check SMTP authentication from the cluster without sending mail, run the
-temporary check from the repository root, then remove it:
+To check the OCI SMTP credentials from the cluster without sending mail, run
+the temporary checks from the repository root, then remove them:
 
 ```bash
-kubectl --context oracle-k3s apply -f tests/hanko/smtp-check.yaml
-kubectl --context oracle-k3s -n auth-system wait --for=jsonpath='{.status.phase}'=Succeeded pod/hanko-smtp-check --timeout=90s
-kubectl --context oracle-k3s -n auth-system logs pod/hanko-smtp-check
-kubectl --context oracle-k3s delete -f tests/hanko/smtp-check.yaml
+kubectl --context oracle-k3s apply -f tests/hanko/smtp-oci-check.yaml
+kubectl --context oracle-k3s -n auth-system wait --for=jsonpath='{.status.phase}'=Succeeded pod/oci-smtp-prod-check --timeout=90s
+kubectl --context oracle-k3s -n auth-system logs pod/oci-smtp-prod-check
+kubectl --context oracle-k3s delete -f tests/hanko/smtp-oci-check.yaml
 ```
+
+The manifest also checks the development and infrastructure OCI credentials.
+This test checks authentication only; it does not send email. The separate
+`tests/hanko/smtp-oci-send-prod-check.yaml` sends one message to the configured
+check mailbox. Run it only when the mailbox owner expects a test. Check the
+received message's DKIM and DMARC results, then delete the Pod.
 
 To check that each app namespace reaches only its own Hanko service, run:
 

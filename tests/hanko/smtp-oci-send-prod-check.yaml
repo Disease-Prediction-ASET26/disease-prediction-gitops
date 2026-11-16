@@ -1,0 +1,67 @@
+# Temporary check: send one test message to Authelia's configured check mailbox.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oci-smtp-send-prod-check
+  namespace: auth-system
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/arch: arm64
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: check
+      image: python:3.14-alpine@sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+      command: [python, -c]
+      args:
+        - |
+          import os, smtplib, ssl, sys
+          from email.message import EmailMessage
+          try:
+              message = EmailMessage()
+              message['From'] = os.environ['SMTP_FROM']
+              message['To'] = os.environ['CHECK_ADDRESS']
+              message['Subject'] = 'Pocket Doc prod email delivery test'
+              message.set_content('This is a Pocket Doc prod email delivery test. No action is needed.')
+              with smtplib.SMTP(os.environ['SMTP_HOST'], int(os.environ['SMTP_PORT']), timeout=20) as smtp:
+                  smtp.ehlo()
+                  smtp.starttls(context=ssl.create_default_context())
+                  smtp.ehlo()
+                  smtp.login(os.environ['SMTP_USERNAME'], os.environ['SMTP_PASSWORD'])
+                  smtp.send_message(message)
+              print('SMTP server accepted the test message')
+          except Exception as exc:
+              print('SMTP send failed:', type(exc).__name__, 'status:', getattr(exc, 'smtp_code', 'unavailable'))
+              sys.exit(1)
+      env:
+        - name: SMTP_HOST
+          valueFrom: {secretKeyRef: {name: hanko-smtp-prod, key: host}}
+        - name: SMTP_PORT
+          valueFrom: {secretKeyRef: {name: hanko-smtp-prod, key: port}}
+        - name: SMTP_USERNAME
+          valueFrom: {secretKeyRef: {name: hanko-smtp-prod, key: username}}
+        - name: SMTP_PASSWORD
+          valueFrom: {secretKeyRef: {name: hanko-smtp-prod, key: password}}
+        - name: SMTP_FROM
+          valueFrom: {secretKeyRef: {name: hanko-smtp-prod, key: from-address}}
+        - name: CHECK_ADDRESS
+          valueFrom: {secretKeyRef: {name: authelia-smtp-oci, key: startup_check_address}}
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - {name: tmp, mountPath: /tmp}
+  volumes:
+    - name: tmp
+      emptyDir: {medium: Memory, sizeLimit: 1Mi}

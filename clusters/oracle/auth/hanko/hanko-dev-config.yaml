@@ -6,8 +6,7 @@ database:
   dialect: postgres
   pool: 5
 account:
-  # Pause signup while existing unsafe accounts are captured and quarantined.
-  allow_signup: false
+  allow_signup: true
 third_party:
   redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
   error_redirect_url: https://dev.pocket-doc.app
@@ -31,24 +30,6 @@ service:
 email_delivery:
   enabled: true
   from_name: Pocket Doc
-# TEMPORARY (demo without a mail system): no email is required to register or sign in.
-# Users register and sign in with email + password; the address is not verified, so
-# anyone can register with someone else's address. Security notification emails are off
-# for the same reason. The backend accepts unverified addresses for now
-# (disease-prediction-be, ProfileService). Remove this block once SMTP works, and before
-# copying any setting to production.
-email:
-  require_verification: false
-  use_for_authentication: false
-security_notifications:
-  notifications:
-    email_create: {enabled: false}
-    email_delete: {enabled: false}
-    password_update: {enabled: false}
-    passkey_create: {enabled: false}
-    primary_email_update: {enabled: false}
-    mfa_create: {enabled: false}
-    mfa_delete: {enabled: false}
 cors:
   allow_origins:
     - https://dev.pocket-doc.app
