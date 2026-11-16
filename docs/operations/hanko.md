@@ -190,9 +190,13 @@ to send an account-exists notice; this path has not been tested in the browser.
 Hanko treats Gmail plus addresses as distinct addresses.
 
 An email-created account cannot be linked to Google while `allow_linking` is
-false. Hanko v3.1 applies this setting to both automatic linking and the profile
-connection flow. Keep it disabled until a tested flow proves control of both
-credentials before linking. Do not merge accounts based on email address alone.
+false. On 16 November 2026, an email-first development account received a
+generic technical error when the tester tried Google sign-in with the same
+address. Hanko logged a linking conflict, and no account was merged. Use email
+sign-in for that account. Hanko v3.1 applies this setting to both automatic
+linking and the profile connection flow. Keep it disabled until a tested flow
+proves control of both credentials before linking. Do not merge accounts
+based on email address alone.
 
 Google's `email_verified` claim may not prove current ownership of an address
 outside Gmail and Google Workspace. Hanko's built-in Google provider accepts
@@ -211,7 +215,8 @@ Complete these checks before enabling signup in production:
 2. Confirm production email delivery and complete Google's production
    requirements. Test Google sign-in with an authorized account. Production
    signup and automatic account linking are disabled, so use dev or a suitable
-   existing linked test account.
+   existing linked test account. Resolve the Google mailbox ownership risk
+   above or disable the production Google provider before enabling signup.
 3. Test login, logout, expired and revoked sessions, invalid issuer and
    audience, cross-environment tokens, and access to another user's data.
    Check rate limits under expected traffic.
@@ -291,6 +296,40 @@ routers or replicas can have separate buckets. These limits do not enforce a
 per-recipient cap, and different IPv6 addresses can use different buckets.
 They are not a billing cap. Configure OCI Email Delivery quotas and alerts
 before relying on managed email to bound total sending.
+
+Hanko v3.1 keys passcode limits by client IP and email together. Requests from
+different IPs can therefore reach the same recipient. OCI's daily and per-minute
+quotas cap each sender compartment, not each recipient. A browser-only cooldown
+does not stop direct requests. See the [Hanko limiter source](https://github.com/teamhanko/hanko/blob/backend/v3.1.0/backend/rate_limiter/rate_limiter.go)
+and [OCI email quotas](https://docs.oracle.com/en-us/iaas/Content/Email/Reference/compartment-quotas.htm).
+
+If a strict per-recipient limit becomes necessary, assess a private SMTP relay
+with a recipient-aware policy and shared atomic counters. Restrict access to
+Hanko, use TLS to OCI, expire counter data, avoid storing or logging email
+addresses and passcodes, and test concurrent sends, restarts, retries, failures
+and account recovery. Measure its resource cost before deployment. Postfix's
+client-recipient rate limit counts recipients per sending client; it is not a
+limit for each destination mailbox. No such relay is deployed today.
+
+### Check the Cloudflare CSP nonce
+
+The temporary probe serves a public, unauthenticated page at
+`https://dev.pocket-doc.app/__csp-nonce-probe`. It contains no app or user data.
+It requests 16 MiB of memory and has a 64 MiB limit. From the GitOps repository
+root, apply and check it, then remove every resource after the browser check:
+
+```bash
+kubectl --context oracle-k3s apply -f tests/hanko/csp-nonce-probe.yaml
+kubectl --context oracle-k3s -n auth-system wait --for=condition=Ready pod/csp-nonce-probe --timeout=120s
+kubectl --context oracle-k3s -n auth-system describe httproute csp-nonce-probe
+kubectl --context oracle-k3s delete -f tests/hanko/csp-nonce-probe.yaml
+```
+
+Before deleting it, confirm the route is accepted and its references resolve.
+Check that Cloudflare's injected script uses the nonce from the enforced policy,
+that a new response has a different nonce, and that an inline script without
+the nonce is blocked. Also test the actual app and its login flows: the probe
+does not run Hanko Elements. Remove the resources even if the check fails.
 
 ## Secrets
 
