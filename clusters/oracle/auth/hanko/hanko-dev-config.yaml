@@ -6,7 +6,7 @@ database:
   dialect: postgres
   pool: 5
 account:
-  # Pause signup while existing unsafe accounts are captured and quarantined.
+  # Keep signup paused until development email verification works.
   allow_signup: false
 third_party:
   redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
@@ -31,12 +31,10 @@ service:
 email_delivery:
   enabled: true
   from_name: Pocket Doc
-# TEMPORARY (demo without a mail system): no email is required to register or sign in.
-# Users register and sign in with email + password; the address is not verified, so
-# anyone can register with someone else's address. Security notification emails are off
-# for the same reason. The backend accepts unverified addresses for now
-# (disease-prediction-be, ProfileService). Remove this block once SMTP works, and before
-# copying any setting to production.
+# Temporary demo settings: Hanko email verification and security notifications are off.
+# The backend requires a verified email, and legacy identities are quarantined.
+# Keep signup disabled until OCI email delivery and verification have been tested.
+# Remove these settings before enabling signup or copying them to production.
 email:
   require_verification: false
   use_for_authentication: false
