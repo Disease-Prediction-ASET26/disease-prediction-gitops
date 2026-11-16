@@ -33,6 +33,7 @@ spec:
             namespaces:
               - disease-prediction
               - disease-prediction-prod
+              - auth-system
           kubernetesGateway:
             enabled: true
             experimentalChannel: false
