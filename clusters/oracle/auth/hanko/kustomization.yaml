@@ -7,3 +7,15 @@ resources:
   - networkpolicy.yaml
   - backup.yaml
   - backup-ingress.yaml
+configMapGenerator:
+  - name: hanko-dev-config
+    namespace: auth-system
+    files:
+      - config.yaml=hanko-dev-config.yaml
+  - name: hanko-prod-config
+    namespace: auth-system
+    files:
+      - config.yaml=hanko-prod-config.yaml
+generatorOptions:
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
