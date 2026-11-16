@@ -4,7 +4,8 @@ metadata:
   name: backend
   namespace: disease-prediction
 spec:
-  replicas: 1
+  # Pause development writes while removing CSP test accounts.
+  replicas: 0
   revisionHistoryLimit: 2
   strategy:
     type: RollingUpdate
