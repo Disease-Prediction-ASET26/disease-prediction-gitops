@@ -12,7 +12,7 @@ kubectl -n argocd get applications,appprojects
 kubectl -n argocd describe application oracle-root
 ```
 
-After merging a change, Argo CD syncs it and repairs drift. Review pending changes in the Argo CD UI or use the Argo CD CLI if installed. Automated pruning is disabled, so removing a file does not automatically delete the live object.
+After merging a change, Argo CD syncs it and repairs drift. Review pending changes in the Argo CD UI or use the Argo CD CLI if installed. Automated pruning is disabled except for the dev application. See the [application guide](disease-prediction.md#configuration-and-rollouts) for its guarded pruning policy.
 
 ## Private recovery and bootstrap
 

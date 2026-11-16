@@ -167,11 +167,13 @@ hashes do not cause a rollout when a Secret changes. Follow the
 
 ### Remove old generated ConfigMaps
 
-Argo CD pruning is disabled. After each configuration change and successful
-rollout, remove obsolete generated ConfigMaps to avoid leaving unused versions
-and Applications out of sync. Run these commands from a machine with access to
-Oracle K3s. Replace `<namespace>` with `disease-prediction`,
-`disease-prediction-prod`, or `auth-system`:
+The dev Application automatically prunes its old generated ConfigMaps after
+the rollout is healthy. Other dev resources require pruning confirmation.
+Pruning is disabled for production and Hanko. After each configuration change
+and successful rollout, remove their obsolete generated ConfigMaps to avoid
+leaving unused versions and Applications out of sync. Run these commands from a
+machine with access to Oracle K3s. Replace `<namespace>` with
+`disease-prediction-prod` or `auth-system`:
 
 ```bash
 kubectl --context oracle-k3s -n <namespace> get configmaps
@@ -204,7 +206,9 @@ in a GitOps pull request and merge it. Argo CD applies the restored version.
 Confirm the pod rollout and the route afterward. Never promote a
 moving image tag as a rollback.
 
-The Applications use `prune: false`. To remove a stack, first remove its
+Production and the Proxmox Applications use `prune: false`. The dev Oracle
+Application requires confirmation to prune non-generated resources. To remove
+a stack, first remove its
 Application entries from the Oracle and Proxmox `applications/kustomization.yaml`
 files and merge the change. Then delete the corresponding Application objects
 with their resource finalizers so Argo CD removes their managed workloads. For
