@@ -223,6 +223,12 @@ Complete these checks before enabling signup in production:
 4. After those checks, DevOps can enable `account.allow_signup` for the intended
    environment through GitOps. Keep Argo CD and Grafana protected by Authelia.
 
+The production frontend CSP remains report-only. Before enforcing it, test all
+production browser flows and provide a nonce generator that fails closed if
+secure randomness is unavailable. Nginx's current `$request_id` uses OpenSSL
+random bytes when available, but its [implementation](https://github.com/nginx/nginx/blob/release-1.31.0/src/http/ngx_http_variables.c)
+falls back to a non-cryptographic generator if that call fails.
+
 ## Service operation
 
 The instances use separate databases, database roles, signing-key encryption
