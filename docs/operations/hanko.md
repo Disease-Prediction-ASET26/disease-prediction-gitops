@@ -6,8 +6,9 @@ app login and operate the service.
 ## Handoff for the app team
 
 The app does not use Hanko yet. Both app routes and their proxied APIs are
-public. Registration is disabled in both Hanko instances. Google is configured,
-but a complete Google sign-in has not been tested.
+public. Registration is enabled in dev so the app team can build and test the
+sign-up flow; it stays disabled in production. Google is configured, but a
+complete Google sign-in has not been tested.
 
 ### How login will work
 
@@ -86,7 +87,8 @@ a success redirect.
 
 ### Session handoff: agree before implementation
 
-Hanko issues a session JSON Web Token (JWT) that expires after 15 minutes. Its
+Hanko issues a session JSON Web Token (JWT) that expires after 1 hour in dev and
+15 minutes in production. Hanko has no refresh tokens. Its
 cookie is `Secure`, `HttpOnly`, `SameSite=Lax`, and host-only: the browser will not send an
 identity-host cookie to the app hostname or its `/api/` proxy. Hanko is also
 configured to return `X-Auth-Token` after authentication. This does not by
@@ -141,13 +143,16 @@ rules. Use the production values for production. See [Spring Boot resource
 server configuration](https://docs.spring.io/spring-boot/reference/security/oauth2.html)
 and [Spring Security JWT validation](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html).
 
-### Before enabling registration
+### Before enabling registration in production
+
+Dev has signup enabled for integration testing. Complete these checks before
+enabling it in production:
 
 1. Implement and review the frontend session flow and backend authorization.
 2. Configure production email delivery and complete Google's production
-   requirements. Test Google sign-in with an authorized account. Signup and
-   automatic account linking are disabled, so use a suitable existing linked
-   test account or an isolated test instance with signup enabled.
+   requirements. Test Google sign-in with an authorized account. Production
+   signup and automatic account linking are disabled, so use dev or a suitable
+   existing linked test account.
 3. Test login, logout, expired and revoked sessions, invalid issuer and
    audience, cross-environment tokens, and access to another user's data.
    Check rate limits under expected traffic.
