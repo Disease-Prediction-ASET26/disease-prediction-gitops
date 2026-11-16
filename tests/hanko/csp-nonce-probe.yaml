@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: csp-nonce-probe
+  namespace: auth-system
+data:
+  nginx.conf: |
+    pid /tmp/nginx.pid;
+    worker_processes 1;
+    error_log /dev/stderr warn;
+    events { worker_connections 32; }
+    http {
+      access_log off;
+      client_body_temp_path /tmp/client;
+      proxy_temp_path /tmp/proxy;
+      fastcgi_temp_path /tmp/fastcgi;
+      uwsgi_temp_path /tmp/uwsgi;
+      scgi_temp_path /tmp/scgi;
+      server {
+        listen 8080;
+        location = /__csp-nonce-probe {
+          default_type text/html;
+          add_header Cache-Control no-store always;
+          add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'nonce-$request_id'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://identity-dev.pocket-doc.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+          return 200 '<!doctype html><html><head><title>CSP probe</title></head><body>CSP probe</body></html>';
+
+        }
+        location / { return 404; }
+      }
+    }
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: csp-nonce-probe
+  namespace: auth-system
+  labels: {app.kubernetes.io/name: csp-nonce-probe}
+spec:
+  automountServiceAccountToken: false
+  enableServiceLinks: false
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+    - name: probe
+      image: ghcr.io/nginx/nginx-unprivileged:1.30.6-alpine@sha256:2daef144b574804198caccc4041819fa1801ecd5df2252a39646bfa2b1ff3bea
+      args: [nginx, -c, /config/nginx.conf, -g, daemon off;]
+      ports: [{name: http, containerPort: 8080, protocol: TCP}]
+      readinessProbe:
+        httpGet: {path: /__csp-nonce-probe, port: http}
+      resources:
+        requests: {cpu: 5m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: [ALL]}
+      volumeMounts:
+        - {name: config, mountPath: /config, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+  volumes:
+    - name: config
+      configMap: {name: csp-nonce-probe}
+    - name: tmp
+      emptyDir: {sizeLimit: 4Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: csp-nonce-probe
+  namespace: auth-system
+spec:
+  selector: {app.kubernetes.io/name: csp-nonce-probe}
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: csp-nonce-probe
+  namespace: auth-system
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: csp-nonce-probe}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: traefik-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: traefik}
+      ports: [{protocol: TCP, port: 8080}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: csp-nonce-probe
+  namespace: auth-system
+spec:
+  parentRefs:
+    - name: oracle-public
+      namespace: traefik-system
+      sectionName: web
+  hostnames: [dev.pocket-doc.app]
+  rules:
+    - matches:
+        - method: GET
+          path: {type: Exact, value: /__csp-nonce-probe}
+      backendRefs:
+        - name: csp-nonce-probe
+          port: 8080
