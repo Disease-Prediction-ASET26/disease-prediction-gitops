@@ -18,6 +18,56 @@ proof those credentials are safe. A user completed dev Google sign-in with a
 temporary Hanko Elements page on 16 November 2026. The app flow still needs an
 end-to-end browser test.
 
+### Reset development users
+
+The development Hanko and backend Deployments are temporarily stopped for an
+approved reset of all test accounts. The reset also deletes development patient
+profiles and consent history. It does not target production. Hanko backups may
+still contain deleted accounts until their retention period ends. The Proxmox
+PostgreSQL database does not have a scheduled off-node backup.
+
+1. Confirm both development Deployments have zero replicas and no running Pods.
+   Keep them stopped until both reset Jobs complete and their results are checked.
+   Verify a recent Hanko backup and restore using the matching dev encryption key.
+   Create and verify an [encrypted app database backup](dev-app-backup.md).
+2. From the GitOps repository root, preview both manual operation manifests:
+
+   ```bash
+   kubectl --context oracle-k3s apply --dry-run=server -f operations/hanko/reset-dev-app-users.yaml
+   kubectl --context oracle-k3s apply --dry-run=server -f operations/hanko/reset-dev-users.yaml
+   ```
+
+   Each Job uses a development database role and rejects another database or
+   role. Both Jobs use verified database TLS. The Hanko Job preserves signing
+   keys, tenant configuration, and database migrations. It clears active flows
+   and WebAuthn sessions as well as account data. The app Job removes users and
+   their dependent profiles and consent history.
+3. Run and check each Job in order:
+
+   ```bash
+   kubectl --context oracle-k3s apply -f operations/hanko/reset-dev-app-users.yaml
+   kubectl --context oracle-k3s -n disease-prediction wait --for=condition=complete job/dev-user-reset --timeout=180s
+   kubectl --context oracle-k3s -n disease-prediction logs job/dev-user-reset
+   kubectl --context oracle-k3s apply -f operations/hanko/reset-dev-users.yaml
+   kubectl --context oracle-k3s -n auth-system wait --for=condition=complete job/hanko-dev-user-reset --timeout=180s
+   kubectl --context oracle-k3s -n auth-system logs job/hanko-dev-user-reset
+   ```
+
+   If either Job fails, keep both Deployments stopped. Inspect the Job before
+   retrying; the two databases cannot be reset in a single transaction. Confirm
+   that both databases contain zero users and that the Hanko signing key remains.
+4. Remove both Jobs and their temporary NetworkPolicies:
+
+   ```bash
+   kubectl --context oracle-k3s delete -f operations/hanko/reset-dev-app-users.yaml
+   kubectl --context oracle-k3s delete -f operations/hanko/reset-dev-users.yaml
+   ```
+
+   Restore the development replicas through a reviewed GitOps change. Keep the
+   existing quarantine Secret until its backend mount and configuration are
+   removed together. Never restore a pre-reset backup into the live database
+   without reviewing the risk of reactivating untrusted credentials.
+
 ### Quarantine development accounts
 
 Users created while dev email verification was disabled can have credentials

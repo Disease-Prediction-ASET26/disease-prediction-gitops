@@ -1,0 +1,103 @@
+# Manual operation only. Do not include this file in an Argo CD Application.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dev-user-reset-egress
+  namespace: disease-prediction
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dev-user-reset
+      batch.kubernetes.io/job-name: dev-user-reset
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: tailscale}
+          podSelector:
+            matchLabels: {tailscale.com/parent-resource: egress-proxies}
+      ports:
+        - {protocol: TCP}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dev-user-reset
+  namespace: disease-prediction
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 150
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: dev-user-reset}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector: {kubernetes.io/arch: arm64}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: reset
+          image: postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+          env:
+            - {name: PGHOST, value: proxmox-postgres.disease-prediction.svc.cluster.local}
+            - {name: PGPORT, value: "5432"}
+            - {name: PGUSER, value: disease_prediction_dev}
+            - {name: PGDATABASE, value: disease_prediction_dev}
+            - {name: PGSSLMODE, value: verify-full}
+            - {name: PGSSLROOTCERT, value: /run/postgres-ca/ca.crt}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: {name: postgres-app-credentials, key: password}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              ready=false
+              for attempt in $(seq 1 20); do
+                if pg_isready -q -t 2; then ready=true; break; fi
+                sleep 2
+              done
+              if [ "$ready" != true ]; then
+                echo "Development app database did not become reachable" >&2
+                exit 1
+              fi
+              psql --no-psqlrc --set=ON_ERROR_STOP=1 <<'SQL'
+              BEGIN;
+              SET LOCAL lock_timeout = '15s';
+              SET LOCAL statement_timeout = '30s';
+              DO $$$$
+              BEGIN
+                IF current_database() <> 'disease_prediction_dev'
+                   OR current_user <> 'disease_prediction_dev' THEN
+                  RAISE EXCEPTION 'Refusing to modify a non-development database';
+                END IF;
+              END $$$$;
+              DELETE FROM public.users;
+              COMMIT;
+              SQL
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: postgres-ca, mountPath: /run/postgres-ca, readOnly: true}
+      volumes:
+        - name: postgres-ca
+          secret: {secretName: postgres-server-ca}
