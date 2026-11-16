@@ -6,7 +6,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-2"
 spec:
-  description: Internal Traefik Gateway API ingress
+  description: Traefik Gateway API ingress and custom error pages
   sourceRepos:
     - oci://ghcr.io/traefik/helm/traefik
     - https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops.git
@@ -39,6 +39,8 @@ spec:
       kind: Deployment
     - group: ""
       kind: Service
+    - group: traefik.io
+      kind: Middleware
     - group: ""
       kind: ServiceAccount
     - group: gateway.networking.k8s.io

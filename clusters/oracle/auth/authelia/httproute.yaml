@@ -26,6 +26,12 @@ spec:
         - path:
             type: PathPrefix
             value: /
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: traefik-error-pages
       backendRefs:
         - name: authelia
           group: ""

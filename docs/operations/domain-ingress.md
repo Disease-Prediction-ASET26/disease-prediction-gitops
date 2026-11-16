@@ -77,6 +77,30 @@ The Authelia Middleware checks authentication. It does not create an app OIDC
 session or configure app roles. See the
 [Authelia guide](authelia.md) for secret and account setup.
 
+## Show custom service error pages
+
+Traefik shows a simple Pocket Doc page for HTTP `500`, `502`, `503`, and `504`
+responses from routed services. Each page uses the same layout and displays
+the response code. The response keeps its original HTTP status.
+
+The pages and Middleware are in
+[`clusters/oracle/ingress/error-pages`](../../clusters/oracle/ingress/error-pages).
+The static server and Middleware are deployed in each routed namespace so
+routes do not need cross-namespace references. The Middleware forwards no
+request headers to the static server.
+
+To edit a page, change `base/pages/<code>.html`. To support another status,
+add its HTML file, list it in `base/kustomization.yaml`, and add the code to
+`base/middleware.yaml`. If a new public route uses a namespace not already
+listed under `namespaces/`, add an overlay for it, add that namespace to
+Traefik's Kubernetes CRD provider watch, and grant Traefik CRD read access
+there.
+
+Add the `traefik-error-pages` Middleware filter to every rule of a public
+HTTPRoute. The current app, auth, Grafana, and Argo CD routes include it.
+Errors before a request reaches a matched Traefik route, such as a Cloudflare
+Tunnel connection error or an unmatched route, cannot use these pages.
+
 ## Add a route
 
 First confirm the app is ready for public access: its API and authentication
@@ -96,9 +120,12 @@ RBAC. If the route uses ForwardAuth, check the separate Traefik CRD provider
 watch and RBAC. Do not enable cross-namespace Middleware references as a
 shortcut.
 
-This example uses the shared Middleware in `disease-prediction`. For another
-namespace, create a local Middleware with the same name. For native OIDC,
-remove the `filters` block and configure OIDC in the app.
+This example uses the `traefik-error-pages` and `authelia-forwardauth`
+Middlewares in `disease-prediction`. For another namespace, add a local
+error-page overlay as described above. If the app uses ForwardAuth, create its
+local `authelia-forwardauth` Middleware there too. For native OIDC, remove only
+the `authelia-forwardauth` filter and configure OIDC in the app. Keep the error
+page filter.
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -123,6 +150,11 @@ spec:
             type: PathPrefix
             value: /
       filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: traefik-error-pages
         - type: ExtensionRef
           extensionRef:
             group: traefik.io
@@ -191,9 +223,10 @@ until their consumers are gone.
   Traefik's provider watch, namespaced RBAC, and the AppProject. Look for
   `Accepted` and `ResolvedRefs` conditions and Traefik informer errors.
 - **Accepted route returns 502:** check the Service port and ready EndpointSlice.
-  Test whether Traefik can reach the Service IP. Grafana needed Traefik
-  NativeLB because Pod IP connections failed; use it only if the same problem
-  is confirmed.
+  Check that the route has the `traefik-error-pages` filter and the namespace's
+  error-page Service has ready endpoints. Test whether Traefik can reach the
+  Service IP. Grafana needed Traefik NativeLB because Pod IP connections failed;
+  use it only if the same problem is confirmed.
 - **Works with curl but not a browser:** check local DNS cache and browser
   secure-DNS settings, then try a private browser session.
 
@@ -204,6 +237,7 @@ rule in place.
 
 ## References
 
+- [Traefik error pages middleware](https://doc.traefik.io/traefik/v3.7/reference/routing-configuration/http/middlewares/errorpages/)
 - [Traefik Gateway API provider](https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-gateway/)
 - [Traefik Gateway API routes](https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/gateway-api/)
 - [Authelia with Traefik](https://www.authelia.com/integration/proxies/traefik/)
