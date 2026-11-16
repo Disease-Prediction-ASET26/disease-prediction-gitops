@@ -137,7 +137,7 @@ spec:
                 readOnlyRootFilesystem: true
                 capabilities: {drop: [ALL]}
               volumeMounts:
-                - {name: backup, mountPath: /backup}
+                - {name: backup, mountPath: /backup, readOnly: false}
                 - {name: scripts, mountPath: /scripts, readOnly: true}
           volumes:
             - name: backup
