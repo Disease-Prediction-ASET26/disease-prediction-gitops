@@ -92,12 +92,19 @@ spec:
               drop:
                 - ALL
           volumeMounts:
+            - name: hanko-quarantine
+              mountPath: /run/hanko-quarantine
+              readOnly: true
             - name: postgres-ca
               mountPath: /etc/postgres-ca
               readOnly: true
             - name: tmp
               mountPath: /tmp
       volumes:
+        - name: hanko-quarantine
+          secret:
+            secretName: hanko-dev-quarantine
+            defaultMode: 0440
         - name: postgres-ca
           secret:
             secretName: postgres-server-ca

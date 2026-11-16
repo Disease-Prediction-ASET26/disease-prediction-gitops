@@ -5,4 +5,5 @@ resources:
   - postgres-app-credentials.yaml
   - postgres-server-ca.yaml
   - runtime-secrets.yaml
+  - hanko-dev-quarantine.yaml
   - vault-store.yaml
