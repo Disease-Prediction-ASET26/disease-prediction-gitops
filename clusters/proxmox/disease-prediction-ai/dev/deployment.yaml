@@ -29,7 +29,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ai
-          image: ghcr.io/disease-prediction-aset26/disease-prediction-ai-runtime@sha256:045365c742f3f762fc953d227266e0416070cd53f4bf4581064c4b5c825d56e2
+          image: ghcr.io/disease-prediction-aset26/disease-prediction-ai-runtime@sha256:e07c07f6f6e3fe0bc8b429364b420c5cbd98f9078d5aef3b92a8cda59a6b55ae
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
