@@ -46,22 +46,22 @@ spec:
             - name: AUTHELIA_NOTIFIER_SMTP_ADDRESS
               valueFrom:
                 secretKeyRef:
-                  name: authelia-smtp
+                  name: authelia-smtp-oci
                   key: address
             - name: AUTHELIA_NOTIFIER_SMTP_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: authelia-smtp
+                  name: authelia-smtp-oci
                   key: username
             - name: AUTHELIA_NOTIFIER_SMTP_SENDER
               valueFrom:
                 secretKeyRef:
-                  name: authelia-smtp
+                  name: authelia-smtp-oci
                   key: sender
             - name: AUTHELIA_NOTIFIER_SMTP_STARTUP_CHECK_ADDRESS
               valueFrom:
                 secretKeyRef:
-                  name: authelia-smtp
+                  name: authelia-smtp-oci
                   key: startup_check_address
             - name: AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE
               value: /run/secrets/smtp/password
@@ -134,7 +134,7 @@ spec:
             defaultMode: 0440
         - name: smtp-secrets
           secret:
-            secretName: authelia-smtp
+            secretName: authelia-smtp-oci
             defaultMode: 0440
         - name: data
           persistentVolumeClaim:
