@@ -59,7 +59,7 @@ cannot acquire the lock or any command fails. Investigate before retrying;
 delete the completed or failed Job first because Kubernetes Jobs are immutable.
 
 ```bash
-kubectl --context oracle-k3s delete -f operations/hanko/expire-dev-flows.yaml
+kubectl --context oracle-k3s delete --ignore-not-found -f operations/hanko/expire-dev-flows.yaml
 ```
 
 Keep signup disabled while taking the complete Hanko user snapshot and applying
