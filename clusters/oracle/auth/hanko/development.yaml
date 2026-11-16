@@ -47,19 +47,19 @@ spec:
                 secretKeyRef: {name: hanko-google-dev, key: client-secret}
             - name: EMAIL_DELIVERY_SMTP_HOST
               valueFrom:
-                secretKeyRef: {name: hanko-smtp, key: host}
+                secretKeyRef: {name: hanko-smtp-dev, key: host}
             - name: EMAIL_DELIVERY_SMTP_PORT
               valueFrom:
-                secretKeyRef: {name: hanko-smtp, key: port}
+                secretKeyRef: {name: hanko-smtp-dev, key: port}
             - name: EMAIL_DELIVERY_SMTP_USER
               valueFrom:
-                secretKeyRef: {name: hanko-smtp, key: username}
+                secretKeyRef: {name: hanko-smtp-dev, key: username}
             - name: EMAIL_DELIVERY_SMTP_PASSWORD
               valueFrom:
-                secretKeyRef: {name: hanko-smtp, key: password}
+                secretKeyRef: {name: hanko-smtp-dev, key: password}
             - name: EMAIL_DELIVERY_FROM_ADDRESS
               valueFrom:
-                secretKeyRef: {name: hanko-smtp, key: from-address}
+                secretKeyRef: {name: hanko-smtp-dev, key: from-address}
           volumeMounts:
             - {name: config, mountPath: /config, readOnly: true}
             - {name: postgres-ca, mountPath: /run/postgres-ca, readOnly: true}
