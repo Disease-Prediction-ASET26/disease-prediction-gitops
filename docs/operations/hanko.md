@@ -12,18 +12,19 @@ older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
 Dev registration requires email verification. Development accounts created
-before verification was enabled were deleted during the reset; their subjects
-remain on the quarantine list. A user completed dev Google sign-in with a
-temporary Hanko Elements page on 16 November 2026. The app flow still needs an
-end-to-end browser test.
+before verification was enabled were deleted during the development reset. On
+16 November 2026, a tester registered in the app with Google, then signed in
+with the exact same email address and reached the same profile. Other browser
+tests remain pending.
 
 ### Reset development users
 
-Use this procedure for an approved reset of all development test accounts.
-The reset also deletes development patient
-profiles and consent history. It does not target production. Hanko backups may
-still contain deleted accounts until their retention period ends. The Proxmox
-PostgreSQL database does not have a scheduled off-node backup.
+Use this procedure only for an approved reset of all development test accounts.
+It also deletes development patient profiles and consent history. It does not
+target production. Hanko backups can contain deleted accounts and are subject
+to a seven-day lifecycle rule. Check the separate retention of any app database
+backups. Do not restore a pre-reset backup into the live database without
+reviewing the risk of restoring untrusted credentials.
 
 1. Stop the development Hanko and backend Deployments through a reviewed GitOps
    change. Confirm both have zero replicas and no running Pods. Keep them stopped
@@ -63,81 +64,32 @@ PostgreSQL database does not have a scheduled off-node backup.
    kubectl --context oracle-k3s delete -f operations/hanko/reset-dev-users.yaml
    ```
 
-   Restore the development replicas through a reviewed GitOps change. Keep the
-   existing quarantine Secret until its backend mount and configuration are
-   removed together. Never restore a pre-reset backup into the live database
-   without reviewing the risk of reactivating untrusted credentials.
+   Restore the development replicas through a reviewed GitOps change.
 
-### Quarantine development accounts
+### Remove the old development quarantine secret
 
-Users created while dev email verification was disabled can have credentials
-registered by someone else. The backend blocks the captured Hanko subjects from
-protected app operations. Do not remove a subject merely because its email
-address was verified later.
+After the approved reset, verify that both databases contain zero users before
+deploying the change that removes the quarantine mount and configuration. Do
+not restore pre-reset accounts with untrusted credentials into the live database.
+The backend retains its optional quarantine feature for future incidents.
 
-To create the initial quarantine secret:
+After the backend has rolled out without the quarantine mount, delete the old
+ExternalSecret and any retained Kubernetes Secret. Argo CD does not prune the
+ExternalSecret. Its owner reference normally removes the Secret; the second
+command also handles a Secret left behind. Run on the operator machine:
 
-1. Pause dev signup in GitOps and confirm Argo CD has applied the change to all
-   Hanko dev replicas. Expire flows started before the pause using the
-   [flow expiry procedure](hanko-flow-expiry.md), or wait the full 24-hour flow
-   lifetime after the pause. Then wait for in-flight signup and profile requests
-   to finish. Keep signup paused through the snapshot and backend rollout.
-2. Use a trusted operator machine with `kubectl`, Terraform, Python 3 and the
-   OCI Python SDK. Authenticate the OCI CLI profile and Kubernetes context.
-   The operator must be allowed to exec in the dev Hanko PostgreSQL pod, read
-   the existing Terraform state, and create a secret in the project's OCI Vault.
-   Initialize the infrastructure Terraform directory and check the selected OCI
-   profile and cluster context before continuing.
-3. From the GitOps repository root, run:
+```bash
+kubectl --context oracle-k3s -n disease-prediction rollout status deployment/backend
+kubectl --context oracle-k3s -n disease-prediction delete externalsecret hanko-dev-quarantine --ignore-not-found
+kubectl --context oracle-k3s -n disease-prediction delete secret hanko-dev-quarantine --ignore-not-found
+```
 
-   ```bash
-   python3 scripts/snapshot-hanko-dev-quarantine.py \
-     --terraform-dir ../disease-prediction-infra/terraform/oracle \
-     --context oracle-k3s \
-     --signup-paused-and-drained
-   ```
-
-   Use the actual initialized Terraform directory if it differs. The confirmation
-   flag records your checks; the script does not expire old flows or verify the
-   signup pause. The script reads the dev database twice, compares the results,
-   and creates `hanko-dev-quarantine` in OCI Vault. It rejects empty, invalid, duplicate,
-   changed or oversized snapshots and an existing secret. Identifiers and
-   credentials stay in process memory and are not printed or written locally.
-   If the result is uncertain, check whether the secret exists in Vault before
-   retrying. Do not overwrite an existing quarantine list with a later snapshot.
-4. After this pull request is applied, check the ExternalSecret and backend
-   rollout without printing secret contents:
-
-   ```bash
-   kubectl --context oracle-k3s -n disease-prediction get externalsecret hanko-dev-quarantine
-   kubectl --context oracle-k3s -n disease-prediction rollout status deployment/backend
-   ```
-
-   The backend fails closed if the quarantine file is missing, invalid or empty.
-   Test that a known quarantined identity is denied before allowing new signup.
-
-To recover a quarantined account, verify its rightful owner through a trusted
-process independent of the old Hanko credentials. Review untrusted passkeys and
-passwords, remove them where supported, revoke existing sessions, and establish
-fresh credentials under the owner's control. Hanko v3.1 does not provide an
-admin operation to unlink a linked social identity. Do not assume all old
-credentials can be removed.
-
-If the old account cannot be made safe, keep its subject quarantined. Use an
-independently verified new subject and a reviewed, validated app-data rebinding
-procedure when the owner and data have been confirmed. The current app may need
-changes to support rebinding; do not transfer data automatically or promise an
-existing recovery function. If ownership cannot be established, keep the old
-subject quarantined and preserve the data for review.
-
-Only after a reviewed recovery that fully secures the old identity, remove its
-subject from the Vault secret using a secure operator process. Do not paste the list into commands or logs. Wait for
-External Secrets Operator to refresh the Kubernetes Secret, then restart the
-backend: it reads the quarantine file at startup. Verify the recovered account
-and a still-quarantined account. Keep the list nonempty while quarantine is
-enabled; the backend rejects an empty list. When every subject has been reviewed,
-remove the quarantine configuration and Secret only through a coordinated
-GitOps change after validating the release and rollback plan.
+In OCI Console, open the project Vault and select the secret named
+`hanko-dev-quarantine`. Confirm its name and schedule deletion of that secret.
+Do not delete the Vault or its encryption keys. A secret pending deletion cannot
+be used; cancel its scheduled deletion in the Console if recovery is needed.
+Oracle schedules deletion after 30 days by default and allows a shorter period.
+Do not print or copy the secret contents.
 
 ### Login flow
 
