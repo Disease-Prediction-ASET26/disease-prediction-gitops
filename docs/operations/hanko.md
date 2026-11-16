@@ -157,6 +157,28 @@ See the frontend and backend repository READMEs for the current implementation
 and local setup. Test the matching image, Hanko instance and backend settings
 together; changing one image does not automatically select the other values.
 
+### Google and email sign-in
+
+Both environments disable automatic Google account linking. For a Google-created
+account, users should select **Sign in** and use the same email address to request
+an email passcode. Selecting **Create account** with an address already in use
+sends an account-exists notice. Verify these paths in a browser with an authorized
+Google test user. Hanko treats Gmail plus addresses as distinct addresses.
+
+An email-created account cannot be linked to Google while `allow_linking` is
+false. Hanko v3.1 applies this setting to both automatic linking and the profile
+connection flow. Keep it disabled until a tested flow proves control of both
+credentials before linking. Do not merge accounts based on email address alone.
+
+Google's `email_verified` claim may not prove current ownership of an address
+outside Gmail and Google Workspace. Hanko's built-in Google provider accepts
+that claim when creating an account, and email-passcode login can use the same
+address. A new mailbox owner could gain access to a Google-created account. Before
+using Google for production patients, resolve this with a tested mailbox ownership
+check or disable the production Google provider. See [Google's email ownership
+guidance](https://developers.google.com/identity/sign-in/web/backend-auth) and
+[Hanko v3.1 account linking](https://github.com/teamhanko/hanko/blob/backend/v3.1.0/backend/thirdparty/linking.go).
+
 ### Before enabling registration in production
 
 Complete these checks before enabling signup in production:
