@@ -4,8 +4,7 @@ metadata:
   name: backend
   namespace: disease-prediction
 spec:
-  # Pause development writes while removing the login test account.
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 2
   strategy:
     type: RollingUpdate
