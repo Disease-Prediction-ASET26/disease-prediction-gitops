@@ -1,0 +1,86 @@
+# Manual operation only. This file is not included in an Argo CD Application.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hanko-dev-flow-expiry-postgres
+  namespace: auth-system
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: hanko-postgres}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hanko-dev-flow-expiry
+              batch.kubernetes.io/job-name: hanko-dev-flow-expiry
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hanko-dev-flow-expiry
+  namespace: auth-system
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 90
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: hanko-dev-flow-expiry}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector: {kubernetes.io/arch: arm64}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: expire
+          image: postgres:18.6-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b
+          env:
+            - {name: PGHOST, value: hanko-postgres.auth-system.svc.cluster.local}
+            - {name: PGPORT, value: "5432"}
+            - {name: PGUSER, value: hanko_dev}
+            - {name: PGDATABASE, value: hanko_dev}
+            - {name: PGSSLMODE, value: verify-full}
+            - {name: PGSSLROOTCERT, value: /run/postgres-ca/ca.crt}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef: {name: hanko-postgres, key: dev-password}
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              # The password is supplied in the environment, not in process arguments or output.
+              psql --no-psqlrc --set=ON_ERROR_STOP=1 <<'SQL'
+              BEGIN;
+              SET LOCAL lock_timeout = '15s';
+              SET LOCAL statement_timeout = '30s';
+              DO $$
+              BEGIN
+                IF current_database() <> 'hanko_dev' OR current_user <> 'hanko_dev' THEN
+                  RAISE EXCEPTION 'Refusing to modify a non-development database';
+                END IF;
+              END $$;
+              LOCK TABLE public.flows IN ACCESS EXCLUSIVE MODE;
+              UPDATE public.flows
+                 SET expires_at = clock_timestamp() - interval '1 second'
+               WHERE expires_at > clock_timestamp();
+              COMMIT;
+              SQL
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: postgres-ca, mountPath: /run/postgres-ca, readOnly: true}
+      volumes:
+        - name: postgres-ca
+          secret: {secretName: hanko-postgres-ca}
