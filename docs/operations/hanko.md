@@ -7,7 +7,10 @@ app login and operate the service.
 
 The app does not use Hanko yet. Both app routes and their proxied APIs are
 public. Registration is enabled in dev so the app team can build and test the
-sign-up flow; it stays disabled in production. Google is configured. A user
+sign-up flow; it stays disabled in production. Dev temporarily needs no email:
+addresses are not verified and passcode sign-in is off, so users register and
+sign in with email and password. Remove that block from `development.yaml` once
+email delivery is confirmed. Google is configured. A user
 completed dev Google sign-in with a temporary Hanko Elements page on 16 November
 2026. The app integration and production Google sign-in still need testing.
 
@@ -83,8 +86,11 @@ browser origins. Passkeys require `https://dev.pocket-doc.app`; localhost is not
 configured as a WebAuthn origin. Production only allows
 `https://health.pocket-doc.app`. Ask DevOps to update the allowed origins and
 Google success/error redirects when the team chooses a different login URL.
-Current Google redirects point to the app origins; dev also allows localhost as
-a success redirect.
+Google success redirects allow the app origins and the app's `/login` page,
+because Hanko Elements returns the browser to the page that started Google
+sign-in. Dev also allows the same two URLs on `http://localhost:5173`. Hanko
+matches these entries against the whole URL, so add any other page that shows
+the login component.
 
 ### Session handoff: agree before implementation
 

@@ -20,6 +20,7 @@ data:
       default_redirect_url: https://health.pocket-doc.app
       allowed_redirect_urls:
         - https://health.pocket-doc.app
+        - https://health.pocket-doc.app/login
       providers:
         google:
           enabled: true
