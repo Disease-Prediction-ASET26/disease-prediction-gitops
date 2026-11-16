@@ -171,6 +171,11 @@ connections left for maintenance. Keep this limit in step with the backend
 pool size and rollout strategy. Do not increase replicas or the pool size
 without checking the PostgreSQL role limit and the single AI service's load.
 
+The production namespace also runs the Traefik error-page server. It requests
+10m CPU and 32 MiB memory, with limits of 100m CPU and 64 MiB memory. This
+raises the namespace CPU limits quota to 1300m. Total memory limits become
+1856 MiB, leaving 192 MiB of the 2 GiB quota free.
+
 External Secrets Operator updates Kubernetes Secrets separately. ConfigMap
 hashes do not cause a rollout when a Secret changes. Follow the
 [Secrets guide](secrets.md) and the service's rotation procedure.
