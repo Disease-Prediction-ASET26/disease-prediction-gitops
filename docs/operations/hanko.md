@@ -86,8 +86,8 @@ together; changing one image does not automatically select the other values.
 
 ### Before enabling registration in production
 
-Dev has signup enabled for integration testing. Complete these checks before
-enabling it in production:
+Dev signup is paused. Complete these checks before enabling signup in
+production:
 
 1. Review the frontend session flow and backend authorization and deploy the intended production images.
 2. Configure production email delivery and complete Google's production
@@ -126,6 +126,44 @@ matches Traefik's trusted proxy range. NetworkPolicy limits access to Traefik
 and the matching backend. The Cloudflare Tunnel and Traefik path was checked
 with a forged forwarding header. Repeat that check after changes to either
 proxy or the Pod network. Hanko does not store the session IP address.
+
+### Development request limits
+
+Traefik limits `POST /registration`, `POST /login`, and `POST /profile` on
+the development Hanko route. The client limit uses Cloudflare's
+`CF-Connecting-IP` header, with an average of 40 requests per minute and a
+burst of 20. A second limit uses the request hostname, with an average of 300
+requests per minute and a burst of 60. The token buckets refill continuously.
+Google callbacks, preflight requests, and the production route do not use
+these limits.
+
+The web entry point must only receive Cloudflare Tunnel traffic. With one
+external client, a temporary probe confirmed that Cloudflare's client IP
+matched its trace, a forged `X-Forwarded-For` prefix did not change Hanko's
+resolved address, and forged `CF-Connecting-IP` requests were rejected.
+This does not prove every network path or future Cloudflare configuration.
+To repeat the check from the GitOps repository root, apply the temporary
+resources, wait for the pod and route, run the checker, then remove them:
+
+```bash
+kubectl --context oracle-k3s apply -f tests/hanko/forwarded-headers-probe.yaml
+kubectl --context oracle-k3s -n auth-system wait --for=condition=Ready pod/hanko-forwarded-headers-probe --timeout=120s
+kubectl --context oracle-k3s -n auth-system describe httproute hanko-forwarded-headers-probe
+python3 tests/hanko/check-forwarded-headers.py
+kubectl --context oracle-k3s delete -f tests/hanko/forwarded-headers-probe.yaml
+```
+
+Confirm that the route reports `Accepted` and `ResolvedRefs` as `True`. Allow
+time for routing to propagate before running the checker. Remove the resources
+even if a check fails. The exact probe path is publicly reachable while the
+resources exist; it returns the caller's forwarding headers without logging
+requests.
+
+The Traefik and Hanko counters are in memory and reset on restart. Separate
+routers or replicas can have separate buckets. These limits do not enforce a
+per-recipient cap, and different IPv6 addresses can use different buckets.
+They are not a billing cap. Configure OCI Email Delivery quotas and alerts
+before relying on managed email to bound total sending.
 
 ## Secrets
 

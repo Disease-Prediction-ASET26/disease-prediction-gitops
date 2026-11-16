@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - database.yaml
   - development.yaml
+  - rate-limit-dev.yaml
   - production.yaml
   - networkpolicy.yaml
   - backup.yaml
