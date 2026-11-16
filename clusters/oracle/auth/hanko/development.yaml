@@ -13,7 +13,7 @@ data:
       dialect: postgres
       pool: 5
     account:
-      allow_signup: false
+      allow_signup: true
     third_party:
       redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
       error_redirect_url: https://dev.pocket-doc.app
@@ -49,7 +49,7 @@ data:
       issuer: https://identity-dev.pocket-doc.app
       audience:
         - pocket-doc-dev
-      lifespan: 15m
+      lifespan: 1h
       acquire_ip_address: false
       enable_auth_token_header: true
       cookie:
