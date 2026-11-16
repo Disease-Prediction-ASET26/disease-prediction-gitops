@@ -5,6 +5,7 @@ resources:
   - services.yaml
   - httproute.yaml
   - networkpolicy.yaml
+  - prune-confirmation-check.yaml
 configMapGenerator:
   - name: disease-prediction-config
     namespace: disease-prediction
