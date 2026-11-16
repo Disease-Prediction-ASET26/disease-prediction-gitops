@@ -191,9 +191,13 @@ that port. The unauthenticated admin API on port 8001 has no Service or public
 route. Do not expose it. An operator with Kubernetes `pods/portforward` access
 can use a private port-forward for maintenance.
 
-The instances use the current Authelia SMTP account via a separate OCI Vault
-secret. The Hanko secret is a copy, not an automatic sync from Authelia; update
-it when the SMTP credentials change. Hanko uses an in-memory rate limiter and
+Development uses the `hanko-smtp` OCI Vault secret. Production uses the
+separate `hanko-smtp-prod` secret for OCI Email Delivery, with the sender
+`no-reply@mail.pocket-doc.app`. Before switching production, confirm OCI reports
+the production DKIM key active and a controlled test message passes SPF, DKIM
+and DMARC. Keep `hanko-smtp` for rollback. To roll back, restore the production
+Deployment's SMTP references to `hanko-smtp` in a reviewed Git change and verify
+the rollout. Hanko uses an in-memory rate limiter and
 accepts forwarded client IP addresses only from the cluster Pod network, which
 matches Traefik's trusted proxy range. NetworkPolicy limits access to Traefik
 and the matching backend. The Cloudflare Tunnel and Traefik path was checked
@@ -250,7 +254,7 @@ or put them in Git, Terraform state, shell arguments, or logs.
 |---|---|
 | `hanko-runtime` | `pg_admin_password`, `dev_db_password`, `prod_db_password`, `dev_encryption_key`, `prod_encryption_key` |
 | `hanko-postgres-tls` | `ca_cert`, `server_cert`, `server_key` |
-| `hanko-smtp` | `host`, `port`, `username`, `password`, `from_address` |
+| `hanko-smtp`, `hanko-smtp-prod` | `host`, `port`, `username`, `password`, `from_address` |
 | `hanko-google-dev`, `hanko-google-prod` | Google client JSON: `web.client_id`, `web.client_secret` |
 | `hanko-backup-upload` | `url`: the write-only preauthenticated Object Storage URL |
 
@@ -282,21 +286,24 @@ reviewed change into `main`; Argo CD synchronizes the `hanko` Application and
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application hanko oci-auth-vault-store
-kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-backup-upload
+kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-smtp-prod hanko-backup-upload
 kubectl --context oracle-k3s -n auth-system get deployments,pods,services,pvc
 kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
 ```
 
-To check SMTP authentication from the cluster without sending mail, run the
-temporary check from the repository root, then remove it:
+To check the OCI SMTP credentials from the cluster without sending mail, run
+the temporary checks from the repository root, then remove them:
 
 ```bash
-kubectl --context oracle-k3s apply -f tests/hanko/smtp-check.yaml
-kubectl --context oracle-k3s -n auth-system wait --for=jsonpath='{.status.phase}'=Succeeded pod/hanko-smtp-check --timeout=90s
-kubectl --context oracle-k3s -n auth-system logs pod/hanko-smtp-check
-kubectl --context oracle-k3s delete -f tests/hanko/smtp-check.yaml
+kubectl --context oracle-k3s apply -f tests/hanko/smtp-oci-check.yaml
+kubectl --context oracle-k3s -n auth-system wait --for=jsonpath='{.status.phase}'=Succeeded pod/oci-smtp-prod-check --timeout=90s
+kubectl --context oracle-k3s -n auth-system logs pod/oci-smtp-prod-check
+kubectl --context oracle-k3s delete -f tests/hanko/smtp-oci-check.yaml
 ```
+
+The manifest also checks the development and infrastructure OCI credentials.
+This test checks authentication only; it does not send email.
 
 To check that each app namespace reaches only its own Hanko service, run:
 
