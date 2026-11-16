@@ -151,15 +151,25 @@ ConfigMap before the Deployment. A configuration change therefore starts a
 new backend pod. Hanko uses the same pattern for `hanko-dev-config.yaml` and
 `hanko-prod-config.yaml`; see the [Hanko guide](hanko.md).
 
-The Oracle frontend, backend, and Hanko Deployments use one replica with a
-surge of one and no unavailable replicas during a rollout. Kubernetes keeps
-the old pod until the replacement is ready. Allow enough node and namespace
-quota for both pods. The production application CPU limit quota is 1200m to
-allow backend and frontend rollouts to overlap. A failed replacement leaves
-the old pod serving; check rollout status and events. This does not protect
-against a node or dependency outage, and readiness does not prove a request
-will succeed. Keep database migrations compatible with the old and new
-versions while they overlap.
+The Oracle dev frontend and backend and both Hanko Deployments use one replica
+with a surge of one and no unavailable replicas during a rollout. Production
+uses two frontend and two backend replicas. Its rollouts use no surge and allow
+one unavailable replica per Deployment, so one pod remains available while
+Kubernetes replaces the other. This fits the production namespace quota: both
+frontends and backends together request 250m CPU and 640 MiB memory, with
+limits of 1200m CPU and 1792 MiB memory. The limits leave 256 MiB of the
+namespace's 2 GiB memory quota free. A failed replacement leaves the other pod
+serving; check rollout status and events. These replicas share one Oracle VM,
+so they do not protect against a VM or cluster outage. Readiness also does not
+prove a request will succeed. Keep database migrations compatible with old
+and new versions while they overlap.
+
+The production backend's Hikari pool is capped at 10 connections per pod and
+keeps at least two idle connections. The production PostgreSQL role allows 35
+connections. That covers three backend pools during a replacement, with five
+connections left for maintenance. Keep this limit in step with the backend
+pool size and rollout strategy. Do not increase replicas or the pool size
+without checking the PostgreSQL role limit and the single AI service's load.
 
 External Secrets Operator updates Kubernetes Secrets separately. ConfigMap
 hashes do not cause a rollout when a Secret changes. Follow the
