@@ -10,7 +10,7 @@ spec:
   login: true
   superuser: false
   createdb: false
-  connectionLimit: 20
+  connectionLimit: 35
   databaseRoleReclaimPolicy: retain
   passwordSecret:
     name: postgres-app-credentials-prod
