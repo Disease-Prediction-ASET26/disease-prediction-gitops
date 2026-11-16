@@ -72,16 +72,40 @@ deploying the change that removes the quarantine mount and configuration. Do
 not restore pre-reset accounts with untrusted credentials into the live database.
 The backend retains its optional quarantine feature for future incidents.
 
-After the backend has rolled out without the quarantine mount, delete the old
-ExternalSecret and any retained Kubernetes Secret. Argo CD does not prune the
-ExternalSecret. Its owner reference normally removes the Secret; the second
-command also handles a Secret left behind. Run on the operator machine:
+1. Wait for the backend to roll out without the quarantine mount. From the
+   GitOps repository root on the operator machine, refresh `oci-vault-store`:
 
-```bash
-kubectl --context oracle-k3s -n disease-prediction rollout status deployment/backend
-kubectl --context oracle-k3s -n disease-prediction delete externalsecret hanko-dev-quarantine --ignore-not-found
-kubectl --context oracle-k3s -n disease-prediction delete secret hanko-dev-quarantine --ignore-not-found
-```
+   ```bash
+   kubectl --context oracle-k3s -n disease-prediction rollout status deployment/backend
+   git fetch origin main
+   git rev-parse origin/main
+   date -u +%Y-%m-%dT%H:%M:%SZ
+   kubectl --context oracle-k3s -n argocd annotate application oci-vault-store argocd.argoproj.io/refresh=hard --overwrite
+   kubectl --context oracle-k3s -n argocd get application oci-vault-store -o json | jq '{refresh: .metadata.annotations["argocd.argoproj.io/refresh"], reconciledAt: .status.reconciledAt, revision: .status.sync.revision, quarantine: [.status.resources[]? | select(.kind == "ExternalSecret" and .name == "hanko-dev-quarantine") | .requiresPruning]}'
+   ```
+
+   Wait until Argo CD clears the refresh annotation, `reconciledAt` is later
+   than the refresh request, and `revision` matches the `origin/main` commit.
+   Repeat the final command as needed. The quarantine list must be empty or
+   contain only `true`, meaning Argo CD considers the old resource eligible for
+   pruning. Do not delete it while Argo CD still desires it: an old revision
+   can recreate it.
+2. Delete the old ExternalSecret and any retained Kubernetes Secret. Argo CD
+   does not prune the ExternalSecret. Its owner reference normally removes the
+   Secret; the second command also handles a Secret left behind.
+
+   ```bash
+   kubectl --context oracle-k3s -n disease-prediction delete externalsecret hanko-dev-quarantine --ignore-not-found
+   kubectl --context oracle-k3s -n disease-prediction delete secret hanko-dev-quarantine --ignore-not-found
+   ```
+
+3. Refresh `oci-vault-store` again as in step 1. Wait for it to reconcile the
+   current `origin/main` revision, then confirm both objects stay absent:
+
+   ```bash
+   kubectl --context oracle-k3s -n disease-prediction get externalsecret hanko-dev-quarantine --ignore-not-found -o name
+   kubectl --context oracle-k3s -n disease-prediction get secret hanko-dev-quarantine --ignore-not-found -o name
+   ```
 
 In OCI Console, open the project Vault and select the secret named
 `hanko-dev-quarantine`. Confirm its name and schedule deletion of that secret.
