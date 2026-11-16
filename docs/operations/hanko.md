@@ -30,8 +30,10 @@ address was verified later.
 To create the initial quarantine secret:
 
 1. Pause dev signup in GitOps and confirm Argo CD has applied the change to all
-   Hanko dev replicas. Wait for in-flight signup and profile requests to finish.
-   Keep signup paused through the snapshot and backend rollout.
+   Hanko dev replicas. Expire flows started before the pause using the
+   [flow expiry procedure](hanko-flow-expiry.md), or wait the full 24-hour flow
+   lifetime after the pause. Then wait for in-flight signup and profile requests
+   to finish. Keep signup paused through the snapshot and backend rollout.
 2. Use a trusted operator machine with `kubectl`, Terraform, Python 3 and the
    OCI Python SDK. Authenticate the OCI CLI profile and Kubernetes context.
    The operator must be allowed to exec in the dev Hanko PostgreSQL pod, read
@@ -47,9 +49,10 @@ To create the initial quarantine secret:
      --signup-paused-and-drained
    ```
 
-   Use the actual initialized Terraform directory if it differs. The script
-   reads the dev database twice, compares the results and creates
-   `hanko-dev-quarantine` in OCI Vault. It rejects empty, invalid, duplicate,
+   Use the actual initialized Terraform directory if it differs. The confirmation
+   flag records your checks; the script does not expire old flows or verify the
+   signup pause. The script reads the dev database twice, compares the results,
+   and creates `hanko-dev-quarantine` in OCI Vault. It rejects empty, invalid, duplicate,
    changed or oversized snapshots and an existing secret. Identifiers and
    credentials stay in process memory and are not printed or written locally.
    If the result is uncertain, check whether the secret exists in Vault before
@@ -66,15 +69,21 @@ To create the initial quarantine secret:
    Test that a known quarantined identity is denied before allowing new signup.
 
 To recover a quarantined account, verify its rightful owner through a trusted
-process independent of the old Hanko credentials. Review and remove any
-untrusted passkeys, passwords and linked providers, revoke existing sessions,
-and establish fresh credentials under the owner's control. Preserve account
-and patient data until their ownership is established. If ownership cannot be
-established, keep the subject quarantined and do not transfer its data to a new
-account automatically.
+process independent of the old Hanko credentials. Review untrusted passkeys and
+passwords, remove them where supported, revoke existing sessions, and establish
+fresh credentials under the owner's control. Hanko v3.1 does not provide an
+admin operation to unlink a linked social identity. Do not assume all old
+credentials can be removed.
 
-After a reviewed recovery, remove only that subject from the Vault secret using
-a secure operator process. Do not paste the list into commands or logs. Wait for
+If the old account cannot be made safe, keep its subject quarantined. Use an
+independently verified new subject and a reviewed, validated app-data rebinding
+procedure when the owner and data have been confirmed. The current app may need
+changes to support rebinding; do not transfer data automatically or promise an
+existing recovery function. If ownership cannot be established, keep the old
+subject quarantined and preserve the data for review.
+
+Only after a reviewed recovery that fully secures the old identity, remove its
+subject from the Vault secret using a secure operator process. Do not paste the list into commands or logs. Wait for
 External Secrets Operator to refresh the Kubernetes Secret, then restart the
 backend: it reads the quarantine file at startup. Verify the recovered account
 and a still-quarantined account. Keep the list nonempty while quarantine is
