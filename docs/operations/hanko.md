@@ -12,10 +12,9 @@ older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
 Dev registration requires email verification. Development accounts created
-before verification was enabled were deleted during the development reset. On
-16 November 2026, a tester registered in the app with Google, then signed in
-with the exact same email address and reached the same profile. Other browser
-tests remain pending.
+before verification was enabled were deleted during the development reset. See
+[Google and email sign-in](#google-and-email-sign-in) for the browser test and
+production release gate. Other browser tests remain pending.
 
 ### Reset development users
 
