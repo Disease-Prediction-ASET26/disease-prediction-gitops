@@ -191,10 +191,17 @@ that port. The unauthenticated admin API on port 8001 has no Service or public
 route. Do not expose it. An operator with Kubernetes `pods/portforward` access
 can use a private port-forward for maintenance.
 
-The instances use the current Authelia SMTP account via a separate OCI Vault
-secret. The Hanko secret is a copy, not an automatic sync from Authelia; update
-it when the SMTP credentials change. Hanko uses an in-memory rate limiter and
-accepts forwarded client IP addresses only from the cluster Pod network, which
+Dev uses the `hanko-smtp-dev` OCI Vault secret and sends from
+`no-reply@mail-dev.pocket-doc.app`. Production still uses the separate legacy
+`hanko-smtp` secret; `hanko-smtp-prod` is prepared for its later rollout. The
+legacy secret is a copy of the Authelia SMTP account and does not sync from it.
+Oracle requires time to validate the mail-domain DNS records. Confirm that
+mailbox headers show DKIM and DMARC passing for the sender domain before
+opening registration. See the infrastructure email delivery guide for DNS,
+quotas and credential rotation.
+
+Hanko uses an in-memory rate limiter and accepts forwarded client IP addresses
+only from the cluster Pod network, which
 matches Traefik's trusted proxy range. NetworkPolicy limits access to Traefik
 and the matching backend. The Cloudflare Tunnel and Traefik path was checked
 with a forged forwarding header. Repeat that check after changes to either
@@ -250,7 +257,7 @@ or put them in Git, Terraform state, shell arguments, or logs.
 |---|---|
 | `hanko-runtime` | `pg_admin_password`, `dev_db_password`, `prod_db_password`, `dev_encryption_key`, `prod_encryption_key` |
 | `hanko-postgres-tls` | `ca_cert`, `server_cert`, `server_key` |
-| `hanko-smtp` | `host`, `port`, `username`, `password`, `from_address` |
+| `hanko-smtp`, `hanko-smtp-dev`, `hanko-smtp-prod` | `host`, `port`, `username`, `password`, `from_address` |
 | `hanko-google-dev`, `hanko-google-prod` | Google client JSON: `web.client_id`, `web.client_secret` |
 | `hanko-backup-upload` | `url`: the write-only preauthenticated Object Storage URL |
 
@@ -282,7 +289,7 @@ reviewed change into `main`; Argo CD synchronizes the `hanko` Application and
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application hanko oci-auth-vault-store
-kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-backup-upload
+kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-smtp-dev hanko-smtp-prod hanko-backup-upload
 kubectl --context oracle-k3s -n auth-system get deployments,pods,services,pvc
 kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
