@@ -12,10 +12,9 @@ older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
 Dev registration requires email verification. Development accounts created
-before verification was enabled were deleted during the development reset. On
-16 November 2026, a tester registered in the app with Google, then signed in
-with the exact same email address and reached the same profile. Other browser
-tests remain pending.
+before verification was enabled were deleted during the development reset. See
+[Google and email sign-in](#google-and-email-sign-in) for the browser test and
+production release gate. Other browser tests remain pending.
 
 ### Reset development users
 
@@ -156,6 +155,29 @@ origin or page.
 See the frontend and backend repository READMEs for the current implementation
 and local setup. Test the matching image, Hanko instance and backend settings
 together; changing one image does not automatically select the other values.
+
+### Google and email sign-in
+
+Both environments disable automatic Google account linking. A development browser
+test on 16 November 2026 confirmed that a user can create an account with Google,
+then sign in with an email passcode using the same address and open the same app
+profile. Selecting **Create account** with an address already in use is expected
+to send an account-exists notice; this path has not been tested in the browser.
+Hanko treats Gmail plus addresses as distinct addresses.
+
+An email-created account cannot be linked to Google while `allow_linking` is
+false. Hanko v3.1 applies this setting to both automatic linking and the profile
+connection flow. Keep it disabled until a tested flow proves control of both
+credentials before linking. Do not merge accounts based on email address alone.
+
+Google's `email_verified` claim may not prove current ownership of an address
+outside Gmail and Google Workspace. Hanko's built-in Google provider accepts
+that claim when creating an account, and email-passcode login can use the same
+address. A new mailbox owner could gain access to a Google-created account. Before
+using Google for production patients, resolve this with a tested mailbox ownership
+check or disable the production Google provider. See [Google's email ownership
+guidance](https://developers.google.com/identity/sign-in/web/backend-auth) and
+[Hanko v3.1 account linking](https://github.com/teamhanko/hanko/blob/backend/v3.1.0/backend/thirdparty/linking.go).
 
 ### Before enabling registration in production
 
