@@ -4,7 +4,8 @@ metadata:
   name: hanko-dev
   namespace: auth-system
 spec:
-  replicas: 1
+  # Temporary maintenance: stop new development sessions during the user reset.
+  replicas: 0
   strategy:
     type: RollingUpdate
     rollingUpdate:
