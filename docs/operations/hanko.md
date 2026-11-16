@@ -305,6 +305,13 @@ kubectl --context oracle-k3s -n auth-system logs pod/hanko-smtp-check
 kubectl --context oracle-k3s delete -f tests/hanko/smtp-check.yaml
 ```
 
+To check the three OCI credentials without sending mail, apply
+`tests/hanko/smtp-oci-check.yaml`, wait for each check Pod to succeed, inspect
+its logs, and delete the manifest. The separate
+`tests/hanko/smtp-oci-send-check.yaml` sends one message to Authelia's
+configured check mailbox; run it only when that mailbox owner expects a test.
+Check the received message's DKIM and DMARC results and delete the Pod afterward.
+
 To check that each app namespace reaches only its own Hanko service, run:
 
 ```bash
