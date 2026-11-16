@@ -303,6 +303,9 @@ itself.
 
 ## Change and removal
 
+To cancel development registration flows started under the old demo settings,
+use the [development flow expiry procedure](hanko-flow-expiry.md).
+
 Change `hanko-dev-config.yaml` or `hanko-prod-config.yaml` in
 `clusters/oracle/auth/hanko`, preview and merge through a pull request, then
 check Argo CD and both services. A ConfigMap change rolls out the matching
