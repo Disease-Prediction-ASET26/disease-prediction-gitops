@@ -165,19 +165,29 @@ External Secrets Operator updates Kubernetes Secrets separately. ConfigMap
 hashes do not cause a rollout when a Secret changes. Follow the
 [Secrets guide](secrets.md) and the service's rotation procedure.
 
+The Oracle dev and production Applications automatically prune old generated
+backend ConfigMaps after the other resources become healthy. Their generated
+ConfigMaps opt in to pruning. Other resources require confirmation before
+pruning. In the Argo CD UI, review every pending deletion and confirm only if
+all are intended. Confirmation applies to the Application's pending prune
+operation. If a rollout fails, investigate it before removing the old
+ConfigMap. Automatic pruning remains disabled for Hanko and the other
+Applications.
+
+Prune confirmation does not protect resources when an Application is deleted
+with cascading deletion. Follow the removal procedure below and back up data
+before removing any Application.
+
 ### Remove old generated ConfigMaps
 
-The dev Application automatically prunes its old generated ConfigMaps after
-the rollout is healthy. Other dev resources require pruning confirmation.
-Pruning is disabled for production and Hanko. After each configuration change
-and successful rollout, remove their obsolete generated ConfigMaps to avoid
-leaving unused versions and Applications out of sync. Run these commands from a
-machine with access to Oracle K3s. Replace `<namespace>` with
-`disease-prediction-prod` or `auth-system`:
+Pruning is disabled for Hanko. After each Hanko configuration change and
+successful rollout, remove its obsolete generated ConfigMaps to avoid leaving
+unused versions and the Application out of sync. Run these commands from a
+machine with access to Oracle K3s:
 
 ```bash
-kubectl --context oracle-k3s -n <namespace> get configmaps
-kubectl --context oracle-k3s -n <namespace> get pods -o json | jq -r '
+kubectl --context oracle-k3s -n auth-system get configmaps
+kubectl --context oracle-k3s -n auth-system get pods -o json | jq -r '
   .items[] | .metadata.name as $pod |
   ((.spec.volumes[]?.configMap.name // empty),
    (.spec.initContainers[]?.envFrom[]?.configMapRef.name // empty),
@@ -186,14 +196,13 @@ kubectl --context oracle-k3s -n <namespace> get pods -o json | jq -r '
 ```
 
 Check that the old pod has terminated and no pod lists the old ConfigMap.
-Select only obsolete `disease-prediction-config`, `hanko-dev-config`, or
-`hanko-prod-config` names, including the old unversioned names after the first
-rollout. Do not delete the current ConfigMap or other Hanko ConfigMaps. Delete
-each confirmed obsolete name and check its Argo CD Application:
+Select only obsolete `hanko-dev-config` or `hanko-prod-config` names. Do not
+delete the current ConfigMap or other Hanko ConfigMaps. Delete each confirmed
+obsolete name and check its Argo CD Application:
 
 ```bash
-kubectl --context oracle-k3s -n <namespace> delete configmap <obsolete-name>
-kubectl --context oracle-k3s -n argocd get application <application-name>
+kubectl --context oracle-k3s -n auth-system delete configmap <obsolete-name>
+kubectl --context oracle-k3s -n argocd get application hanko
 ```
 
 For a rollback, restore the previous config in Git. Kustomize recreates its
@@ -206,9 +215,8 @@ in a GitOps pull request and merge it. Argo CD applies the restored version.
 Confirm the pod rollout and the route afterward. Never promote a
 moving image tag as a rollback.
 
-Production and the Proxmox Applications use `prune: false`. The dev Oracle
-Application requires confirmation to prune non-generated resources. To remove
-a stack, first remove its
+The Oracle Applications require confirmation to prune non-generated resources.
+The Proxmox Applications use `prune: false`. To remove a stack, first remove its
 Application entries from the Oracle and Proxmox `applications/kustomization.yaml`
 files and merge the change. Then delete the corresponding Application objects
 with their resource finalizers so Argo CD removes their managed workloads. For
