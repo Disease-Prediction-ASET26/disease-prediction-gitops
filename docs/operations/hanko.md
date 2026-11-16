@@ -11,12 +11,10 @@ the token and session before providing patient data. The production app uses
 older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
-Dev registration is paused while existing accounts are quarantined and verified
-email signup is prepared. Previously it permitted unverified addresses. Existing
-accounts may have credentials added by someone other than the email owner.
-Do not treat a later email verification as proof that those credentials are
-safe. Registration flows started before the pause can remain valid for up to
-24 hours unless invalidated. A user completed dev Google sign-in with a
+Dev registration requires email verification. Accounts created before
+verification was enabled remain quarantined. They may have credentials added by
+someone other than the email owner; do not treat later email verification as
+proof those credentials are safe. A user completed dev Google sign-in with a
 temporary Hanko Elements page on 16 November 2026. The app flow still needs an
 end-to-end browser test.
 

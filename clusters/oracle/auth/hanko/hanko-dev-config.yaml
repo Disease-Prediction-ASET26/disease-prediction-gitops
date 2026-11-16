@@ -6,8 +6,7 @@ database:
   dialect: postgres
   pool: 5
 account:
-  # Keep signup paused until development email verification works.
-  allow_signup: false
+  allow_signup: true
 third_party:
   redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
   error_redirect_url: https://dev.pocket-doc.app
