@@ -15,8 +15,10 @@ Dev registration is paused while existing accounts are quarantined and verified
 email signup is prepared. Previously it permitted unverified addresses. Existing
 accounts may have credentials added by someone other than the email owner.
 Do not treat a later email verification as proof that those credentials are
-safe. A user completed dev Google sign-in with a temporary Hanko Elements
-page on 16 November 2026. The app flow still needs an end-to-end browser test.
+safe. Registration flows started before the pause can remain valid for up to
+24 hours unless invalidated. A user completed dev Google sign-in with a
+temporary Hanko Elements page on 16 November 2026. The app flow still needs an
+end-to-end browser test.
 
 ### Login flow
 
@@ -135,7 +137,9 @@ the development Hanko route. The client limit uses Cloudflare's
 burst of 20. A second limit uses the request hostname, with an average of 300
 requests per minute and a burst of 60. The token buckets refill continuously.
 Google callbacks, preflight requests, and the production route do not use
-these limits.
+these limits. For the dev app and local dev origins, Traefik adds cross-origin
+headers to its rate-limit responses so the browser can read the HTTP 429 status.
+Keep these origins in sync with the dev Hanko CORS configuration.
 
 The web entry point must only receive Cloudflare Tunnel traffic. With one
 external client, a temporary probe confirmed that Cloudflare's client IP

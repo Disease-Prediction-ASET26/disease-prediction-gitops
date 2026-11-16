@@ -1,6 +1,21 @@
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
+  name: hanko-dev-flow-cors
+  namespace: auth-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  headers:
+    accessControlAllowCredentials: true
+    accessControlAllowOriginList:
+      - https://dev.pocket-doc.app
+      - http://localhost:5173
+    addVaryHeader: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
   name: hanko-dev-flow-client-limit
   namespace: auth-system
   annotations:
