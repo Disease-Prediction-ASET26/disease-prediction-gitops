@@ -1,85 +1,3 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hanko-dev-config
-  namespace: auth-system
-data:
-  config.yaml: |
-    database:
-      host: hanko-postgres.auth-system.svc.cluster.local
-      port: "5432"
-      database: hanko_dev
-      user: hanko_dev
-      dialect: postgres
-      pool: 5
-    account:
-      allow_signup: true
-    third_party:
-      redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
-      error_redirect_url: https://dev.pocket-doc.app
-      default_redirect_url: https://dev.pocket-doc.app
-      allowed_redirect_urls:
-        - https://dev.pocket-doc.app
-        - https://dev.pocket-doc.app/login
-        - http://localhost:5173
-        - http://localhost:5173/login
-      providers:
-        google:
-          enabled: true
-          allow_linking: false
-    server:
-      ip:
-        extractor: x_forwarded_for
-        trusted_proxies:
-          - 10.42.0.0/16
-    service:
-      name: Pocket Doc
-    email_delivery:
-      enabled: true
-      from_name: Pocket Doc
-    # TEMPORARY (demo without a mail system): no email is required to register or sign in.
-    # Users register and sign in with email + password; the address is not verified, so
-    # anyone can register with someone else's address. Security notification emails are off
-    # for the same reason. The backend accepts unverified addresses for now
-    # (disease-prediction-be, ProfileService). Remove this block once SMTP works, and before
-    # copying any setting to production.
-    email:
-      require_verification: false
-      use_for_authentication: false
-    security_notifications:
-      notifications:
-        email_create: {enabled: false}
-        email_delete: {enabled: false}
-        password_update: {enabled: false}
-        passkey_create: {enabled: false}
-        primary_email_update: {enabled: false}
-        mfa_create: {enabled: false}
-        mfa_delete: {enabled: false}
-    cors:
-      allow_origins:
-        - https://dev.pocket-doc.app
-        - http://localhost:5173
-    webauthn:
-      relying_party:
-        id: dev.pocket-doc.app
-        display_name: Pocket Doc
-        origins:
-          - https://dev.pocket-doc.app
-    session:
-      issuer: https://identity-dev.pocket-doc.app
-      audience:
-        - pocket-doc-dev
-      lifespan: 1h
-      acquire_ip_address: false
-      enable_auth_token_header: true
-      cookie:
-        secure: true
-        http_only: true
-        same_site: lax
-    rate_limiter:
-      enabled: true
-      store: in_memory
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -88,7 +6,10 @@ metadata:
 spec:
   replicas: 1
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app.kubernetes.io/name: hanko-dev

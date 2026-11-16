@@ -116,6 +116,7 @@ pull request:
 kubectl kustomize clusters/oracle
 kubectl kustomize clusters/oracle/disease-prediction
 kubectl kustomize clusters/oracle/disease-prediction-prod
+kubectl kustomize clusters/oracle/auth/hanko
 kubectl kustomize clusters/proxmox
 kubectl kustomize clusters/proxmox/disease-prediction-ai/dev
 kubectl kustomize clusters/proxmox/disease-prediction-ai/prod
@@ -140,6 +141,61 @@ Check that both hostnames load without an Authelia login. Check a synthetic
 free-text and checklist assessment. A backend returns 422 when the model
 cannot identify a symptom, 503 when it cannot connect, and 502 for other
 upstream errors.
+
+## Configuration and rollouts
+
+Edit `config.env` in the matching Oracle application directory to change
+backend settings. Kustomize adds a content hash to the generated ConfigMap
+name and updates the backend Deployment reference. Argo CD applies the new
+ConfigMap before the Deployment. A configuration change therefore starts a
+new backend pod. Hanko uses the same pattern for `hanko-dev-config.yaml` and
+`hanko-prod-config.yaml`; see the [Hanko guide](hanko.md).
+
+The Oracle frontend, backend, and Hanko Deployments use one replica with a
+surge of one and no unavailable replicas during a rollout. Kubernetes keeps
+the old pod until the replacement is ready. Allow enough node and namespace
+quota for both pods. The production application CPU limit quota is 1200m to
+allow backend and frontend rollouts to overlap. A failed replacement leaves
+the old pod serving; check rollout status and events. This does not protect
+against a node or dependency outage, and readiness does not prove a request
+will succeed. Keep database migrations compatible with the old and new
+versions while they overlap.
+
+External Secrets Operator updates Kubernetes Secrets separately. ConfigMap
+hashes do not cause a rollout when a Secret changes. Follow the
+[Secrets guide](secrets.md) and the service's rotation procedure.
+
+### Remove old generated ConfigMaps
+
+Argo CD pruning is disabled. After each configuration change and successful
+rollout, remove obsolete generated ConfigMaps to avoid leaving unused versions
+and Applications out of sync. Run these commands from a machine with access to
+Oracle K3s. Replace `<namespace>` with `disease-prediction`,
+`disease-prediction-prod`, or `auth-system`:
+
+```bash
+kubectl --context oracle-k3s -n <namespace> get configmaps
+kubectl --context oracle-k3s -n <namespace> get pods -o json | jq -r '
+  .items[] | .metadata.name as $pod |
+  ((.spec.volumes[]?.configMap.name // empty),
+   (.spec.initContainers[]?.envFrom[]?.configMapRef.name // empty),
+   (.spec.containers[]?.envFrom[]?.configMapRef.name // empty)) |
+  "\($pod) \(.)"'
+```
+
+Check that the old pod has terminated and no pod lists the old ConfigMap.
+Select only obsolete `disease-prediction-config`, `hanko-dev-config`, or
+`hanko-prod-config` names, including the old unversioned names after the first
+rollout. Do not delete the current ConfigMap or other Hanko ConfigMaps. Delete
+each confirmed obsolete name and check its Argo CD Application:
+
+```bash
+kubectl --context oracle-k3s -n <namespace> delete configmap <obsolete-name>
+kubectl --context oracle-k3s -n argocd get application <application-name>
+```
+
+For a rollback, restore the previous config in Git. Kustomize recreates its
+matching ConfigMap, and Argo CD rolls out the restored reference.
 
 ## Roll back or remove a stack
 

@@ -3,9 +3,11 @@ kind: ResourceQuota
 metadata:
   name: application-compute
   namespace: disease-prediction-prod
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   hard:
     requests.cpu: "500m"
     requests.memory: 1Gi
-    limits.cpu: "1"
+    limits.cpu: "1200m"
     limits.memory: 2Gi

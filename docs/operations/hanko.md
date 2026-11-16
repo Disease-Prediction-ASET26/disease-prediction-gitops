@@ -323,8 +323,15 @@ itself.
 
 ## Change and removal
 
-Make configuration changes in `clusters/oracle/auth/hanko`, preview and merge
-through a pull request, then check Argo CD and both services. ConfigMap and
+Change `hanko-dev-config.yaml` or `hanko-prod-config.yaml` in
+`clusters/oracle/auth/hanko`, preview and merge through a pull request, then
+check Argo CD and both services. A ConfigMap change rolls out the matching
+Deployment. Each replacement pod runs the Hanko migration init container.
+Check compatibility between the old and new versions before changing the
+Hanko image. During the overlap, each pod has its own in-memory rate limiter.
+After the rollout, remove the old ConfigMap as described in the
+[application operations guide](disease-prediction.md#remove-old-generated-configmaps).
+
 Secret changes do not automatically restart pods. After the ExternalSecret is
 ready, restart the affected Hanko Deployment and check the rollout. When
 rotating a Google client, keep the old client valid until the new one works.
