@@ -225,9 +225,10 @@ Complete these checks before enabling signup in production:
 
 The production frontend CSP remains report-only. Before enforcing it, test all
 production browser flows and provide a nonce generator that fails closed if
-secure randomness is unavailable. Nginx's current `$request_id` uses OpenSSL
-random bytes when available, but its [implementation](https://github.com/nginx/nginx/blob/release-1.31.0/src/http/ngx_http_variables.c)
-falls back to a non-cryptographic generator if that call fails.
+secure randomness is unavailable. In the frontend's Nginx 1.31.8 image,
+`$request_id` is generated with a SipHash key seeded using OpenSSL. Its
+[implementation](https://github.com/nginx/nginx/blob/release-1.31.8/src/http/ngx_http_variables.c)
+falls back to a non-cryptographic seed if the OpenSSL call fails.
 
 ## Service operation
 
