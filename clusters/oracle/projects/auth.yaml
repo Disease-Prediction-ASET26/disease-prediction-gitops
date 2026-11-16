@@ -41,5 +41,7 @@ spec:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: ReferenceGrant
+    - group: traefik.io
+      kind: Middleware
     - group: networking.k8s.io
       kind: NetworkPolicy
