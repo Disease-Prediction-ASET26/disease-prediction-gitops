@@ -9,10 +9,12 @@ scheduled backup or a production recovery plan.
 
 - Stop the dev app writers before creating the backup and keep them stopped until the
   reset and checks finish. Confirm the correct cluster and database separately.
-- Use a trusted workstation with enough memory and no unencrypted swap. The compressed
+- Use a trusted workstation with enough memory and no unencrypted swap access for the
+  backup process or its restore container. The compressed
   PostgreSQL archive is limited to 128 MiB. The program holds the dump and encryption
   buffers in memory; an isolated restore also uses temporary memory-backed storage.
-  Core dumps are disabled, but the operating system or hypervisor can still page memory.
+  Core dumps are disabled. The commands below prevent swap use on the current Linux
+  workstation; a hypervisor may still page memory outside the guest.
 - Have `kubectl` access to context `proxmox-k3s`, Terraform access to the existing Oracle
   configuration and state, and an OCI profile allowed to use the project's Vault key.
   The existing OCI CLI Python environment includes the OCI SDK and `cryptography`.
@@ -35,11 +37,21 @@ credentials:
 ```bash
 OCI_PYTHON="$(head -n 1 "$(command -v oci)" | cut -c 3-)"
 ORACLE_TERRAFORM_DIR="../disease-prediction-infra/terraform/oracle"
-"$OCI_PYTHON" scripts/backup-dev-app-database.py create \
+systemd-run --user --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  "$OCI_PYTHON" scripts/backup-dev-app-database.py create \
   /secure/path/dev-app-before-reset.enc --terraform-dir "$ORACLE_TERRAFORM_DIR"
-"$OCI_PYTHON" scripts/backup-dev-app-database.py verify \
+systemd-run --user --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  "$OCI_PYTHON" scripts/backup-dev-app-database.py verify \
   /secure/path/dev-app-before-reset.enc --terraform-dir "$ORACLE_TERRAFORM_DIR"
 ```
+
+The `systemd-run` limits require a user systemd session with cgroup v2 and delegated
+memory controls. They prevent the Python process and its child commands from using
+swap; they do not apply to containers started by the Docker daemon. The restore
+container has its own 512 MiB memory limit and no swap. If these controls are not
+available, use another verified method that prevents unencrypted swap access. If the
+backup exceeds the process memory limit, stop and select an appropriate larger limit;
+do not proceed with the reset.
 
 Use `--profile NAME` if the OCI profile is not `DEFAULT`. The program queries the
 existing Terraform output for the Vault, locates `disease-prediction-secrets-key`,

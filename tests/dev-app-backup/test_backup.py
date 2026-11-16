@@ -96,6 +96,9 @@ class BackupTest(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     backup.verify_restore(self.dump)
         self.assertIn("none", runner.call_args_list[0].args[0])
+        args = runner.call_args_list[0].args[0]
+        self.assertEqual(args[args.index("--memory") + 1], "512m")
+        self.assertEqual(args[args.index("--memory-swap") + 1], "512m")
         self.assertTrue(any(arg.startswith("/var/lib/postgresql:rw,nosuid,nodev,noexec")
                             for arg in runner.call_args_list[0].args[0]))
         self.assertEqual(process.call_args.args[0][:2], ["docker", "stop"])

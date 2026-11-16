@@ -176,6 +176,7 @@ def verify_restore(dump):
         container = run(["docker", "run", "--detach", "--rm", "--network", "none",
                          "--read-only", "--user", "70:70", "--cap-drop", "ALL",
                          "--security-opt", "no-new-privileges", "--memory", "512m",
+                         "--memory-swap", "512m",
                          "--pids-limit", "64",
                          "--tmpfs", "/var/lib/postgresql:rw,nosuid,nodev,noexec,uid=70,gid=70,mode=700,size=1g",
                          "--tmpfs", "/var/run/postgresql:rw,nosuid,nodev,uid=70,gid=70,mode=700",
