@@ -83,8 +83,11 @@ browser origins. Passkeys require `https://dev.pocket-doc.app`; localhost is not
 configured as a WebAuthn origin. Production only allows
 `https://health.pocket-doc.app`. Ask DevOps to update the allowed origins and
 Google success/error redirects when the team chooses a different login URL.
-Current Google redirects point to the app origins; dev also allows localhost as
-a success redirect.
+Google success redirects allow the app origins and the app's `/login` page,
+because Hanko Elements returns the browser to the page that started Google
+sign-in. Dev also allows the same two URLs on `http://localhost:5173`. Hanko
+matches these entries against the whole URL, so add any other page that shows
+the login component.
 
 ### Session handoff: agree before implementation
 

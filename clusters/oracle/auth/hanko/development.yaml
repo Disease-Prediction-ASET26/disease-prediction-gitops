@@ -20,7 +20,9 @@ data:
       default_redirect_url: https://dev.pocket-doc.app
       allowed_redirect_urls:
         - https://dev.pocket-doc.app
+        - https://dev.pocket-doc.app/login
         - http://localhost:5173
+        - http://localhost:5173/login
       providers:
         google:
           enabled: true
