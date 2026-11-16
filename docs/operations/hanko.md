@@ -18,6 +18,68 @@ Do not treat a later email verification as proof that those credentials are
 safe. A user completed dev Google sign-in with a temporary Hanko Elements
 page on 16 November 2026. The app flow still needs an end-to-end browser test.
 
+### Quarantine development accounts
+
+Users created while dev email verification was disabled can have credentials
+registered by someone else. The backend blocks the captured Hanko subjects from
+protected app operations. Do not remove a subject merely because its email
+address was verified later.
+
+To create the initial quarantine secret:
+
+1. Pause dev signup in GitOps and confirm Argo CD has applied the change to all
+   Hanko dev replicas. Wait for in-flight signup and profile requests to finish.
+   Keep signup paused through the snapshot and backend rollout.
+2. Use a trusted operator machine with `kubectl`, Terraform, Python 3 and the
+   OCI Python SDK. Authenticate the OCI CLI profile and Kubernetes context.
+   The operator must be allowed to exec in the dev Hanko PostgreSQL pod, read
+   the existing Terraform state, and create a secret in the project's OCI Vault.
+   Initialize the infrastructure Terraform directory and check the selected OCI
+   profile and cluster context before continuing.
+3. From the GitOps repository root, run:
+
+   ```bash
+   python3 scripts/snapshot-hanko-dev-quarantine.py \
+     --terraform-dir ../disease-prediction-infra/terraform/oracle \
+     --context oracle-k3s \
+     --signup-paused-and-drained
+   ```
+
+   Use the actual initialized Terraform directory if it differs. The script
+   reads the dev database twice, compares the results and creates
+   `hanko-dev-quarantine` in OCI Vault. It rejects empty, invalid, duplicate,
+   changed or oversized snapshots and an existing secret. Identifiers and
+   credentials stay in process memory and are not printed or written locally.
+   If the result is uncertain, check whether the secret exists in Vault before
+   retrying. Do not overwrite an existing quarantine list with a later snapshot.
+4. After this pull request is applied, check the ExternalSecret and backend
+   rollout without printing secret contents:
+
+   ```bash
+   kubectl --context oracle-k3s -n disease-prediction get externalsecret hanko-dev-quarantine
+   kubectl --context oracle-k3s -n disease-prediction rollout status deployment/backend
+   ```
+
+   The backend fails closed if the quarantine file is missing, invalid or empty.
+   Test that a known quarantined identity is denied before allowing new signup.
+
+To recover a quarantined account, verify its rightful owner through a trusted
+process independent of the old Hanko credentials. Review and remove any
+untrusted passkeys, passwords and linked providers, revoke existing sessions,
+and establish fresh credentials under the owner's control. Preserve account
+and patient data until their ownership is established. If ownership cannot be
+established, keep the subject quarantined and do not transfer its data to a new
+account automatically.
+
+After a reviewed recovery, remove only that subject from the Vault secret using
+a secure operator process. Do not paste the list into commands or logs. Wait for
+External Secrets Operator to refresh the Kubernetes Secret, then restart the
+backend: it reads the quarantine file at startup. Verify the recovered account
+and a still-quarantined account. Keep the list nonempty while quarantine is
+enabled; the backend rejects an empty list. When every subject has been reviewed,
+remove the quarantine configuration and Secret only through a coordinated
+GitOps change after validating the release and rollback plan.
+
 ### Login flow
 
 ```mermaid
