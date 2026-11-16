@@ -31,7 +31,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backend
-          image: ghcr.io/disease-prediction-aset26/disease-prediction-be-dev@sha256:b220d29ec7cc6ff0b606d9ac3f6cb14978fc242b56905b090ab720925b7eef3b
+          image: ghcr.io/disease-prediction-aset26/disease-prediction-be-dev@sha256:90a02495190e79d7242ed00a156bfb02cf0eb1980fa59516477f6a2d23e17935
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
