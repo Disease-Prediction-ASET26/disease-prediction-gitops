@@ -4,8 +4,7 @@ metadata:
   name: hanko-dev
   namespace: auth-system
 spec:
-  # Stop dev authentication while removing the login test accounts.
-  replicas: 0
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
