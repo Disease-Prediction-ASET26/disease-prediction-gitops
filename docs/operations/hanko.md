@@ -253,10 +253,9 @@ can use a private port-forward for maintenance.
 
 Development uses `hanko-smtp-dev` and sends from
 `no-reply@mail-dev.pocket-doc.app`. Production uses `hanko-smtp-prod` and sends
-from `no-reply@mail.pocket-doc.app`. Both use OCI Email Delivery. Keep the
-previous `hanko-smtp` Vault secret for rollback. To roll back production,
-restore its Deployment SMTP references to `hanko-smtp` in a reviewed Git
-change and verify the rollout. Confirm that mailbox headers show DKIM and DMARC
+from `no-reply@mail.pocket-doc.app`. Both use OCI Email Delivery. After a
+credential or sender change, verify the rollout and send a controlled test
+email. Confirm that mailbox headers show DKIM and DMARC
 passing for each sender before opening registration. See the infrastructure
 email delivery guide for DNS, quotas and credential rotation.
 
@@ -351,7 +350,7 @@ or put them in Git, Terraform state, shell arguments, or logs.
 |---|---|
 | `hanko-runtime` | `pg_admin_password`, `dev_db_password`, `prod_db_password`, `dev_encryption_key`, `prod_encryption_key` |
 | `hanko-postgres-tls` | `ca_cert`, `server_cert`, `server_key` |
-| `hanko-smtp`, `hanko-smtp-dev`, `hanko-smtp-prod` | `host`, `port`, `username`, `password`, `from_address` |
+| `hanko-smtp-dev`, `hanko-smtp-prod` | `host`, `port`, `username`, `password`, `from_address` |
 | `hanko-google-dev`, `hanko-google-prod` | Google client JSON: `web.client_id`, `web.client_secret` |
 | `hanko-backup-upload` | `url`: the write-only preauthenticated Object Storage URL |
 
@@ -383,7 +382,7 @@ reviewed change into `main`; Argo CD synchronizes the `hanko` Application and
 
 ```bash
 kubectl --context oracle-k3s -n argocd get application hanko oci-auth-vault-store
-kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp hanko-smtp-dev hanko-smtp-prod hanko-backup-upload
+kubectl --context oracle-k3s -n auth-system get externalsecret hanko-dev hanko-prod hanko-google-dev hanko-google-prod hanko-postgres hanko-postgres-tls hanko-postgres-ca hanko-smtp-dev hanko-smtp-prod hanko-backup-upload
 kubectl --context oracle-k3s -n auth-system get deployments,pods,services,pvc
 kubectl --context oracle-k3s -n auth-system get httproute hanko-dev hanko-prod
 kubectl --context oracle-k3s -n auth-system top pods --containers
@@ -400,10 +399,24 @@ kubectl --context oracle-k3s delete -f tests/hanko/smtp-oci-check.yaml
 ```
 
 The manifest also checks the development and infrastructure OCI credentials.
-This test checks authentication only; it does not send email. The separate
-`tests/hanko/smtp-oci-send-prod-check.yaml` sends one message to the configured
-check mailbox. Run it only when the mailbox owner expects a test. Check the
-received message's DKIM and DMARC results, then delete the Pod.
+The infrastructure check verifies the sender as the startup-check recipient.
+These checks do not send email.
+
+To check actual production mail delivery, choose an inbox you control and run
+the following commands from the repository root. The check sends one email.
+Inspect the received message's DKIM and DMARC results, then remove the Pod.
+
+```bash
+read -r -p 'Test inbox address: ' smtp_test_recipient
+kubectl --context oracle-k3s create --dry-run=client -f tests/hanko/smtp-oci-send-prod-check.yaml -o json | kubectl set env --local -f - "CHECK_ADDRESS=$smtp_test_recipient" -o json | kubectl --context oracle-k3s apply -f -
+kubectl --context oracle-k3s -n auth-system wait --for=jsonpath='{.status.phase}'=Succeeded pod/oci-smtp-send-prod-check --timeout=90s
+kubectl --context oracle-k3s -n auth-system logs pod/oci-smtp-send-prod-check
+kubectl --context oracle-k3s delete -f tests/hanko/smtp-oci-send-prod-check.yaml
+unset smtp_test_recipient
+```
+
+For development or infrastructure mail, use the corresponding `send-check`
+or `send-ops-check` manifest and Pod name.
 
 To check that each app namespace reaches only its own Hanko service, run:
 

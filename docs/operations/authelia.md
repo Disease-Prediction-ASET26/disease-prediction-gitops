@@ -54,7 +54,6 @@ Terraform, shell arguments, chat, or logs.
 | `authelia-storage-encryption-key` | Random key used to encrypt SQLite data |
 | `authelia-reset-password-jwt-secret` | Random signing secret; required by Authelia even though password reset is disabled |
 | `authelia-smtp-oci` | OCI Email Delivery credentials and sender, as described below |
-| `authelia-smtp` | Previous SMTP configuration retained for rollback |
 | `authelia-oidc-hmac-secret` | Random 64+ character string used by the OIDC provider |
 | `authelia-oidc-signing-key` | PEM-encoded RSA private key used to sign OIDC tokens |
 | `authelia-argocd-client-secret-hash` | PBKDF2-SHA512 digest of the Argo CD OIDC client secret |
@@ -177,13 +176,11 @@ payload as a secret.
 See the [SMTP configuration reference](https://www.authelia.com/configuration/notifications/smtp/)
 for provider-specific address formats.
 
-The OCI sender is `no-reply@ops-mail.pocket-doc.app`. Before switching to it,
-confirm OCI reports its DKIM key active and send a controlled test email. Check
-SPF, DKIM and DMARC in the received message. The startup check alone does not
-prove delivery. After the switch, verify Authelia's rollout and notification
-flow. For rollback, restore every Deployment reference to the retained
-`authelia-smtp` Kubernetes Secret in a reviewed Git change and check the rollout.
-Keep the old Vault secret and ExternalSecret until rollback is no longer needed.
+The OCI sender is `no-reply@ops-mail.pocket-doc.app`. After a credential or
+sender change, verify Authelia's rollout and send a controlled test email.
+Check SPF, DKIM and DMARC in the received message. The startup check alone does
+not prove delivery. For recovery, restore working OCI SMTP credentials through
+Vault and verify the rollout.
 
 ESO creates `authelia-users`, `authelia-core-secrets`, and `authelia-smtp-oci` in
 `auth-system`. The Deployment requires these Kubernetes Secrets and the OIDC
