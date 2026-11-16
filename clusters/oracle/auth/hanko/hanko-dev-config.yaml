@@ -31,22 +31,6 @@ service:
 email_delivery:
   enabled: true
   from_name: Pocket Doc
-# Temporary demo settings: Hanko email verification and security notifications are off.
-# The backend requires a verified email, and legacy identities are quarantined.
-# Keep signup disabled until OCI email delivery and verification have been tested.
-# Remove these settings before enabling signup or copying them to production.
-email:
-  require_verification: false
-  use_for_authentication: false
-security_notifications:
-  notifications:
-    email_create: {enabled: false}
-    email_delete: {enabled: false}
-    password_update: {enabled: false}
-    passkey_create: {enabled: false}
-    primary_email_update: {enabled: false}
-    mfa_create: {enabled: false}
-    mfa_delete: {enabled: false}
 cors:
   allow_origins:
     - https://dev.pocket-doc.app
