@@ -4,8 +4,7 @@ metadata:
   name: backend
   namespace: disease-prediction
 spec:
-  # Temporary maintenance: stop profile writes during the development user reset.
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 2
   strategy:
     type: RollingUpdate
@@ -93,19 +92,12 @@ spec:
               drop:
                 - ALL
           volumeMounts:
-            - name: hanko-quarantine
-              mountPath: /run/hanko-quarantine
-              readOnly: true
             - name: postgres-ca
               mountPath: /etc/postgres-ca
               readOnly: true
             - name: tmp
               mountPath: /tmp
       volumes:
-        - name: hanko-quarantine
-          secret:
-            secretName: hanko-dev-quarantine
-            defaultMode: 0440
         - name: postgres-ca
           secret:
             secretName: postgres-server-ca
