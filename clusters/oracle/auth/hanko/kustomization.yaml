@@ -5,6 +5,7 @@ resources:
   - development.yaml
   - rate-limit-dev.yaml
   - production.yaml
+  - rate-limit-prod.yaml
   - networkpolicy.yaml
   - backup.yaml
   - backup-ingress.yaml

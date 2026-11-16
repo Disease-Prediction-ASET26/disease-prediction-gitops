@@ -132,6 +132,20 @@ spec:
     - identity.pocket-doc.app
   rules:
     - matches:
+        - method: POST
+          path: {type: PathPrefix, value: /}
+      filters:
+        - type: ExtensionRef
+          extensionRef: {group: traefik.io, kind: Middleware, name: hanko-prod-flow-client-limit}
+        - type: ExtensionRef
+          extensionRef: {group: traefik.io, kind: Middleware, name: hanko-prod-flow-total-limit}
+      backendRefs:
+        - name: hanko-prod
+          group: ""
+          kind: Service
+          port: 8000
+          weight: 1
+    - matches:
         - path: {type: PathPrefix, value: /}
       backendRefs:
         - name: hanko-prod

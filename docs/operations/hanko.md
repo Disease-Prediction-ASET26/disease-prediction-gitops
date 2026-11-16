@@ -180,6 +180,24 @@ See the frontend and backend repository READMEs for the current implementation
 and local setup. Test the matching image, Hanko instance and backend settings
 together; changing one image does not automatically select the other values.
 
+### Unknown-email sign-in
+
+Hanko runs with `privacy.show_account_existence_hints: false` in both
+environments. The public login flow does not report whether an email is
+registered. For an unknown address, Hanko sends an informational notice to
+that address; it contains no sign-in code or link. The notice says the address
+was not recognized and suggests creating an account. If you receive it, check
+the spelling and choose **Create account** on the sign-in page if you are new.
+
+Do not enable account-existence hints to replace this notice with an inline
+error. That would let callers check whether arbitrary addresses have accounts.
+Hanko's passcode limit uses both the client IP and email, so different IPs have
+separate buckets. The development and production routes also limit POST
+requests before they reach Hanko. These controls reduce basic abuse, but they
+do not create a strict shared limit per recipient. A distributed sender can
+still reach one address from multiple IPs. A recipient-aware shared SMTP limit
+remains tracked in [issue #206](https://github.com/Disease-Prediction-ASET26/disease-prediction-gitops/issues/206).
+
 ### Google and email sign-in
 
 Both environments disable automatic Google account linking. A development browser
@@ -266,17 +284,17 @@ and the matching backend. The Cloudflare Tunnel and Traefik path was checked
 with a forged forwarding header. Repeat that check after changes to either
 proxy or the Pod network. Hanko does not store the session IP address.
 
-### Development request limits
+### Hanko request limits
 
-Traefik limits `POST /registration`, `POST /login`, and `POST /profile` on
-the development Hanko route. The client limit uses Cloudflare's
+Traefik limits POST requests to the Hanko API on both development and
+production routes. The client limit uses Cloudflare's
 `CF-Connecting-IP` header, with an average of 40 requests per minute and a
 burst of 20. A second limit uses the request hostname, with an average of 300
 requests per minute and a burst of 60. The token buckets refill continuously.
-Google callbacks, preflight requests, and the production route do not use
-these limits. For the dev app and local dev origins, Traefik adds cross-origin
-headers to its rate-limit responses so the browser can read the HTTP 429 status.
-Keep these origins in sync with the dev Hanko CORS configuration.
+Google callbacks and preflight requests do not use these limits. For the dev
+app and local dev origins, Traefik adds cross-origin headers to its rate-limit
+responses so the browser can read the HTTP 429 status. Keep these origins in
+sync with the dev Hanko CORS configuration.
 
 The web entry point must only receive Cloudflare Tunnel traffic. With one
 external client, a temporary probe confirmed that Cloudflare's client IP
