@@ -1,0 +1,34 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: hanko-smtp-prod
+  namespace: auth-system
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: oci-vault-auth
+    kind: SecretStore
+  target:
+    name: hanko-smtp-prod
+    creationPolicy: Owner
+  data:
+    - secretKey: host
+      remoteRef:
+        key: hanko-smtp-prod
+        property: host
+    - secretKey: port
+      remoteRef:
+        key: hanko-smtp-prod
+        property: port
+    - secretKey: username
+      remoteRef:
+        key: hanko-smtp-prod
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: hanko-smtp-prod
+        property: password
+    - secretKey: from-address
+      remoteRef:
+        key: hanko-smtp-prod
+        property: from_address
