@@ -29,7 +29,9 @@ apply to those requests.
    if the connected database or role differs.
 4. Choose a quiet period. The Job takes an exclusive lock on the dev `flows`
    table. Ongoing flows finish before the lock is acquired; new flow requests
-   wait briefly. It fails if the lock takes more than 15 seconds.
+   wait briefly. It fails if the lock takes more than 15 seconds. The Job waits
+   for PostgreSQL to become reachable before it starts the transaction, so a
+   delay in applying the NetworkPolicy does not cause an immediate failure.
 
 ## Preview and run
 
@@ -45,7 +47,7 @@ Argo CD and will not run when merged. To run it once:
 
 ```bash
 kubectl --context oracle-k3s apply -f operations/hanko/expire-dev-flows.yaml
-kubectl --context oracle-k3s -n auth-system wait --for=condition=complete job/hanko-dev-flow-expiry --timeout=120s
+kubectl --context oracle-k3s -n auth-system wait --for=condition=complete job/hanko-dev-flow-expiry --timeout=180s
 kubectl --context oracle-k3s -n auth-system logs job/hanko-dev-flow-expiry
 ```
 

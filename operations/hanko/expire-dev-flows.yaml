@@ -24,7 +24,7 @@ metadata:
   namespace: auth-system
 spec:
   backoffLimit: 0
-  activeDeadlineSeconds: 90
+  activeDeadlineSeconds: 150
   ttlSecondsAfterFinished: 86400
   template:
     metadata:
@@ -56,6 +56,19 @@ spec:
           args:
             - |
               # The password is supplied in the environment, not in process arguments or output.
+              # A new pod may start before its NetworkPolicy has been applied by the node.
+              ready=false
+              for attempt in $(seq 1 20); do
+                if pg_isready -q -t 2; then
+                  ready=true
+                  break
+                fi
+                sleep 2
+              done
+              if [ "$ready" != true ]; then
+                echo "Development Hanko database did not become reachable" >&2
+                exit 1
+              fi
               psql --no-psqlrc --set=ON_ERROR_STOP=1 <<'SQL'
               BEGIN;
               SET LOCAL lock_timeout = '15s';
