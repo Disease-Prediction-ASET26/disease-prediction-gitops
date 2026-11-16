@@ -7,8 +7,9 @@ app login and operate the service.
 
 The app does not use Hanko yet. Both app routes and their proxied APIs are
 public. Registration is enabled in dev so the app team can build and test the
-sign-up flow; it stays disabled in production. Google is configured, but a
-complete Google sign-in has not been tested.
+sign-up flow; it stays disabled in production. Google is configured. A user
+completed dev Google sign-in with a temporary Hanko Elements page on 16 November
+2026. The app integration and production Google sign-in still need testing.
 
 ### How login will work
 
