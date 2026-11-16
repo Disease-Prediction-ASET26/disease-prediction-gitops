@@ -11,7 +11,8 @@ the token and session before providing patient data. The production app uses
 older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
-Dev registration currently permits unverified email addresses. Existing
+Dev registration is paused while existing accounts are quarantined and verified
+email signup is prepared. Previously it permitted unverified addresses. Existing
 accounts may have credentials added by someone other than the email owner.
 Do not treat a later email verification as proof that those credentials are
 safe. A user completed dev Google sign-in with a temporary Hanko Elements

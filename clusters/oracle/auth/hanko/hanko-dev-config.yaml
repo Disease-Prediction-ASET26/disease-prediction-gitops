@@ -6,7 +6,8 @@ database:
   dialect: postgres
   pool: 5
 account:
-  allow_signup: true
+  # Pause signup while existing unsafe accounts are captured and quarantined.
+  allow_signup: false
 third_party:
   redirect_url: https://identity-dev.pocket-doc.app/thirdparty/callback
   error_redirect_url: https://dev.pocket-doc.app
