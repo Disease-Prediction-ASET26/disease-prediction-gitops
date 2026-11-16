@@ -4,8 +4,7 @@ metadata:
   name: backend
   namespace: disease-prediction
 spec:
-  # Temporary maintenance: stop profile writes during the development user reset.
-  replicas: 0
+  replicas: 1
   revisionHistoryLimit: 2
   strategy:
     type: RollingUpdate

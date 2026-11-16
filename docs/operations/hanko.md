@@ -11,23 +11,23 @@ the token and session before providing patient data. The production app uses
 older images; its authentication rollout and production registration are not
 complete. Keep Argo CD and Grafana protected by Authelia.
 
-Dev registration requires email verification. Accounts created before
-verification was enabled remain quarantined. They may have credentials added by
-someone other than the email owner; do not treat later email verification as
-proof those credentials are safe. A user completed dev Google sign-in with a
+Dev registration requires email verification. Development accounts created
+before verification was enabled were deleted during the reset; their subjects
+remain on the quarantine list. A user completed dev Google sign-in with a
 temporary Hanko Elements page on 16 November 2026. The app flow still needs an
 end-to-end browser test.
 
 ### Reset development users
 
-The development Hanko and backend Deployments are temporarily stopped for an
-approved reset of all test accounts. The reset also deletes development patient
+Use this procedure for an approved reset of all development test accounts.
+The reset also deletes development patient
 profiles and consent history. It does not target production. Hanko backups may
 still contain deleted accounts until their retention period ends. The Proxmox
 PostgreSQL database does not have a scheduled off-node backup.
 
-1. Confirm both development Deployments have zero replicas and no running Pods.
-   Keep them stopped until both reset Jobs complete and their results are checked.
+1. Stop the development Hanko and backend Deployments through a reviewed GitOps
+   change. Confirm both have zero replicas and no running Pods. Keep them stopped
+   until both reset Jobs complete and their results are checked.
    Verify a recent Hanko backup and restore using the matching dev encryption key.
    Create and verify an [encrypted app database backup](dev-app-backup.md).
 2. From the GitOps repository root, preview both manual operation manifests:
