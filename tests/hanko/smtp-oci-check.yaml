@@ -142,7 +142,14 @@ spec:
                   smtp.starttls(context=ssl.create_default_context())
                   smtp.ehlo()
                   smtp.login(os.environ['SMTP_USERNAME'], os.environ['SMTP_PASSWORD'])
-              print('SMTP TLS and authentication passed; no email sent')
+                  code, _ = smtp.mail(os.environ['SMTP_FROM'])
+                  if code != 250:
+                      raise RuntimeError('MAIL FROM rejected')
+                  code, _ = smtp.rcpt(os.environ['SMTP_FROM'])
+                  if code not in (250, 251):
+                      raise RuntimeError('RCPT TO rejected')
+                  smtp.rset()
+              print('SMTP TLS, authentication and sender startup-check recipient passed; no email sent')
           except Exception as exc:
               print('SMTP check failed:', type(exc).__name__, 'status:', getattr(exc, 'smtp_code', 'unavailable'))
               sys.exit(1)
@@ -155,6 +162,8 @@ spec:
           valueFrom: {secretKeyRef: {name: authelia-smtp-oci, key: username}}
         - name: SMTP_PASSWORD
           valueFrom: {secretKeyRef: {name: authelia-smtp-oci, key: password}}
+        - name: SMTP_FROM
+          valueFrom: {secretKeyRef: {name: authelia-smtp-oci, key: from_address}}
       resources:
         requests: {cpu: 10m, memory: 16Mi}
         limits: {cpu: 100m, memory: 64Mi}

@@ -1,4 +1,4 @@
-# Temporary check: send one test message to Authelia's configured check mailbox.
+# Temporary check: set CHECK_ADDRESS to a test inbox before applying.
 apiVersion: v1
 kind: Pod
 metadata:
@@ -24,6 +24,8 @@ spec:
           import os, smtplib, ssl, sys
           from email.message import EmailMessage
           try:
+              if not os.environ.get('CHECK_ADDRESS'):
+                  raise ValueError('Set CHECK_ADDRESS to an inbox you control')
               message = EmailMessage()
               message['From'] = os.environ['SMTP_FROM']
               message['To'] = os.environ['CHECK_ADDRESS']
@@ -51,7 +53,7 @@ spec:
         - name: SMTP_FROM
           valueFrom: {secretKeyRef: {name: hanko-smtp-prod, key: from-address}}
         - name: CHECK_ADDRESS
-          valueFrom: {secretKeyRef: {name: authelia-smtp-oci, key: startup_check_address}}
+          value: ""
       resources:
         requests: {cpu: 10m, memory: 16Mi}
         limits: {cpu: 100m, memory: 64Mi}
