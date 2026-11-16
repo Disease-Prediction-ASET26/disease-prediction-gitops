@@ -302,9 +302,13 @@ The Proxmox Prometheus rule `HankoBackupStale` alerts if there has been no
 successful scheduled backup for 36 hours. Check the existing Alertmanager
 notification setup separately; the rule alone does not configure delivery.
 
-To run a one-off backup check from the GitOps repository root:
+To run a one-off backup check from the GitOps repository root, first compare
+the versioned job's pod template with the live CronJob. The backup volume must
+be writable in both dump and upload containers. A manual job does not update
+the CronJob's last successful time; also check the next scheduled run.
 
 ```bash
+kubectl --context oracle-k3s -n auth-system create job hanko-backup-preview --from=cronjob/hanko-backup --dry-run=client -o yaml
 kubectl --context oracle-k3s apply -f tests/hanko/backup-check.yaml
 kubectl --context oracle-k3s -n auth-system wait --for=condition=complete job/hanko-backup-check --timeout=180s
 kubectl --context oracle-k3s -n auth-system logs job/hanko-backup-check -c upload
