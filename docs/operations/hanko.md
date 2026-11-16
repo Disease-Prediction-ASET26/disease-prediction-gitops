@@ -157,11 +157,10 @@ together; changing one image does not automatically select the other values.
 
 ### Before enabling registration in production
 
-Dev signup is paused. Complete these checks before enabling signup in
-production:
+Complete these checks before enabling signup in production:
 
 1. Review the frontend session flow and backend authorization and deploy the intended production images.
-2. Configure production email delivery and complete Google's production
+2. Confirm production email delivery and complete Google's production
    requirements. Test Google sign-in with an authorized account. Production
    signup and automatic account linking are disabled, so use dev or a suitable
    existing linked test account.
