@@ -94,13 +94,32 @@ Each ExternalSecret should report `Ready=True` before its workload starts.
 
 ## Review and deploy changes
 
-Application CI builds and scans immutable images for AMD64 and ARM64. A
-successful merge into `develop` updates the dev digest. A merge into `main`
-updates the production digest, using the classifier approved in the production
-release file for the model service. The GitHub App opens a GitOps pull
-request and merges it only after the GitOps validation and secret scan pass.
-If a check fails or a newer source revision replaces the build, inspect the
-workflow and the open pull request. Argo CD syncs the merged digest.
+Application CI builds and scans immutable images for AMD64 and ARM64. Each
+service has an independent strict SemVer version. Bump the version in the
+service's source file when publishing changed production content:
+
+- Frontend: `package.json`.
+- Backend: the root Maven `pom.xml` project version. Remove `-SNAPSHOT` for a
+  release version.
+- AI base and model-runtime images: the AI repository's root `VERSION` file.
+
+CI publishes the stable `X.Y.Z` tag from `main` and a unique
+`X.Y.Z-dev.<short-sha>.<run>.<attempt>` prerelease from `develop`. Pull request
+preview images use an `X.Y.Z-pr.<number>.<short-sha>.<run>.<attempt>`
+prerelease. Tags have no `v` prefix or `+build` metadata. CI rejects an attempt
+to point an existing stable tag at different image content.
+
+The GitOps update pins both the readable tag and immutable digest, for example
+`ghcr.io/disease-prediction-aset26/disease-prediction-be:0.0.1@sha256:<digest>`.
+The digest identifies the image content that Kubernetes runs. Current
+digest-only refs will move to this form on their next normal CI image update.
+A successful merge into `develop` updates the dev ref. A merge into
+`main` updates the production ref, using the classifier approved in the
+production release file for the model service. The GitHub App opens a GitOps
+pull request and merges it only after GitOps validation and the secret scan
+pass. If a check fails or a newer source revision replaces the build, inspect
+the workflow and the open pull request. Argo CD syncs the merged tag-plus-digest
+ref.
 
 The GitHub App is installed only on the GitOps repository and needs Contents
 and Pull requests write permissions. Configure `GITOPS_CLIENT_ID` and
@@ -220,10 +239,10 @@ matching ConfigMap, and Argo CD rolls out the restored reference.
 
 ## Roll back or remove a stack
 
-To roll back, restore the previously working immutable image digest or manifest
-in a GitOps pull request and merge it. Argo CD applies the restored version.
-Confirm the pod rollout and the route afterward. Never promote a
-moving image tag as a rollback.
+To roll back, restore the previously working tag-plus-digest ref or manifest in
+a GitOps pull request and merge it. Argo CD applies the restored version.
+Confirm the pod rollout and the route afterward. Never promote a moving image
+tag as a rollback.
 
 The Oracle Applications require confirmation to prune non-generated resources.
 The Proxmox Applications use `prune: false`. To remove a stack, first remove its
