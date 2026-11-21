@@ -134,9 +134,18 @@ ansible-playbook -i clusters/proxmox/automation/ansible/inventories/proxmox.yml 
 The playbook writes `/etc/rancher/k3s/config.yaml`, downloads the official
 installer, and starts the pinned K3s service. The installer script itself can
 change upstream. Kubeconfig stays root-only. It also configures logrotate and
-host journal limits: 256 MiB persistent, 64 MiB runtime, and seven days.
-Changing journal settings restarts journald. A later K3s config change restarts
-K3s and interrupts the cluster. The playbook does not reboot or reset the VM.
+host journal limits: 256 MiB persistent, 64 MiB runtime, and seven days. It
+also configures the kubelet to remove images unused for 24 hours. Active images
+remain available. A rollback may need to pull an older image from the registry.
+The kubelet resets its unused-image age tracking on restart, so cleanup can
+take 24 hours after a restart. Disk pressure can trigger earlier cleanup.
+Changing journal settings restarts journald. A K3s or kubelet config change
+restarts K3s and interrupts the cluster. Vault seals after a restart; have the
+unseal key available. The playbook does not reboot or reset the VM.
+
+To check image storage on the VM, run `sudo k3s crictl images` and `df -h /`.
+The policy affects the node cache, not images stored in the registry. To modify
+or disable it, change the playbook's kubelet drop-in and apply the playbook.
 
 Use the same SAN list on every run; omitting it removes the SAN. For a later
 SAN change, follow [K3s certificate rotation](https://docs.k3s.io/cli/certificate)
