@@ -72,6 +72,30 @@
       become: true
       when: not ansible_check_mode or k3s_paths.results[4].stat.exists
 
+    - name: Create the kubelet configuration directory
+      ansible.builtin.file:
+        path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+      when: not ansible_check_mode or k3s_paths.results[4].stat.exists
+
+    - name: Configure unused image retention
+      ansible.builtin.copy:
+        dest: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/90-image-gc.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          apiVersion: kubelet.config.k8s.io/v1beta1
+          kind: KubeletConfiguration
+          imageMaximumGCAge: 24h
+      register: k3s_image_gc_config
+      become: true
+      when: not ansible_check_mode or k3s_paths.results[4].stat.exists
+
     - name: Install or explicitly upgrade K3s
       when:
         - not ansible_check_mode
@@ -116,7 +140,7 @@
       when:
         - not ansible_check_mode
         - k3s_paths.results[4].stat.exists
-        - k3s_config.changed
+        - k3s_config.changed or k3s_image_gc_config.changed
         - k3s_installed.stdout_lines[0].split()[2] == k3s_version
 
     - name: Ensure K3s is enabled and running
