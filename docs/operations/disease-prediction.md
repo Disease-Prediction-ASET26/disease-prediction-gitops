@@ -174,14 +174,13 @@ The Oracle dev frontend and backend and both Hanko Deployments use one replica
 with a surge of one and no unavailable replicas during a rollout. Production
 uses two frontend and two backend replicas. Its rollouts use no surge and allow
 one unavailable replica per Deployment, so one pod remains available while
-Kubernetes replaces the other. This fits the production namespace quota: both
-frontends and backends together request 250m CPU and 640 MiB memory, with
-limits of 1200m CPU and 1792 MiB memory. The limits leave 256 MiB of the
-namespace's 2 GiB memory quota free. A failed replacement leaves the other pod
-serving; check rollout status and events. These replicas share one Oracle VM,
-so they do not protect against a VM or cluster outage. Readiness also does not
-prove a request will succeed. Keep database migrations compatible with old
-and new versions while they overlap.
+Kubernetes replaces the other. The application namespace has no aggregate CPU
+or memory quota; the shared Oracle VM and other workloads still bound available
+capacity. A failed replacement leaves the other pod serving; check rollout
+status and events. These replicas share one Oracle VM, so they do not protect
+against a VM or cluster outage. Readiness also does not prove a request will
+succeed. Keep database migrations compatible with old and new versions while
+they overlap.
 
 The production backend's Hikari pool is capped at 10 connections per pod and
 keeps at least two idle connections. The production PostgreSQL role allows 35
