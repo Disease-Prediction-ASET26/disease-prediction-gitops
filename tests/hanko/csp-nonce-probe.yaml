@@ -46,7 +46,7 @@ spec:
     seccompProfile: {type: RuntimeDefault}
   containers:
     - name: probe
-      image: ghcr.io/nginx/nginx-unprivileged:1.30.6-alpine@sha256:2daef144b574804198caccc4041819fa1801ecd5df2252a39646bfa2b1ff3bea
+      image: ghcr.io/nginx/nginx-unprivileged:1.30.7-alpine@sha256:0c53a1f2890c3526bfd201440f0fd3970e5b78f80630f58284aad0d34b5ec7bd
       args: [nginx, -c, /config/nginx.conf, -g, daemon off;]
       ports: [{name: http, containerPort: 8080, protocol: TCP}]
       readinessProbe:

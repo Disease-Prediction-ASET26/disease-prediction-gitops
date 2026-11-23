@@ -5,8 +5,17 @@ pfSense, or guest networking. The node is an independent single-server K3s
 cluster with SQLite. It does not join the Oracle cluster.
 
 The VM uses `192.168.30.10/24` and gateway `192.168.30.1`. K3s uses the
-inventory's pinned release, Secret encryption, and the default Flannel,
-CoreDNS, Traefik, ServiceLB, local-path provisioner, and metrics-server.
+inventory's pinned release, Secret encryption, Flannel, CoreDNS, the
+local-path provisioner, and metrics-server. The managed K3s config disables
+Traefik and ServiceLB; K3s uninstalls deployed packaged components when they
+are disabled ([K3s packaged components](https://docs.k3s.io/installation/packaged-components)).
+This cluster has no configured Ingress, Gateway, or Traefik routes.
+Its application, PostgreSQL, and monitoring endpoints use Tailscale
+`LoadBalancer` Services, managed by the [Tailscale Kubernetes
+Operator](https://tailscale.com/docs/kubernetes-operator/quickstart). Oracle
+provides the public HTTP routes through its own Traefik and tunnel setup. Keep
+the Proxmox Tailscale operator and its `ingress-proxies` ProxyGroup; those are
+separate from K3s Traefik.
 The local Argo CD root manages the dev and production model workloads, Vault,
 External Secrets Operator, and one PostgreSQL instance.
 See the [Proxmox data services runbook](proxmox-data-services.md) for database,
@@ -140,12 +149,30 @@ remain available. A rollback may need to pull an older image from the registry.
 The kubelet resets its unused-image age tracking on restart, so cleanup can
 take 24 hours after a restart. Disk pressure can trigger earlier cleanup.
 Changing journal settings restarts journald. A K3s or kubelet config change
-restarts K3s and interrupts the cluster. Vault seals after a restart; have the
-unseal key available. The playbook does not reboot or reset the VM.
+restarts K3s and interrupts the cluster. With the `disable` entries in the
+template, that restart uninstalls K3s Traefik and ServiceLB, including the
+unused `kube-system/traefik` service on ports 80 and 443. Tailscale-class
+Services remain managed by the Tailscale Operator. Vault seals after a restart;
+have the unseal key available. The playbook does not reboot or reset the VM.
 
 To check image storage on the VM, run `sudo k3s crictl images` and `df -h /`.
 The policy affects the node cache, not images stored in the registry. To modify
 or disable it, change the playbook's kubelet drop-in and apply the playbook.
+
+After applying, verify that the `traefik` Deployment and Service are absent
+from `kube-system`, and that the workload and PostgreSQL Services with
+`loadBalancerClass: tailscale` still have Tailscale addresses. To restore K3s
+Traefik and ServiceLB, remove both entries from the template and rerun the same
+playbook; K3s restarts and redeploys its packaged components.
+
+Use these read-only checks after the apply:
+
+```bash
+sudo k3s kubectl get deployments,services -n kube-system
+sudo k3s kubectl get services -A \
+  -o custom-columns='NAMESPACE:.metadata.namespace,NAME:.metadata.name,CLASS:.spec.loadBalancerClass,ADDRESS:.status.loadBalancer.ingress[*].ip' \
+  | grep tailscale
+```
 
 Use the same SAN list on every run; omitting it removes the SAN. For a later
 SAN change, follow [K3s certificate rotation](https://docs.k3s.io/cli/certificate)
