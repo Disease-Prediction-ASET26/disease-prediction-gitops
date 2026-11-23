@@ -38,14 +38,12 @@ Do not add another Gateway API CRD chart when installing a future Gateway
 controller. Keep the current K3s host manifest as the single owner unless a
 reviewed change transfers ownership to Argo CD and removes the host manifest.
 
-## Workload resource budget
+## Workload resource requests and limits
 
-The `disease-prediction` namespace has a ResourceQuota managed by the
-`disease-prediction-quota` Argo CD application. It caps aggregate workload
-requests at `1` CPU and `2Gi` memory, and limits at `2` CPU and `3Gi` memory.
-Application containers must set CPU and memory requests and limits. This
-keeps future app pods inside the measured node budget; it does not cap pods in
-other namespaces.
+Oracle and Proxmox do not apply namespace-wide CPU or memory ResourceQuota caps
+to application workloads. Keep per-container CPU and memory requests and limits
+in workload manifests. Resource requests guide pod placement, but removing the
+aggregate quota does not add node capacity.
 
 ## Pod Security Standards
 

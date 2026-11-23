@@ -4,8 +4,4 @@ metadata:
   name: inference-compute
   namespace: disease-prediction-prod
 spec:
-  hard:
-    requests.cpu: "1"
-    requests.memory: 3Gi
-    limits.cpu: "2"
-    limits.memory: 4Gi
+  hard: {}

@@ -4,8 +4,4 @@ metadata:
   name: application-compute
   namespace: disease-prediction
 spec:
-  hard:
-    requests.cpu: "1"
-    requests.memory: 3Gi
-    limits.cpu: "2"
-    limits.memory: 4Gi
+  hard: {}
