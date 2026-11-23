@@ -5,16 +5,18 @@ app login and operate the service.
 
 ## App integration
 
-The development frontend uses Hanko Elements for sign-in and sends a Hanko
-session token to the backend as a bearer token. The development API checks
-the token and session before providing patient data. The production app uses
-older images; its authentication rollout and production registration are not
-complete. Keep Argo CD and Grafana protected by Authelia.
+The development and production frontends use Hanko Elements for sign-in and
+send a Hanko session token to the backend as a bearer token. The API checks the
+token and session before providing patient data. Production account signup is
+enabled and requires email verification. Automatic Google account linking stays
+disabled until a tested flow proves control of both credentials. Keep Argo CD
+and Grafana protected by Authelia.
 
 Dev registration requires email verification. Development accounts created
 before verification was enabled were deleted during the development reset. See
-[Google and email sign-in](#google-and-email-sign-in) for the browser test and
-production release gate. Other browser tests remain pending.
+[Google and email sign-in](#google-and-email-sign-in) for the browser test,
+production signup behavior, and the remaining security checks. Other browser
+tests remain pending.
 
 ### Reset development users
 
@@ -200,21 +202,21 @@ remains tracked in [issue #206](https://github.com/Disease-Prediction-ASET26/dis
 
 ### Google and email sign-in
 
-Both environments disable automatic Google account linking. A development browser
-test on 16 November 2026 confirmed that a user can create an account with Google,
-then sign in with an email passcode using the same address and open the same app
+Both environments allow account signup and require email verification. Production
+uses `account.allow_signup: true` and `email.require_verification: true`. A new
+user can create an account with Google or email. A development browser test on
+16 November 2026 confirmed that a user can create an account with Google, then
+sign in with an email passcode using the same address and open the same app
 profile. Selecting **Create account** with an address already in use is expected
 to send an account-exists notice; this path has not been tested in the browser.
 Hanko treats Gmail plus addresses as distinct addresses.
 
-An email-created account cannot be linked to Google while `allow_linking` is
-false. On 16 November 2026, an email-first development account received a
-generic technical error when the tester tried Google sign-in with the same
-address. Hanko logged a linking conflict, and no account was merged. Use email
-sign-in for that account. Hanko v3.1 applies this setting to both automatic
-linking and the profile connection flow. Keep it disabled until a tested flow
-proves control of both credentials before linking. Do not merge accounts
-based on email address alone.
+Automatic Google account linking remains disabled in both environments. An
+email-created account cannot be linked to Google by matching its email address;
+use email sign-in for that account. Enabling `allow_linking` would also enable
+automatic linking based on the email address. Keep it disabled until a tested
+flow proves control of both credentials. Do not merge accounts based on email
+address alone.
 
 Google's `email_verified` claim may not prove current ownership of an address
 outside Gmail and Google Workspace. Hanko's built-in Google provider accepts
@@ -225,21 +227,20 @@ check or disable the production Google provider. See [Google's email ownership
 guidance](https://developers.google.com/identity/sign-in/web/backend-auth) and
 [Hanko v3.1 account linking](https://github.com/teamhanko/hanko/blob/backend/v3.1.0/backend/thirdparty/linking.go).
 
-### Before enabling registration in production
+### Production signup and access review
 
-Complete these checks before enabling signup in production:
+Production signup is enabled. Complete these checks before relying on it for
+general patient use:
 
 1. Review the frontend session flow and backend authorization and deploy the intended production images.
 2. Confirm production email delivery and complete Google's production
-   requirements. Test Google sign-in with an authorized account. Production
-   signup and automatic account linking are disabled, so use dev or a suitable
-   existing linked test account. Resolve the Google mailbox ownership risk
-   above or disable the production Google provider before enabling signup.
+   requirements. Test Google sign-in with an authorized account. Resolve the
+   Google mailbox ownership risk above or disable the production Google provider.
 3. Test login, logout, expired and revoked sessions, invalid issuer and
    audience, cross-environment tokens, and access to another user's data.
    Check rate limits under expected traffic.
-4. After those checks, DevOps can enable `account.allow_signup` for the intended
-   environment through GitOps. Keep Argo CD and Grafana protected by Authelia.
+4. Keep automatic account linking disabled until a tested flow proves control of
+   both credentials. Keep Argo CD and Grafana protected by Authelia.
 
 The development frontend enforces a Content Security Policy (CSP). On 16
 November 2026, a tester completed Google signup, email sign-in with the same
